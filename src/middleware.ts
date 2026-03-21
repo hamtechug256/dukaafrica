@@ -14,9 +14,32 @@ const isPublicRoute = createRouteMatcher([
   '/search(.*)',
   '/api/categories(.*)',
   '/api/user/role', // Needed for role checking
+  '/api/products(.*)',
+  '/api/stores(.*)',
+  '/api/search(.*)',
   '/admin/login(.*)', // Admin login page must be public
   '/api/admin/security(.*)', // Security API for rate limiting
   '/api/debug(.*)', // Debug endpoints (temporary)
+  // Cart and checkout - accessible (cart uses local storage)
+  '/cart(.*)',
+  '/checkout(.*)',
+  // Static/Info pages - public
+  '/about(.*)',
+  '/contact(.*)',
+  '/help(.*)',
+  '/faq(.*)',
+  '/terms(.*)',
+  '/privacy(.*)',
+  '/shipping(.*)',
+  '/returns(.*)',
+  '/careers(.*)',
+  '/press(.*)',
+  // Seller info pages (not dashboard) - public for marketing
+  '/seller', // Seller landing page
+  '/seller/resources(.*)',
+  '/seller/fees(.*)',
+  '/seller/how-it-works(.*)',
+  '/seller/apply(.*)',
 ])
 
 // Admin login route - accessible but redirects logged-in admins to dashboard
@@ -30,9 +53,15 @@ const isAdminRoute = createRouteMatcher([
   '/api/admin(.*)',
 ])
 
-// Seller routes - require authentication
+// Seller routes - require authentication (but not info pages like /seller/fees, /seller/resources)
 const isSellerRoute = createRouteMatcher([
-  '/seller(.*)',
+  '/seller/dashboard(.*)',
+  '/seller/products(.*)',
+  '/seller/orders(.*)',
+  '/seller/analytics(.*)',
+  '/seller/settings(.*)',
+  '/seller/messages(.*)',
+  '/seller/payouts(.*)',
   '/api/seller(.*)',
 ])
 
@@ -244,6 +273,11 @@ export default clerkMiddleware(async (auth, req) => {
   const url = req.nextUrl
   const ip = getClientIP(req)
 
+  // Allow all public routes to pass through without any checks
+  if (isPublicRoute(req)) {
+    return NextResponse.next()
+  }
+
   // Check if IP is blocked for admin routes
   if (isAdminRoute(req) && !isAdminLoginRoute(req)) {
     if (isIPBlocked(ip)) {
@@ -258,7 +292,7 @@ export default clerkMiddleware(async (auth, req) => {
     if (!userId) {
       // Record suspicious activity for unauthenticated admin access attempts
       recordSuspiciousActivity(ip, 'Unauthenticated admin access attempt')
-      
+
       const adminLoginUrl = new URL('/admin/login', req.url)
       return NextResponse.redirect(adminLoginUrl)
     }
@@ -273,6 +307,13 @@ export default clerkMiddleware(async (auth, req) => {
       signInUrl.searchParams.set('redirect_url', req.url)
       return NextResponse.redirect(signInUrl)
     }
+  }
+
+  // For all other routes (like dashboard, cart, etc.), require authentication
+  if (!userId) {
+    const signInUrl = new URL('/sign-in', req.url)
+    signInUrl.searchParams.set('redirect_url', req.url)
+    return NextResponse.redirect(signInUrl)
   }
 })
 
