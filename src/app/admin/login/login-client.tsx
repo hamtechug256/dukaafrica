@@ -12,9 +12,9 @@ import { Shield, Loader2, Eye, EyeOff, AlertCircle, CheckCircle } from 'lucide-r
 
 export function Login() {
   const router = useRouter()
-  const { signIn, setActive, isLoaded } = useSignIn()
-  const { signOut } = useClerk()
-  const { isSignedIn, userId } = useAuth()
+  const { signIn } = useSignIn()
+  const { setActive, signOut } = useClerk()
+  const { isSignedIn, userId, isLoaded } = useAuth()
   
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -67,7 +67,7 @@ export function Login() {
     setIsLoading(true)
 
     try {
-      if (!clerkReady) {
+      if (!clerkReady || !signIn) {
         setError('Authentication service is still loading. Please wait...')
         setIsLoading(false)
         return
@@ -81,7 +81,7 @@ export function Login() {
         password,
       })
 
-      if (signInAttempt.status === 'complete') {
+      if (signInAttempt.status === 'complete' && signInAttempt.createdSessionId) {
         await setActive({ session: signInAttempt.createdSessionId })
         
         setStatus('Verifying admin privileges...')
