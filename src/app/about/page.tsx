@@ -13,7 +13,7 @@ import {
 
 export const metadata: Metadata = {
   title: 'About Us - DuukaAfrica',
-  description: 'DuukaAfrica is the leading e-commerce marketplace in East Africa. Shop millions of products from verified sellers across Uganda, Kenya, Tanzania, and Rwanda.',
+  description: 'DuukaAfrica is the leading e-commerce marketplace in East Africa. Shop millions of products from verified sellers across the region.',
 }
 
 const stats = [
@@ -95,7 +95,7 @@ export default function AboutPage() {
           </h2>
           <div className="prose prose-lg dark:prose-invert mx-auto">
             <p className="text-gray-600 dark:text-gray-400">
-              Founded with a vision to revolutionize commerce in East Africa, DuukaAfrica started as a small platform connecting local artisans with buyers. Today, we have grown into the region's most trusted e-commerce marketplace, serving customers across Uganda, Kenya, Tanzania, and Rwanda.
+              Founded with a vision to revolutionize commerce in East Africa, DuukaAfrica started as a small platform connecting local artisans with buyers. Today, we have grown into the region's most trusted e-commerce marketplace, serving customers across East Africa.
             </p>
             <p className="text-gray-600 dark:text-gray-400 mt-4">
               Our name "Duuka" comes from the Swahili word for "shop," reflecting our commitment to making shopping accessible, convenient, and trustworthy for everyone in East Africa.

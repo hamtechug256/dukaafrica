@@ -40,7 +40,7 @@ export default function ShippingPage() {
               <CardContent className="p-6 text-center">
                 <MapPin className="w-10 h-10 text-primary mx-auto mb-4" />
                 <h3 className="font-semibold mb-2">Wide Coverage</h3>
-                <p className="text-sm text-gray-600">Delivering to Uganda, Kenya, Tanzania & Rwanda</p>
+                <p className="text-sm text-gray-600">Delivering across East Africa</p>
               </CardContent>
             </Card>
             <Card>

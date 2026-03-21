@@ -3,7 +3,7 @@ import { Metadata } from 'next'
 // Site configuration
 export const siteConfig = {
   name: 'DuukaAfrica',
-  description: 'East Africa\'s Trusted Marketplace. Shop millions of products from verified sellers across Uganda, Kenya, Tanzania, and Rwanda.',
+  description: 'East Africa\'s Trusted Marketplace. Shop millions of products from verified sellers across East Africa.',
   url: 'https://duukaafrica.com',
   ogImage: 'https://duukaafrica.com/og-image.jpg',
   links: {

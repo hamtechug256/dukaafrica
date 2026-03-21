@@ -256,7 +256,7 @@ export function Footer() {
               </div>
             </Link>
             <p className="text-sm text-gray-400 mb-4">
-              East Africa's Trusted Marketplace. Shop millions of products from verified sellers across Uganda, Kenya, Tanzania, and Rwanda.
+              East Africa's Trusted Marketplace. Shop millions of products from verified sellers across East Africa.
             </p>
           </div>
 

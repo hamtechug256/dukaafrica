@@ -111,7 +111,7 @@ export default async function StoresPage({
           </div>
           <p className="text-gray-600 dark:text-gray-400 max-w-2xl">
             Discover verified sellers and trusted stores across East Africa. 
-            Shop with confidence from merchants in Uganda, Kenya, Tanzania, and Rwanda.
+            Shop with confidence from trusted merchants in the region.
           </p>
         </div>
       </div>
