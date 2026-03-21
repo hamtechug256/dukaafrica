@@ -2,12 +2,6 @@ import { auth, currentUser } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 
-async function fetchWishlist() {
-  const res = await fetch('/api/wishlist')
-  if (!res.ok) throw new Error('Failed to fetch')
-  return res.json()
-}
-
 // GET user's wishlist
 export async function GET() {
   try {
