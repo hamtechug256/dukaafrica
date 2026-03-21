@@ -36,10 +36,15 @@ const isPublicRoute = createRouteMatcher([
   '/press(.*)',
   // Seller info pages (not dashboard) - public for marketing
   '/seller', // Seller landing page
+  '/seller/register(.*)',
+  '/seller/login(.*)',
+  '/seller/guidelines(.*)',
   '/seller/resources(.*)',
   '/seller/fees(.*)',
   '/seller/how-it-works(.*)',
   '/seller/apply(.*)',
+  '/seller/learn-more(.*)',
+  '/seller/onboarding(.*)',
 ])
 
 // Admin login route - accessible but redirects logged-in admins to dashboard
