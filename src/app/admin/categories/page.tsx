@@ -26,7 +26,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from '@/components/ui/select'
 import {
-  Layers, Plus, MoreHorizontal, Pencil, Trash2, Eye, EyeOff, Star, ArrowUpDown, Loader2, Search, AlertCircle
+  Layers, Plus, MoreHorizontal, Pencil, Trash2, Eye, EyeOff, Star, ArrowUpDown, Loader2, Search, AlertCircle, Database
 } from 'lucide-react'
 
 const sidebarLinks = [
@@ -98,6 +98,17 @@ async function deleteCategory(id: string) {
   return res.json()
 }
 
+async function seedDefaultCategories() {
+  const res = await fetch('/api/admin/seed-categories', {
+    method: 'POST',
+  })
+  if (!res.ok) {
+    const error = await res.json()
+    throw new Error(error.error || 'Failed to seed categories')
+  }
+  return res.json()
+}
+
 export default function AdminCategoriesPage() {
   const router = useRouter()
   const queryClient = useQueryClient()
@@ -148,6 +159,18 @@ export default function AdminCategoriesPage() {
       queryClient.invalidateQueries({ queryKey: ['categories'] })
       setIsDeleteDialogOpen(false)
       setDeletingCategory(null)
+    },
+  })
+
+  const seedMutation = useMutation({
+    mutationFn: seedDefaultCategories,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['admin-categories'] })
+      queryClient.invalidateQueries({ queryKey: ['categories'] })
+      alert(data.message || 'Default categories created successfully!')
+    },
+    onError: (error: Error) => {
+      alert(error.message)
     },
   })
 
@@ -358,10 +381,26 @@ export default function AdminCategoriesPage() {
                   className="pl-9"
                 />
               </div>
-              <Button onClick={() => setIsDialogOpen(true)}>
-                <Plus className="w-4 h-4 mr-2" />
-                Add Category
-              </Button>
+              <div className="flex gap-2">
+                {categories.length === 0 && (
+                  <Button 
+                    variant="outline" 
+                    onClick={() => seedMutation.mutate()}
+                    disabled={seedMutation.isPending}
+                  >
+                    {seedMutation.isPending ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Database className="w-4 h-4 mr-2" />
+                    )}
+                    Seed Default Categories
+                  </Button>
+                )}
+                <Button onClick={() => setIsDialogOpen(true)}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Category
+                </Button>
+              </div>
             </CardContent>
           </Card>
 
@@ -562,7 +601,15 @@ export default function AdminCategoriesPage() {
                     onChange={(e) => setFormData(prev => ({ ...prev, icon: e.target.value }))}
                     placeholder="e.g., Smartphone"
                   />
-                  <p className="text-xs text-gray-500">Lucide icon name</p>
+                  <a 
+                    href="https://lucide.dev/icons" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-xs text-primary hover:underline flex items-center gap-1"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                    Click to browse Lucide icons (opens in new tab)
+                  </a>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="order">Display Order</Label>
