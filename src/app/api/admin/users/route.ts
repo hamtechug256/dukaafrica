@@ -27,7 +27,7 @@ export async function GET() {
         role: true,
         isActive: true,
         createdAt: true,
-        store: {
+        Store: {
           select: { id: true, name: true }
         }
       },
@@ -35,7 +35,13 @@ export async function GET() {
       take: 100,
     })
 
-    return NextResponse.json({ users })
+    // Transform to match expected format
+    const transformedUsers = users.map((u) => ({
+      ...u,
+      store: u.Store,
+    }))
+
+    return NextResponse.json({ users: transformedUsers })
   } catch (error) {
     console.error('Error fetching users:', error)
     return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 })

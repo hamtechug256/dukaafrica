@@ -17,15 +17,24 @@ export async function GET() {
 
     const categories = await prisma.category.findMany({
       include: {
-        children: true,
+        other_Category: true,
         _count: {
-          select: { products: true },
+          select: { Product: true },
         },
       },
       orderBy: { order: 'asc' },
     })
 
-    return NextResponse.json({ categories })
+    // Transform to match expected format
+    const transformedCategories = categories.map((cat) => ({
+      ...cat,
+      children: cat.other_Category,
+      _count: {
+        products: cat._count.Product,
+      },
+    }))
+
+    return NextResponse.json({ categories: transformedCategories })
   } catch (error) {
     console.error('Error fetching categories:', error)
     return NextResponse.json(

@@ -28,9 +28,9 @@ export async function GET(
     const order = await prisma.order.findUnique({
       where: { id },
       include: {
-        items: {
+        OrderItem: {
           include: {
-            product: {
+            Product: {
               select: {
                 id: true,
                 name: true,
@@ -40,17 +40,17 @@ export async function GET(
             }
           }
         },
-        store: {
+        Store: {
           select: {
             id: true,
             name: true,
             slug: true,
-            user: {
+            User: {
               select: { email: true }
             }
           }
         },
-        user: {
+        User: {
           select: {
             id: true,
             email: true,
@@ -65,7 +65,21 @@ export async function GET(
       return NextResponse.json({ error: 'Order not found' }, { status: 404 })
     }
 
-    return NextResponse.json({ order })
+    // Transform to match expected format
+    const transformedOrder = {
+      ...order,
+      items: order.OrderItem.map((item) => ({
+        ...item,
+        product: item.Product,
+      })),
+      store: order.Store ? {
+        ...order.Store,
+        user: order.Store.User,
+      } : null,
+      user: order.User,
+    }
+
+    return NextResponse.json({ order: transformedOrder })
   } catch (error) {
     console.error('Error fetching order:', error)
     return NextResponse.json({ error: 'Failed to fetch order' }, { status: 500 })

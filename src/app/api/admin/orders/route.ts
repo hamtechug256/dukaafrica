@@ -41,8 +41,8 @@ export async function GET(req: Request) {
       where.OR = [
         { orderNumber: { contains: search, mode: 'insensitive' } },
         { shippingName: { contains: search, mode: 'insensitive' } },
-        { store: { name: { contains: search, mode: 'insensitive' } } },
-        { user: { email: { contains: search, mode: 'insensitive' } } },
+        { Store: { name: { contains: search, mode: 'insensitive' } } },
+        { User: { email: { contains: search, mode: 'insensitive' } } },
       ]
     }
 
@@ -50,19 +50,27 @@ export async function GET(req: Request) {
     const orders = await prisma.order.findMany({
       where,
       include: {
-        items: {
+        OrderItem: {
           select: { id: true },
         },
-        store: {
+        Store: {
           select: { id: true, name: true, slug: true },
         },
-        user: {
+        User: {
           select: { id: true, email: true },
         },
       },
       orderBy: { createdAt: 'desc' },
       take: 100,
     })
+
+    // Transform to match expected format
+    const transformedOrders = orders.map((order) => ({
+      ...order,
+      items: order.OrderItem,
+      store: order.Store,
+      user: order.User,
+    }))
 
     // Calculate stats
     const allOrders = await prisma.order.findMany({
@@ -80,7 +88,7 @@ export async function GET(req: Request) {
         .reduce((sum, o) => sum + (o.total || 0), 0),
     }
 
-    return NextResponse.json({ orders, stats })
+    return NextResponse.json({ orders: transformedOrders, stats })
   } catch (error) {
     console.error('Error fetching admin orders:', error)
     return NextResponse.json({ error: 'Failed to fetch orders' }, { status: 500 })

@@ -23,9 +23,9 @@ export async function GET(
     const category = await prisma.category.findUnique({
       where: { id },
       include: {
-        children: true,
+        other_Category: true,
         _count: {
-          select: { products: true },
+          select: { Product: true },
         },
       },
     })
@@ -34,7 +34,16 @@ export async function GET(
       return NextResponse.json({ error: 'Category not found' }, { status: 404 })
     }
 
-    return NextResponse.json({ category })
+    // Transform to match expected format
+    const transformedCategory = {
+      ...category,
+      children: category.other_Category,
+      _count: {
+        products: category._count.Product,
+      },
+    }
+
+    return NextResponse.json({ category: transformedCategory })
   } catch (error) {
     console.error('Error fetching category:', error)
     return NextResponse.json(

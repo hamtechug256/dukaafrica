@@ -60,13 +60,13 @@ export async function GET(request: NextRequest) {
       prisma.product.findMany({
         where,
         include: {
-          store: {
+          Store: {
             select: {
               id: true,
               name: true,
               slug: true,
               isVerified: true,
-              user: {
+              User: {
                 select: {
                   email: true,
                   name: true,
@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
               },
             },
           },
-          category: {
+          Category: {
             select: {
               id: true,
               name: true,
@@ -82,8 +82,8 @@ export async function GET(request: NextRequest) {
           },
           _count: {
             select: {
-              reviews: true,
-              orderItems: true,
+              Review: true,
+              OrderItem: true,
             },
           },
         },
@@ -94,29 +94,39 @@ export async function GET(request: NextRequest) {
       prisma.product.count({ where }),
     ])
 
-    // Get stats - safely handle potential null/invalid status values
-    let stats: { status: string | null; _count: number }[] = []
-    try {
-      stats = await prisma.product.groupBy({
-        by: ['status'],
-        _count: true,
-      })
-    } catch (e) {
-      console.error('GroupBy failed, using fallback:', e)
-    }
+    // Transform products to match expected format (lowercase relations)
+    const transformedProducts = products.map((product) => ({
+      ...product,
+      store: product.Store,
+      category: product.Category,
+      _count: {
+        reviews: product._count.Review,
+        orderItems: product._count.OrderItem,
+      },
+    }))
 
-    const statusCounts = {
+    // Get stats - safely handle potential null/invalid status values
+    let statusCounts = {
       ACTIVE: 0,
       DRAFT: 0,
       INACTIVE: 0,
       OUT_OF_STOCK: 0,
     }
 
-    stats.forEach((s) => {
-      if (s.status && s.status in statusCounts) {
-        statusCounts[s.status as keyof typeof statusCounts] = s._count
-      }
-    })
+    try {
+      const stats = await prisma.product.groupBy({
+        by: ['status'],
+        _count: true,
+      })
+
+      stats.forEach((s) => {
+        if (s.status && s.status in statusCounts) {
+          statusCounts[s.status as keyof typeof statusCounts] = s._count
+        }
+      })
+    } catch (e) {
+      console.error('GroupBy failed:', e)
+    }
 
     let pendingReview = 0
     try {
@@ -128,7 +138,7 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({
-      products,
+      products: transformedProducts,
       pagination: {
         total,
         pages: Math.ceil(total / limit),
@@ -176,7 +186,7 @@ export async function PUT(request: NextRequest) {
 
     const product = await prisma.product.findUnique({
       where: { id: productId },
-      include: { store: true },
+      include: { Store: true },
     })
 
     if (!product) {

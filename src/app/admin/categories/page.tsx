@@ -305,7 +305,7 @@ export default function AdminCategoriesPage() {
             <h2 className="text-xl font-semibold">Categories Management</h2>
             <div className="flex items-center gap-4">
               <span className="text-sm text-gray-600 dark:text-gray-400">
-                {user?.fullName || user?.emailAddresses?.[0]?.emailAddress}
+                {roleData?.user?.email || 'Admin'}
               </span>
             </div>
           </div>

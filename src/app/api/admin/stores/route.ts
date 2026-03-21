@@ -20,17 +20,26 @@ export async function GET() {
 
     const stores = await prisma.store.findMany({
       include: {
-        user: {
+        User: {
           select: { id: true, name: true, email: true }
         },
         _count: {
-          select: { products: true }
+          select: { Product: true }
         }
       },
       orderBy: { createdAt: 'desc' },
     })
 
-    return NextResponse.json({ stores })
+    // Transform to match expected format
+    const transformedStores = stores.map((store) => ({
+      ...store,
+      user: store.User,
+      _count: {
+        products: store._count.Product,
+      },
+    }))
+
+    return NextResponse.json({ stores: transformedStores })
   } catch (error) {
     console.error('Error fetching stores:', error)
     return NextResponse.json({ error: 'Failed to fetch stores' }, { status: 500 })
