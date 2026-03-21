@@ -1,6 +1,54 @@
 import { prisma } from '@/lib/db'
 import { NextResponse } from 'next/server'
-import { currentUser } from '@clerk/nextjs/server'
+import { auth, currentUser } from '@clerk/nextjs/server'
+
+// Super admin emails from environment
+const SUPER_ADMIN_EMAILS = (process.env.SUPER_ADMIN_EMAILS || '')
+  .split(',')
+  .map(e => e.trim().toLowerCase())
+  .filter(Boolean)
+
+/**
+ * Helper to ensure user is admin (auto-promotes if email matches)
+ */
+async function ensureAdmin(userId: string) {
+  const clerkUser = await currentUser()
+  const email = clerkUser?.emailAddresses?.[0]?.emailAddress?.toLowerCase() || ''
+  const isSuperAdminEmail = SUPER_ADMIN_EMAILS.includes(email)
+
+  // Find user in database
+  let user = await prisma.user.findUnique({
+    where: { clerkId: userId }
+  })
+
+  // Create user if doesn't exist
+  if (!user) {
+    user = await prisma.user.create({
+      data: {
+        id: `user_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+        clerkId: userId,
+        email: email,
+        firstName: clerkUser?.firstName,
+        lastName: clerkUser?.lastName,
+        name: [clerkUser?.firstName, clerkUser?.lastName].filter(Boolean).join(' ') || null,
+        avatar: clerkUser?.imageUrl,
+        role: isSuperAdminEmail ? 'SUPER_ADMIN' : 'BUYER',
+        updatedAt: new Date(),
+      }
+    })
+    return user
+  }
+
+  // Auto-promote if email matches SUPER_ADMIN_EMAILS
+  if (isSuperAdminEmail && user.role !== 'SUPER_ADMIN') {
+    user = await prisma.user.update({
+      where: { id: user.id },
+      data: { role: 'SUPER_ADMIN', updatedAt: new Date() }
+    })
+  }
+
+  return user
+}
 
 // GET single category
 export async function GET(
@@ -8,13 +56,15 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = await currentUser()
-    if (!user) {
+    const { userId } = await auth()
+    
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const role = user.publicMetadata?.role || user.unsafeMetadata?.role
-    if (role !== 'ADMIN' && role !== 'SUPER_ADMIN') {
+    const user = await ensureAdmin(userId)
+
+    if (!user || (user.role !== 'ADMIN' && user.role !== 'SUPER_ADMIN')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
@@ -59,13 +109,15 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = await currentUser()
-    if (!user) {
+    const { userId } = await auth()
+    
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const role = user.publicMetadata?.role || user.unsafeMetadata?.role
-    if (role !== 'ADMIN' && role !== 'SUPER_ADMIN') {
+    const user = await ensureAdmin(userId)
+
+    if (!user || (user.role !== 'ADMIN' && user.role !== 'SUPER_ADMIN')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
@@ -126,13 +178,15 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = await currentUser()
-    if (!user) {
+    const { userId } = await auth()
+    
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const role = user.publicMetadata?.role || user.unsafeMetadata?.role
-    if (role !== 'ADMIN' && role !== 'SUPER_ADMIN') {
+    const user = await ensureAdmin(userId)
+
+    if (!user || (user.role !== 'ADMIN' && user.role !== 'SUPER_ADMIN')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 

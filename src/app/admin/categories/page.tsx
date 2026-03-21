@@ -112,7 +112,7 @@ export default function AdminCategoriesPage() {
     description: '',
     image: '',
     icon: '',
-    parentId: '',
+    parentId: '__none__',
     order: 0,
     isActive: true,
     isFeatured: false,
@@ -197,7 +197,7 @@ export default function AdminCategoriesPage() {
       description: '',
       image: '',
       icon: '',
-      parentId: '',
+      parentId: '__none__',
       order: 0,
       isActive: true,
       isFeatured: false,
@@ -212,7 +212,7 @@ export default function AdminCategoriesPage() {
       description: category.description || '',
       image: category.image || '',
       icon: category.icon || '',
-      parentId: category.parentId || '',
+      parentId: category.parentId || '__none__',
       order: category.order,
       isActive: category.isActive,
       isFeatured: category.isFeatured,
@@ -231,7 +231,7 @@ export default function AdminCategoriesPage() {
     const data = {
       ...formData,
       order: Number(formData.order),
-      parentId: formData.parentId || null,
+      parentId: formData.parentId === '__none__' ? null : formData.parentId || null,
     }
 
     if (editingCategory) {
@@ -596,7 +596,7 @@ export default function AdminCategoriesPage() {
                     <SelectValue placeholder="None (Top-level category)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None (Top-level category)</SelectItem>
+                    <SelectItem value="__none__">None (Top-level category)</SelectItem>
                     {parentCategories
                       .filter(c => c.id !== editingCategory?.id)
                       .map((cat) => (
