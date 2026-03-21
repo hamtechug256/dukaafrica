@@ -19,7 +19,7 @@ export async function GET() {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    const wishlist = await prisma.wishlist.findMany({
+    const rawWishlist = await prisma.wishlist.findMany({
       where: { userId: user.id },
       include: {
         Product: {
@@ -35,6 +35,16 @@ export async function GET() {
       },
       orderBy: { createdAt: 'desc' }
     })
+
+    // Transform to lowercase for frontend compatibility
+    const wishlist = rawWishlist.map((item) => ({
+      ...item,
+      product: item.Product ? {
+        ...item.Product,
+        store: item.Product.Store,
+        category: item.Product.Category,
+      } : null,
+    }))
 
     return NextResponse.json({ wishlist })
   } catch (error) {
