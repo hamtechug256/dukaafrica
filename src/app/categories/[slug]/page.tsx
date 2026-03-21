@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { ProductGrid } from '@/app/products/product-grid'
 import { Header } from '@/components/layout/header'
 import { Footer } from '@/components/layout/footer'
+import { DynamicIcon, getCategoryEmoji } from '@/components/ui/dynamic-icon'
 
 // Get category by slug
 async function getCategory(slug: string) {
@@ -96,7 +97,19 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
         <div className="bg-gradient-to-r from-orange-500 to-green-500 text-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
             <div className="flex items-center gap-4">
-              {category.icon && <span className="text-5xl">{category.icon}</span>}
+              {category.image ? (
+                <img src={category.image} alt={category.name} className="w-16 h-16 rounded-xl object-cover" />
+              ) : category.icon ? (
+                <div className="w-16 h-16 bg-white/20 rounded-xl flex items-center justify-center">
+                  <DynamicIcon 
+                    name={category.icon} 
+                    className="w-10 h-10 text-white" 
+                    size={40}
+                  />
+                </div>
+              ) : (
+                <span className="text-5xl">{getCategoryEmoji(category.slug)}</span>
+              )}
               <div>
                 <h1 className="text-3xl md:text-4xl font-bold">{category.name}</h1>
                 {category.description && (

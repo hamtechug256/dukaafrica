@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { ChevronDown } from 'lucide-react'
+import { DynamicIcon, getCategoryEmoji } from '@/components/ui/dynamic-icon'
 
 interface Category {
   id: string
@@ -60,7 +61,11 @@ export function ProductFilters({ categories, searchParams }: ProductFiltersProps
                   : 'text-gray-600 dark:text-gray-400 hover:text-primary'
               }`}
             >
-              {category.icon && <span>{category.icon}</span>}
+              {category.icon ? (
+                <DynamicIcon name={category.icon} className="w-4 h-4" size={16} />
+              ) : (
+                <span>{getCategoryEmoji(category.slug)}</span>
+              )}
               <span>{category.name}</span>
             </Link>
           ))}
