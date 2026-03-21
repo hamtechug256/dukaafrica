@@ -44,6 +44,7 @@ export function Login() {
             setStatus('Redirecting to admin dashboard...')
             router.push('/admin')
           } else {
+            // Already signed in but not admin - sign out and show error
             await signOut()
             setError('Access denied. This portal is for administrators only.')
             setStatus('')
@@ -74,6 +75,7 @@ export function Login() {
 
       setStatus('Authenticating...')
 
+      // Sign in with Clerk
       const signInAttempt = await signIn.create({
         identifier: email,
         password,
@@ -84,15 +86,18 @@ export function Login() {
         
         setStatus('Verifying admin privileges...')
 
+        // Check if user is admin
         const roleRes = await fetch('/api/user/role')
         const roleData = await roleRes.json()
 
         if (roleData.user?.isAdmin) {
           setStatus('Access granted! Redirecting...')
+          // Small delay for user to see success message
           setTimeout(() => {
             router.push('/admin')
           }, 500)
         } else {
+          // Not an admin - sign them out and show error
           await signOut()
           setError('Access denied. This portal is for administrators only.')
           setStatus('')
@@ -101,11 +106,11 @@ export function Login() {
         setError('Authentication failed. Please check your credentials.')
         setStatus('')
       }
-    } catch (err: unknown) {
+    } catch (err: any) {
       console.error('Login error:', err)
       
-      const errorObj = err as { errors?: Array<{ code: string }>; message?: string }
-      const errorCode = errorObj?.errors?.[0]?.code
+      // Handle specific Clerk errors
+      const errorCode = err?.errors?.[0]?.code
       if (errorCode === 'form_identifier_not_found') {
         setError('Account not found. Please check your email.')
       } else if (errorCode === 'form_password_incorrect') {
@@ -113,7 +118,7 @@ export function Login() {
       } else if (errorCode === 'too_many_attempts') {
         setError('Too many failed attempts. Please try again later.')
       } else {
-        setError(errorObj?.message || 'Login failed. Please try again.')
+        setError(err?.message || 'Login failed. Please try again.')
       }
       setStatus('')
     } finally {
@@ -124,6 +129,7 @@ export function Login() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-4">
       <div className="w-full max-w-md">
+        {/* Logo */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold bg-gradient-to-r from-orange-500 to-green-500 bg-clip-text text-transparent">
             DuukaAfrica
@@ -179,7 +185,7 @@ export function Login() {
                   <Input
                     id="password"
                     type={showPassword ? 'text' : 'password'}
-                    placeholder="Enter your password"
+                    placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
@@ -197,7 +203,11 @@ export function Login() {
               </div>
 
               {!clerkReady ? (
-                <Button type="button" className="w-full" disabled>
+                <Button
+                  type="button"
+                  className="w-full"
+                  disabled
+                >
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   Initializing authentication...
                 </Button>
@@ -232,6 +242,7 @@ export function Login() {
           </CardContent>
         </Card>
 
+        {/* Back to main site */}
         <div className="text-center mt-6">
           <a 
             href="/" 
