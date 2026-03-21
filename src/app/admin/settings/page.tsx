@@ -38,6 +38,7 @@ import {
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { AccessDeniedPage } from '@/components/admin/access-denied-page'
 
 const sidebarLinks = [
   { href: '/admin', icon: BarChart3, label: 'Dashboard' },
@@ -174,12 +175,8 @@ export default function AdminSettingsPage() {
     }
   }, [settingsData])
 
-  // Redirect if not admin
-  useEffect(() => {
-    if (!roleLoading && roleData && !roleData.user?.isAdmin) {
-      router.push('/dashboard')
-    }
-  }, [roleData, roleLoading, router])
+  // Show access denied if not admin (don't redirect - stay on access denied page)
+  // This prevents redirecting to the wrong dashboard
 
   function getDefaultShippingRates() {
     return [
@@ -200,7 +197,27 @@ export default function AdminSettingsPage() {
     setShippingRates(updated)
   }
 
-  if (roleLoading || !roleData?.user?.isAdmin || settingsLoading) {
+  // Loading state
+  if (roleLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    )
+  }
+
+  // Not authorized - show access denied page
+  if (!roleData?.user?.isAdmin) {
+    return (
+      <AccessDeniedPage 
+        reason="unauthorized"
+        message="This administrative portal is exclusively for authorized DuukaAfrica administrators. Your access attempt has been logged and monitored. If you believe this is an error, please contact the system administrator."
+      />
+    )
+  }
+
+  // Loading settings
+  if (settingsLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />

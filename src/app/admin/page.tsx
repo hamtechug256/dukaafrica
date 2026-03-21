@@ -25,6 +25,7 @@ import {
   Layers,
   LogOut
 } from 'lucide-react'
+import { AccessDeniedPage } from '@/components/admin/access-denied-page'
 
 const sidebarLinks = [
   { href: '/admin', icon: BarChart3, label: 'Dashboard' },
@@ -128,32 +129,10 @@ export default function AdminDashboard() {
   // Not authorized (shouldn't reach here due to redirect)
   if (!roleData?.user?.isAdmin) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <div className="text-center max-w-md">
-          <Shield className="w-12 h-12 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
-          <p className="text-gray-600 mb-2">You don't have admin privileges.</p>
-          
-          {/* Debug Info */}
-          <div className="bg-gray-200 dark:bg-gray-800 p-4 rounded-lg text-left text-sm mb-4 overflow-auto max-h-60">
-            <p className="font-semibold mb-2">Debug Info:</p>
-            {roleData ? (
-              <pre className="text-xs">{JSON.stringify(roleData, null, 2)}</pre>
-            ) : (
-              <p className="text-gray-500">No role data received</p>
-            )}
-            {roleError && (
-              <p className="text-red-500 mt-2">Error: {String(roleError)}</p>
-            )}
-          </div>
-          
-          <div className="space-y-2">
-            <Button onClick={() => router.push('/admin/login')}>Go to Admin Login</Button>
-            <br />
-            <Button variant="outline" onClick={() => router.push('/')}>Go to Homepage</Button>
-          </div>
-        </div>
-      </div>
+      <AccessDeniedPage 
+        reason="unauthorized"
+        message="This administrative portal is exclusively for authorized DuukaAfrica administrators. Your access attempt has been logged and monitored. If you believe this is an error, please contact the system administrator."
+      />
     )
   }
 
