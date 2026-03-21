@@ -15,6 +15,7 @@ import {
   Eye, 
   EyeOff, 
   AlertCircle, 
+  AlertTriangle,
   CheckCircle,
   Lock,
   Ban,
@@ -41,6 +42,7 @@ export function Login() {
   const [attemptCount, setAttemptCount] = useState(0)
   const [delaySeconds, setDelaySeconds] = useState(0)
   const [showAccessDenied, setShowAccessDenied] = useState(false)
+  const [accessDeniedReason, setAccessDeniedReason] = useState<'unauthorized' | 'blocked' | 'rate_limited' | 'suspicious'>('unauthorized')
 
   // Check security status on mount
   useEffect(() => {
@@ -52,6 +54,7 @@ export function Login() {
         if (data.blocked) {
           setIsBlocked(true)
           setRemainingMinutes(data.remainingMinutes || 60)
+          setAccessDeniedReason('rate_limited')
           setShowAccessDenied(true)
         }
         
@@ -79,9 +82,11 @@ export function Login() {
             await fetch('/api/admin/security', { method: 'DELETE' })
             router.push('/admin')
           } else {
-            await signOut()
-            setError('Access denied. This portal is for administrators only.')
-            setStatus('')
+            // Non-admin user - show access denied
+            // Don't sign out - just show access denied page
+            // User will remain signed in but won't have admin access
+            setAccessDeniedReason('unauthorized')
+            setShowAccessDenied(true)
           }
         } catch (err) {
           console.error('Role check error:', err)
@@ -106,9 +111,14 @@ export function Login() {
   if (showAccessDenied) {
     return (
       <AccessDeniedPage 
-        reason="rate_limited" 
+        reason={accessDeniedReason} 
         remainingMinutes={remainingMinutes}
-        message="Too many failed login attempts have been detected from your connection. For security reasons, your access has been temporarily restricted."
+        message={accessDeniedReason === 'rate_limited' 
+          ? "Too many failed login attempts have been detected from your connection. For security reasons, your access has been temporarily restricted."
+          : accessDeniedReason === 'unauthorized'
+          ? "This administrative portal is exclusively for authorized DuukaAfrica administrators. Your access attempt has been logged."
+          : undefined
+        }
       />
     )
   }
@@ -153,6 +163,7 @@ export function Login() {
         if (securityData.blocked) {
           setIsBlocked(true)
           setRemainingMinutes(securityData.remainingMinutes)
+          setAccessDeniedReason('rate_limited')
           setShowAccessDenied(true)
           return
         }
@@ -184,6 +195,7 @@ export function Login() {
         if (securityData.blocked) {
           setIsBlocked(true)
           setRemainingMinutes(securityData.remainingMinutes)
+          setAccessDeniedReason('rate_limited')
           setShowAccessDenied(true)
           return
         }
@@ -223,12 +235,13 @@ export function Login() {
             router.push('/admin')
           }, 500)
         } else {
-          // Record failed attempt (non-admin trying to access)
+          // Non-admin user tried to login to admin portal
+          // Record the failed attempt
           await fetch('/api/admin/security', { method: 'POST' })
-          
-          await signOut()
-          setError('Access denied. This portal is for administrators only.')
-          setStatus('')
+          // Show access denied page - user stays signed in but can't access admin
+          setAccessDeniedReason('unauthorized')
+          setShowAccessDenied(true)
+          return
         }
       } else {
         setError(`Authentication incomplete. Status: ${signIn.status}`)
