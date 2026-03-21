@@ -2,6 +2,9 @@ import { auth } from '@clerk/nextjs/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 
+// Valid product statuses
+const VALID_STATUSES = ['ACTIVE', 'DRAFT', 'INACTIVE', 'OUT_OF_STOCK'] as const
+
 // GET - Fetch all products for admin
 export async function GET(request: NextRequest) {
   try {
@@ -33,7 +36,8 @@ export async function GET(request: NextRequest) {
     // Build where clause
     const where: any = {}
 
-    if (status && status !== 'ALL') {
+    // Only filter by status if it's a valid status
+    if (status && status !== 'ALL' && VALID_STATUSES.includes(status as any)) {
       where.status = status
     }
 
@@ -90,11 +94,16 @@ export async function GET(request: NextRequest) {
       prisma.product.count({ where }),
     ])
 
-    // Get stats
-    const stats = await prisma.product.groupBy({
-      by: ['status'],
-      _count: true,
-    })
+    // Get stats - safely handle potential null/invalid status values
+    let stats: { status: string | null; _count: number }[] = []
+    try {
+      stats = await prisma.product.groupBy({
+        by: ['status'],
+        _count: true,
+      })
+    } catch (e) {
+      console.error('GroupBy failed, using fallback:', e)
+    }
 
     const statusCounts = {
       ACTIVE: 0,
@@ -104,12 +113,19 @@ export async function GET(request: NextRequest) {
     }
 
     stats.forEach((s) => {
-      statusCounts[s.status as keyof typeof statusCounts] = s._count
+      if (s.status && s.status in statusCounts) {
+        statusCounts[s.status as keyof typeof statusCounts] = s._count
+      }
     })
 
-    const pendingReview = await prisma.product.count({
-      where: { submittedForReview: true, status: 'DRAFT' },
-    })
+    let pendingReview = 0
+    try {
+      pendingReview = await prisma.product.count({
+        where: { submittedForReview: true, status: 'DRAFT' },
+      })
+    } catch (e) {
+      console.error('Pending review count failed:', e)
+    }
 
     return NextResponse.json({
       products,
@@ -126,7 +142,10 @@ export async function GET(request: NextRequest) {
     })
   } catch (error) {
     console.error('Error fetching admin products:', error)
-    return NextResponse.json({ error: 'Failed to fetch products' }, { status: 500 })
+    return NextResponse.json({ 
+      error: 'Failed to fetch products',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 })
   }
 }
 
@@ -150,6 +169,10 @@ export async function PUT(request: NextRequest) {
 
     const body = await request.json()
     const { productId, action, rejectionReason } = body
+
+    if (!productId) {
+      return NextResponse.json({ error: 'Product ID required' }, { status: 400 })
+    }
 
     const product = await prisma.product.findUnique({
       where: { id: productId },
@@ -176,7 +199,7 @@ export async function PUT(request: NextRequest) {
         submittedForReview: false,
         reviewedAt: new Date(),
         reviewedBy: user.id,
-        rejectionReason,
+        rejectionReason: rejectionReason || 'Not specified',
       }
     } else if (action === 'deactivate') {
       updateData = {
@@ -194,6 +217,8 @@ export async function PUT(request: NextRequest) {
       updateData = {
         isFeatured: false,
       }
+    } else {
+      return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
     }
 
     const updatedProduct = await prisma.product.update({
@@ -204,7 +229,10 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ product: updatedProduct })
   } catch (error) {
     console.error('Error updating product:', error)
-    return NextResponse.json({ error: 'Failed to update product' }, { status: 500 })
+    return NextResponse.json({ 
+      error: 'Failed to update product',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 })
   }
 }
 
@@ -240,6 +268,9 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Error deleting product:', error)
-    return NextResponse.json({ error: 'Failed to delete product' }, { status: 500 })
+    return NextResponse.json({ 
+      error: 'Failed to delete product',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 })
   }
 }
