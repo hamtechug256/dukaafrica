@@ -314,6 +314,17 @@ export default clerkMiddleware(async (auth, req) => {
     }
   }
 
+  // For API routes that require authentication, return 401 JSON instead of redirect
+  if (url.pathname.startsWith('/api/')) {
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Unauthorized', message: 'Authentication required' },
+        { status: 401 }
+      )
+    }
+    return NextResponse.next()
+  }
+
   // For all other routes (like dashboard, cart, etc.), require authentication
   if (!userId) {
     const signInUrl = new URL('/sign-in', req.url)
