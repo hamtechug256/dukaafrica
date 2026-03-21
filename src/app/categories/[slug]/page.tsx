@@ -156,10 +156,18 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
   )
 }
 
-// Generate static params for common categories
+// Generate static params for common categories - optional, won't fail build
+export const dynamic = 'force-dynamic'
+export const dynamicParams = true
+
 export async function generateStaticParams() {
-  const categories = await prisma.category.findMany({
-    select: { slug: true },
-  })
-  return categories.map((cat) => ({ slug: cat.slug }))
+  try {
+    const categories = await prisma.category.findMany({
+      select: { slug: true },
+    })
+    return categories.map((cat) => ({ slug: cat.slug }))
+  } catch (error) {
+    // Return empty array if database isn't available during build
+    return []
+  }
 }
