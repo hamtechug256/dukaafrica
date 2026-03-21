@@ -1,6 +1,5 @@
 'use client'
 
-import { useUser } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
@@ -10,15 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Switch } from '@/components/ui/switch'
 import { Separator } from '@/components/ui/separator'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import {
   Table,
   TableBody,
@@ -46,10 +37,12 @@ import {
   RefreshCw,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
 const sidebarLinks = [
   { href: '/admin', icon: BarChart3, label: 'Dashboard' },
   { href: '/admin/users', icon: Users, label: 'Users' },
+  { href: '/admin/categories', icon: Settings, label: 'Categories' },
   { href: '/admin/stores', icon: Store, label: 'Stores' },
   { href: '/admin/products', icon: Package, label: 'Products' },
   { href: '/admin/orders', icon: ShoppingCart, label: 'Orders' },
@@ -57,10 +50,8 @@ const sidebarLinks = [
 ]
 
 const COUNTRIES = ['UGANDA', 'KENYA', 'TANZANIA', 'RWANDA']
-const CURRENCIES = ['UGX', 'KES', 'TZS', 'RWF']
-const ZONE_TYPES = ['LOCAL', 'DOMESTIC', 'REGIONAL', 'CROSS_BORDER']
 
-interface Settings {
+interface PlatformSettings {
   commission: {
     defaultRate: number
     shippingMarkupPercent: number
@@ -101,16 +92,28 @@ interface Settings {
   }
 }
 
+async function fetchSettings() {
+  const res = await fetch('/api/admin/settings')
+  if (!res.ok) throw new Error('Failed to fetch settings')
+  return res.json()
+}
+
+async function saveSettings(data: { section: string; data: any }) {
+  const res = await fetch('/api/admin/settings', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) throw new Error('Failed to save settings')
+  return res.json()
+}
+
 export default function AdminSettingsPage() {
-  const { user, isLoaded } = useUser()
   const router = useRouter()
   const { toast } = useToast()
-  const [isLoading, setIsLoading] = useState(true)
-  const [isSaving, setIsSaving] = useState(false)
+  const queryClient = useQueryClient()
+  
   const [activeTab, setActiveTab] = useState('commission')
-  const [settings, setSettings] = useState<Settings | null>(null)
-
-  // Form states
   const [commissionForm, setCommissionForm] = useState({
     defaultRate: 10,
     shippingMarkupPercent: 5,
@@ -124,36 +127,59 @@ export default function AdminSettingsPage() {
   const [shippingRates, setShippingRates] = useState<any[]>([])
   const [exchangeRates, setExchangeRates] = useState<any>({})
 
-  useEffect(() => {
-    if (isLoaded && user) {
-      const role = user.publicMetadata?.role || user.unsafeMetadata?.role
-      if (role !== 'ADMIN' && role !== 'SUPER_ADMIN') {
-        router.push('/dashboard')
-      } else {
-        fetchSettings()
-      }
-    }
-  }, [isLoaded, user, router])
+  // Check role from database
+  const { data: roleData, isLoading: roleLoading } = useQuery({
+    queryKey: ['user-role'],
+    queryFn: async () => {
+      const res = await fetch('/api/user/role')
+      return res.json()
+    },
+    staleTime: 1000 * 60 * 5,
+  })
 
-  async function fetchSettings() {
-    try {
-      const res = await fetch('/api/admin/settings')
-      if (res.ok) {
-        const data = await res.json()
-        setSettings(data.settings)
-        setCommissionForm(data.settings.commission)
-        setFlutterwaveForm(data.settings.flutterwave)
-        setShippingRates(data.settings.shipping.rates.length > 0 
-          ? data.settings.shipping.rates 
-          : getDefaultShippingRates())
-        setExchangeRates(data.settings.exchangeRates)
-      }
-    } catch (error) {
-      console.error('Error fetching settings:', error)
-    } finally {
-      setIsLoading(false)
+  // Fetch settings
+  const { data: settingsData, isLoading: settingsLoading } = useQuery({
+    queryKey: ['admin-settings'],
+    queryFn: fetchSettings,
+    enabled: !!roleData?.user?.isAdmin,
+  })
+
+  // Save mutation
+  const saveMutation = useMutation({
+    mutationFn: saveSettings,
+    onSuccess: () => {
+      toast({
+        title: 'Settings Saved',
+        description: 'Settings have been updated successfully.',
+      })
+    },
+    onError: () => {
+      toast({
+        title: 'Error',
+        description: 'Failed to save settings. Please try again.',
+        variant: 'destructive',
+      })
+    },
+  })
+
+  // Update forms when settings load
+  useEffect(() => {
+    if (settingsData?.settings) {
+      setCommissionForm(settingsData.settings.commission || { defaultRate: 10, shippingMarkupPercent: 5 })
+      setFlutterwaveForm(settingsData.settings.flutterwave || { publicKey: '', secretKey: '', encryptionKey: '', webhookSecret: '' })
+      setShippingRates(settingsData.settings.shipping?.rates?.length > 0 
+        ? settingsData.settings.shipping.rates 
+        : getDefaultShippingRates())
+      setExchangeRates(settingsData.settings.exchangeRates || {})
     }
-  }
+  }, [settingsData])
+
+  // Redirect if not admin
+  useEffect(() => {
+    if (!roleLoading && roleData && !roleData.user?.isAdmin) {
+      router.push('/dashboard')
+    }
+  }, [roleData, roleLoading, router])
 
   function getDefaultShippingRates() {
     return [
@@ -164,32 +190,8 @@ export default function AdminSettingsPage() {
     ]
   }
 
-  async function saveSection(section: string, data: any) {
-    setIsSaving(true)
-    try {
-      const res = await fetch('/api/admin/settings', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ section, data }),
-      })
-
-      if (res.ok) {
-        toast({
-          title: 'Settings Saved',
-          description: `${section} settings have been updated successfully.`,
-        })
-      } else {
-        throw new Error('Failed to save')
-      }
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to save settings. Please try again.',
-        variant: 'destructive',
-      })
-    } finally {
-      setIsSaving(false)
-    }
+  function handleSaveSection(section: string, data: any) {
+    saveMutation.mutate({ section, data })
   }
 
   function updateShippingRate(index: number, field: string, value: any) {
@@ -198,7 +200,7 @@ export default function AdminSettingsPage() {
     setShippingRates(updated)
   }
 
-  if (!isLoaded || isLoading) {
+  if (roleLoading || !roleData?.user?.isAdmin || settingsLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -223,7 +225,7 @@ export default function AdminSettingsPage() {
               href={link.href}
               className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                 link.href === '/admin/settings'
-                  ? 'bg-primary/10 text-primary'
+                  ? 'bg-primary/10 text-primary font-medium'
                   : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
               }`}
             >
@@ -246,7 +248,7 @@ export default function AdminSettingsPage() {
             <div className="flex items-center gap-4">
               <Shield className="w-5 h-5 text-green-500" />
               <span className="text-sm text-gray-600 dark:text-gray-400">
-                {user?.fullName || user?.emailAddresses?.[0]?.emailAddress}
+                {roleData?.user?.email || 'Admin'}
               </span>
             </div>
           </div>
@@ -330,8 +332,8 @@ export default function AdminSettingsPage() {
                   </div>
 
                   <div className="flex justify-end">
-                    <Button onClick={() => saveSection('commission', commissionForm)} disabled={isSaving}>
-                      {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                    <Button onClick={() => handleSaveSection('commission', commissionForm)} disabled={saveMutation.isPending}>
+                      {saveMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
                       Save Commission Settings
                     </Button>
                   </div>
@@ -433,8 +435,8 @@ export default function AdminSettingsPage() {
                   </div>
 
                   <div className="flex justify-end mt-6">
-                    <Button onClick={() => saveSection('shipping', { rates: shippingRates })} disabled={isSaving}>
-                      {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                    <Button onClick={() => handleSaveSection('shipping', { rates: shippingRates })} disabled={saveMutation.isPending}>
+                      {saveMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
                       Save Shipping Rates
                     </Button>
                   </div>
@@ -503,17 +505,15 @@ export default function AdminSettingsPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  {settings?.flutterwave.testMode && (
-                    <div className="bg-yellow-50 dark:bg-yellow-950/30 p-4 rounded-lg flex items-start gap-3">
-                      <AlertCircle className="w-5 h-5 text-yellow-500 mt-0.5" />
-                      <div>
-                        <p className="font-medium text-yellow-800 dark:text-yellow-200">Test Mode Active</p>
-                        <p className="text-sm text-yellow-700 dark:text-yellow-300">
-                          Add your production keys to start accepting real payments.
-                        </p>
-                      </div>
+                  <div className="bg-yellow-50 dark:bg-yellow-950/30 p-4 rounded-lg flex items-start gap-3">
+                    <AlertCircle className="w-5 h-5 text-yellow-500 mt-0.5" />
+                    <div>
+                      <p className="font-medium text-yellow-800 dark:text-yellow-200">Configure Payment Gateway</p>
+                      <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                        Add your Flutterwave keys to start accepting payments.
+                      </p>
                     </div>
-                  )}
+                  </div>
 
                   <div className="grid gap-4">
                     <div className="space-y-2">
@@ -567,8 +567,8 @@ export default function AdminSettingsPage() {
                   </div>
 
                   <div className="flex justify-end">
-                    <Button onClick={() => saveSection('flutterwave', flutterwaveForm)} disabled={isSaving}>
-                      {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                    <Button onClick={() => handleSaveSection('flutterwave', flutterwaveForm)} disabled={saveMutation.isPending}>
+                      {saveMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
                       Save Payment Settings
                     </Button>
                   </div>
@@ -591,7 +591,6 @@ export default function AdminSettingsPage() {
                       <p className="text-sm text-gray-500">Last updated: {exchangeRates.lastUpdated ? new Date(exchangeRates.lastUpdated).toLocaleString() : 'Never'}</p>
                     </div>
                     <Button variant="outline" size="sm" onClick={() => {
-                      // In production, this would fetch from an API
                       toast({ title: 'Rates Refreshed', description: 'Using cached rates. Add Open Exchange Rates API for live rates.' })
                     }}>
                       <RefreshCw className="w-4 h-4 mr-2" />
@@ -675,8 +674,8 @@ export default function AdminSettingsPage() {
                   </div>
 
                   <div className="flex justify-end">
-                    <Button onClick={() => saveSection('exchangeRates', exchangeRates)} disabled={isSaving}>
-                      {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                    <Button onClick={() => handleSaveSection('exchangeRates', exchangeRates)} disabled={saveMutation.isPending}>
+                      {saveMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
                       Save Exchange Rates
                     </Button>
                   </div>
