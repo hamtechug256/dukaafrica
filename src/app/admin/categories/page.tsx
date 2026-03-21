@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
-import { useUser } from '@clerk/nextjs'
 import Link from 'next/link'
 import {
   Card, CardContent, CardHeader, CardTitle, CardDescription
@@ -100,7 +99,6 @@ async function deleteCategory(id: string) {
 }
 
 export default function AdminCategoriesPage() {
-  const { user, isLoaded } = useUser()
   const router = useRouter()
   const queryClient = useQueryClient()
   const [searchTerm, setSearchTerm] = useState('')
@@ -153,16 +151,25 @@ export default function AdminCategoriesPage() {
     },
   })
 
+  // Check role from database
+  const { data: roleData, isLoading: roleLoading } = useQuery({
+    queryKey: ['user-role'],
+    queryFn: async () => {
+      const res = await fetch('/api/user/role')
+      return res.json()
+    },
+    staleTime: 1000 * 60 * 5,
+  })
+
   useEffect(() => {
-    if (isLoaded && user) {
-      const role = user.publicMetadata?.role || user.unsafeMetadata?.role
-      if (role !== 'ADMIN' && role !== 'SUPER_ADMIN') {
+    if (!roleLoading && roleData) {
+      if (!roleData.user?.isAdmin) {
         router.push('/dashboard')
       }
     }
-  }, [isLoaded, user, router])
+  }, [roleData, roleLoading, router])
 
-  if (!isLoaded) {
+  if (roleLoading || !roleData?.user?.isAdmin) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
