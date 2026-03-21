@@ -61,7 +61,7 @@ export default function AboutPage() {
         <div className="container mx-auto px-4 py-16">
           <div className="max-w-3xl mx-auto text-center">
             <h1 className="text-4xl md:text-5xl font-bold mb-6">
-              The Amazon of East Africa
+              East Africa's Trusted Marketplace
             </h1>
             <p className="text-xl text-gray-200">
               DuukaAfrica is the leading multi-vendor e-commerce marketplace connecting millions of buyers with verified sellers across East Africa.

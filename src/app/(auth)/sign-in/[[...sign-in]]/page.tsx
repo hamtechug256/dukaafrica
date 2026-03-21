@@ -10,7 +10,7 @@ export default function SignInPage() {
             DuukaAfrica
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mt-2">
-            The Amazon of East Africa
+            East Africa's Trusted Marketplace
           </p>
         </div>
         

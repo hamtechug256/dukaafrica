@@ -3,7 +3,7 @@ import { Metadata } from 'next'
 // Site configuration
 export const siteConfig = {
   name: 'DuukaAfrica',
-  description: 'The Amazon of East Africa. Shop millions of products from verified sellers across Uganda, Kenya, Tanzania, and Rwanda.',
+  description: 'East Africa\'s Trusted Marketplace. Shop millions of products from verified sellers across Uganda, Kenya, Tanzania, and Rwanda.',
   url: 'https://duukaafrica.com',
   ogImage: 'https://duukaafrica.com/og-image.jpg',
   links: {
@@ -18,7 +18,7 @@ export const siteConfig = {
 export const defaultMetadata: Metadata = {
   metadataBase: new URL(siteConfig.url),
   title: {
-    default: `${siteConfig.name} - The Amazon of East Africa`,
+    default: `${siteConfig.name} - East Africa's Trusted Marketplace`,
     template: `%s | ${siteConfig.name}`,
   },
   description: siteConfig.description,

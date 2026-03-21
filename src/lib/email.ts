@@ -181,7 +181,7 @@ export async function sendOrderConfirmationEmail(data: OrderEmailData): Promise<
             Questions? Contact us at <a href="mailto:support@duukaafrica.com" style="color: #059669;">support@duukaafrica.com</a>
           </p>
           <p style="margin: 10px 0 0; color: #999; font-size: 12px;">
-            © ${new Date().getFullYear()} DuukaAfrica. The Amazon of East Africa.
+            © ${new Date().getFullYear()} DuukaAfrica. East Africa's Trusted Marketplace.
           </p>
         </div>
       </div>
