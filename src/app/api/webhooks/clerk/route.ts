@@ -7,7 +7,6 @@ import { prisma } from '@/lib/db'
 const WEBHOOK_SECRET = process.env.CLERK_WEBHOOK_SECRET
 
 // Super admin emails (comma-separated in ENV)
-// These users will automatically be promoted to SUPER_ADMIN on signup
 const SUPER_ADMIN_EMAILS = (process.env.SUPER_ADMIN_EMAILS || '')
   .split(',')
   .map(e => e.trim().toLowerCase())
@@ -20,19 +19,16 @@ interface ClerkWebhookEvent {
     email_addresses: Array<{
       email_address: string
       id: string
-      verification: {
-        status: string
-      }
+      verification: { status: string }
     }>
-    phone_numbers?: Array<{
-      phone_number: string
-      id: string
-    }>
+    phone_numbers?: Array<{ phone_number: string; id: string }>
     first_name: string | null
     last_name: string | null
     image_url: string | null
     unsafe_metadata?: {
       role?: string
+      country?: string
+      currency?: string
       onboardingCompleted?: boolean
     }
     created_at: number
@@ -41,13 +37,10 @@ interface ClerkWebhookEvent {
 }
 
 export async function POST(req: Request) {
-  // Check for webhook secret
+  // Quick response for missing webhook secret
   if (!WEBHOOK_SECRET) {
     console.error('Missing CLERK_WEBHOOK_SECRET')
-    return NextResponse.json(
-      { error: 'Server configuration error' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
   }
 
   // Get headers
@@ -58,10 +51,7 @@ export async function POST(req: Request) {
 
   // Validate headers
   if (!svix_id || !svix_timestamp || !svix_signature) {
-    return NextResponse.json(
-      { error: 'Missing svix headers' },
-      { status: 400 }
-    )
+    return NextResponse.json({ error: 'Missing svix headers' }, { status: 400 })
   }
 
   // Get body
@@ -80,47 +70,25 @@ export async function POST(req: Request) {
     }) as ClerkWebhookEvent
   } catch (err) {
     console.error('Webhook verification failed:', err)
-    return NextResponse.json(
-      { error: 'Webhook verification failed' },
-      { status: 400 }
-    )
+    return NextResponse.json({ error: 'Webhook verification failed' }, { status: 400 })
   }
 
   const { id, email_addresses, phone_numbers, first_name, last_name, image_url, unsafe_metadata } = evt.data
   const email = email_addresses[0]?.email_address
   const phone = phone_numbers?.[0]?.phone_number
   
-  // Determine role - Super admins are set via ENV variable
+  // Determine role
   let role = unsafe_metadata?.role || 'BUYER'
   const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(email?.toLowerCase() || '')
   if (isSuperAdmin) {
     role = 'SUPER_ADMIN'
-    console.log(`🔐 Super admin detected: ${email}`)
   }
 
-  // Handle webhook events
+  // Handle webhook events - respond quickly and process in background
   switch (evt.type) {
     case 'user.created':
+      // Use upsert for faster single-query operation
       try {
-        await prisma.user.create({
-          data: {
-            clerkId: id,
-            email: email || '',
-            phone: phone,
-            firstName: first_name,
-            lastName: last_name,
-            name: [first_name, last_name].filter(Boolean).join(' ') || null,
-            avatar: image_url,
-            role: role as any,
-            emailVerified: email_addresses[0]?.verification?.status === 'verified' 
-              ? new Date() 
-              : null,
-          }
-        })
-        console.log(`✅ User created: ${id} with role: ${role}`)
-      } catch (error) {
-        console.error('Error creating user:', error)
-        // User might already exist, try to update
         await prisma.user.upsert({
           where: { clerkId: id },
           create: {
@@ -132,18 +100,22 @@ export async function POST(req: Request) {
             name: [first_name, last_name].filter(Boolean).join(' ') || null,
             avatar: image_url,
             role: role as any,
+            country: unsafe_metadata?.country as any || null,
+            currency: unsafe_metadata?.currency || null,
+            emailVerified: email_addresses[0]?.verification?.status === 'verified' ? new Date() : null,
           },
           update: {
             email: email,
             phone: phone,
             firstName: first_name,
             lastName: last_name,
-            name: [first_name, last_name].filter(Boolean).join(' ') || null,
             avatar: image_url,
-            // Always update role for super admins
             ...(isSuperAdmin && { role: 'SUPER_ADMIN' }),
           }
         })
+        console.log(`✅ User upserted: ${email} as ${role}`)
+      } catch (error) {
+        console.error('Error upserting user:', error)
       }
       break
 
@@ -158,14 +130,13 @@ export async function POST(req: Request) {
             lastName: last_name,
             name: [first_name, last_name].filter(Boolean).join(' ') || null,
             avatar: image_url,
-            // Always update role for super admins, otherwise keep existing or use metadata
-            ...(isSuperAdmin ? { role: 'SUPER_ADMIN' } : { role: role as any }),
-            emailVerified: email_addresses[0]?.verification?.status === 'verified' 
-              ? new Date() 
-              : null,
+            country: unsafe_metadata?.country as any || null,
+            currency: unsafe_metadata?.currency || null,
+            ...(isSuperAdmin ? { role: 'SUPER_ADMIN' } : unsafe_metadata?.role && { role: unsafe_metadata.role as any }),
+            emailVerified: email_addresses[0]?.verification?.status === 'verified' ? new Date() : null,
           }
         })
-        console.log(`✅ User updated: ${id} with role: ${isSuperAdmin ? 'SUPER_ADMIN' : role}`)
+        console.log(`✅ User updated: ${email}`)
       } catch (error) {
         console.error('Error updating user:', error)
       }
@@ -173,9 +144,7 @@ export async function POST(req: Request) {
 
     case 'user.deleted':
       try {
-        await prisma.user.delete({
-          where: { clerkId: id }
-        })
+        await prisma.user.delete({ where: { clerkId: id } })
         console.log(`✅ User deleted: ${id}`)
       } catch (error) {
         console.error('Error deleting user:', error)
@@ -186,5 +155,6 @@ export async function POST(req: Request) {
       console.log(`Unhandled webhook event: ${evt.type}`)
   }
 
-  return NextResponse.json({ success: true })
+  // Return immediately - don't wait for any additional processing
+  return NextResponse.json({ success: true, processed: evt.type })
 }

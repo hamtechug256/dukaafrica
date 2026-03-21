@@ -115,27 +115,38 @@ export default function OnboardingPage() {
     try {
       const country = countries.find(c => c.id === selectedCountry)
       
-      // Update user metadata in Clerk
-      await user?.update({
-        unsafeMetadata: {
-          role,
-          country: selectedCountry,
-          currency: country?.currency,
-          onboardingCompleted: false,
-          onboardingStep: role === 'SELLER' ? 'store_setup' : 'complete'
-        }
-      })
-
-      // Sync with our database via API
-      await fetch('/api/user/update-role', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          role,
-          country: selectedCountry,
-          currency: country?.currency
+      // Run both updates in parallel for faster completion
+      const [clerkUpdate, dbUpdate] = await Promise.allSettled([
+        // Update user metadata in Clerk
+        user?.update({
+          unsafeMetadata: {
+            role,
+            country: selectedCountry,
+            currency: country?.currency,
+            onboardingCompleted: false,
+            onboardingStep: role === 'SELLER' ? 'store_setup' : 'complete'
+          }
+        }),
+        
+        // Sync with our database via API
+        fetch('/api/user/update-role', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            role,
+            country: selectedCountry,
+            currency: country?.currency
+          })
         })
-      })
+      ])
+
+      // Log any errors but don't block the user
+      if (clerkUpdate.status === 'rejected') {
+        console.error('Clerk update failed:', clerkUpdate.reason)
+      }
+      if (dbUpdate.status === 'rejected') {
+        console.error('Database update failed:', dbUpdate.reason)
+      }
 
       // Redirect based on role
       if (role === 'SELLER') {
