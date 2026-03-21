@@ -1,4 +1,4 @@
-import { auth, currentUser } from '@clerk/nextjs/server'
+import { auth } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 
@@ -22,12 +22,12 @@ export async function GET() {
     const wishlist = await prisma.wishlist.findMany({
       where: { userId: user.id },
       include: {
-        product: {
+        Product: {
           include: {
-            store: {
+            Store: {
               select: { id: true, name: true, slug: true, isVerified: true }
             },
-            category: {
+            Category: {
               select: { id: true, name: true, slug: true }
             }
           }
