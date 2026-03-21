@@ -3,6 +3,9 @@ import { Header } from '@/components/layout/header'
 import { Footer } from '@/components/layout/footer'
 import { CategoryCard } from './category-card'
 
+// Force dynamic rendering - don't try to pre-render at build time
+export const dynamic = 'force-dynamic'
+
 // Get all categories - using simple count without filtering
 async function getCategories() {
   const categories = await prisma.category.findMany({
