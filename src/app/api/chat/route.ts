@@ -23,15 +23,15 @@ export async function GET(request: NextRequest) {
     // Get all chats where user is a participant
     const chats = await prisma.chat.findMany({
       where: {
-        participants: {
+        ChatParticipant: {
           some: { userId: user.id },
         },
         isActive: true,
       },
       include: {
-        participants: {
+        ChatParticipant: {
           include: {
-            user: {
+            User: {
               select: {
                 id: true,
                 name: true,
@@ -41,18 +41,18 @@ export async function GET(request: NextRequest) {
             },
           },
         },
-        messages: {
+        Message: {
           orderBy: { createdAt: 'desc' },
           take: 1,
           include: {
-            user: {
+            User: {
               select: { id: true, name: true, avatar: true },
             },
           },
         },
         _count: {
           select: {
-            messages: {
+            Message: {
               where: {
                 isRead: false,
                 NOT: { userId: user.id },
@@ -67,8 +67,16 @@ export async function GET(request: NextRequest) {
     // Get store info for product chats
     const chatsWithStore = await Promise.all(
       chats.map(async (chat) => {
-        let product = null
-        let store = null
+        let product: {
+          id: string;
+          name: string;
+          images: string | null;
+          price: number;
+          currency: string;
+          slug: string;
+          Store: { id: string; name: string; slug: string };
+        } | null = null
+        let store: { id: string; name: string; slug: string } | null = null
 
         if (chat.productId) {
           product = await prisma.product.findUnique({
@@ -80,7 +88,7 @@ export async function GET(request: NextRequest) {
               price: true,
               currency: true,
               slug: true,
-              store: {
+              Store: {
                 select: {
                   id: true,
                   name: true,
@@ -89,18 +97,18 @@ export async function GET(request: NextRequest) {
               },
             },
           })
-          store = product?.store
+          store = product?.Store ?? null
         }
 
         // Get other participant (the one we're chatting with)
-        const otherParticipant = chat.participants.find((p) => p.userId !== user.id)
+        const otherParticipant = chat.ChatParticipant.find((p) => p.userId !== user.id)
 
         return {
           ...chat,
           product,
           store,
-          otherParticipant: otherParticipant?.user,
-          unreadCount: chat._count.messages,
+          otherParticipant: otherParticipant?.User,
+          unreadCount: chat._count.Message,
         }
       })
     )
@@ -138,14 +146,14 @@ export async function POST(request: NextRequest) {
           { productId: productId || undefined },
           { orderId: orderId || undefined },
         ],
-        participants: {
+        ChatParticipant: {
           every: {
             userId: { in: [user.id, recipientId] },
           },
         },
       },
       include: {
-        participants: true,
+        ChatParticipant: true,
       },
     })
 
@@ -172,13 +180,13 @@ export async function POST(request: NextRequest) {
       data: {
         productId: productId || undefined,
         orderId: orderId || undefined,
-        participants: {
+        ChatParticipant: {
           create: [
             { userId: user.id },
             { userId: recipientId },
           ],
         },
-        messages: message
+        Message: message
           ? {
               create: {
                 userId: user.id,
@@ -188,9 +196,9 @@ export async function POST(request: NextRequest) {
           : undefined,
       },
       include: {
-        participants: {
+        ChatParticipant: {
           include: {
-            user: {
+            User: {
               select: {
                 id: true,
                 name: true,
@@ -199,7 +207,7 @@ export async function POST(request: NextRequest) {
             },
           },
         },
-        messages: true,
+        Message: true,
       },
     })
 

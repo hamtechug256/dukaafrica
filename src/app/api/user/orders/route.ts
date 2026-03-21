@@ -31,9 +31,9 @@ export async function GET(req: Request) {
       prisma.order.findMany({
         where,
         include: {
-          items: {
+          OrderItem: {
             include: {
-              product: {
+              Product: {
                 select: { id: true, name: true, images: true, slug: true }
               }
             }

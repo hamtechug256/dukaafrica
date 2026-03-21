@@ -15,7 +15,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/db'
-import { Currency, ShippingZoneType } from '@prisma/client'
 
 // Default settings structure
 const DEFAULT_SETTINGS = {
@@ -81,7 +80,7 @@ export async function GET() {
     // Get shipping rates from DB
     const shippingRates = await prisma.shippingRate.findMany({
       where: { isActive: true },
-      include: { tier: true },
+      include: { ShippingTier: true },
       orderBy: { zoneType: 'asc' },
     })
 
@@ -132,7 +131,7 @@ export async function GET() {
           id: r.id,
           zoneType: r.zoneType,
           tierId: r.tierId,
-          tierName: r.tier?.name,
+          tierName: r.ShippingTier?.name,
           baseFee: r.baseFee,
           perKgFee: r.perKgFee,
           crossBorderFee: r.crossBorderFee,
@@ -249,11 +248,11 @@ export async function PUT(request: NextRequest) {
             } else {
               await prisma.shippingRate.create({
                 data: {
-                  zoneType: rate.zoneType as ShippingZoneType,
+                  zoneType: rate.zoneType,
                   baseFee: rate.baseFee,
                   perKgFee: rate.perKgFee,
                   crossBorderFee: rate.crossBorderFee || 0,
-                  currency: rate.currency as Currency || 'UGX',
+                  currency: rate.currency || 'UGX',
                   platformMarkupPercent: rate.platformMarkupPercent || 5,
                   tierId: rate.tierId,
                 },
@@ -269,15 +268,15 @@ export async function PUT(request: NextRequest) {
               await prisma.shippingZoneMatrix.upsert({
                 where: {
                   originCountry_destCountry: {
-                    originCountry: origin as any,
-                    destCountry: dest as any,
+                    originCountry: origin,
+                    destCountry: dest,
                   },
                 },
-                update: { zoneType: zoneType as ShippingZoneType },
+                update: { zoneType: zoneType },
                 create: {
-                  originCountry: origin as any,
-                  destCountry: dest as any,
-                  zoneType: zoneType as ShippingZoneType,
+                  originCountry: origin,
+                  destCountry: dest,
+                  zoneType: zoneType,
                 },
               })
             }

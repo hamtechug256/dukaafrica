@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
         status: { not: 'CANCELLED' },
       },
       include: {
-        items: true,
+        OrderItem: true,
       },
       orderBy: { createdAt: 'asc' },
     })
@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
     const totalRevenue = orders.reduce((sum, order) => sum + (order.sellerProductEarnings || 0), 0)
     const totalOrders = orders.length
     const totalProductsSold = orders.reduce(
-      (sum, order) => sum + order.items.reduce((itemSum, item) => itemSum + item.quantity, 0),
+      (sum, order) => sum + order.OrderItem.reduce((itemSum, item) => itemSum + item.quantity, 0),
       0
     )
 
@@ -93,7 +93,7 @@ export async function GET(request: NextRequest) {
       by: ['productId', 'productName'],
       where: {
         storeId: store.id,
-        order: {
+        Order: {
           createdAt: { gte: startDate },
           status: { not: 'CANCELLED' },
         },
@@ -121,11 +121,11 @@ export async function GET(request: NextRequest) {
       }
       revenueByDay[day].revenue += order.sellerProductEarnings || 0
       revenueByDay[day].orders += 1
-      revenueByDay[day].products += order.items.reduce((sum, item) => sum + item.quantity, 0)
+      revenueByDay[day].products += order.OrderItem.reduce((sum, item) => sum + item.quantity, 0)
     })
 
     // Fill in missing days
-    const chartData = []
+    const chartData: Array<{ date: string; revenue: number; orders: number; products: number }> = []
     const current = new Date(startDate)
     while (current <= now) {
       const day = current.toISOString().split('T')[0]

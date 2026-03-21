@@ -85,7 +85,7 @@ export default function CartPage() {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     {storeItems.map((item) => (
-                      <div key={item.id} className="flex gap-4 py-4 border-b last:border-0 last:pb-0">
+                      <div key={item.productId} className="flex gap-4 py-4 border-b last:border-0 last:pb-0">
                         {/* Image */}
                         <Link href={`/products/${item.slug}`} className="w-24 h-24 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
                           {item.image ? (
@@ -120,7 +120,7 @@ export default function CartPage() {
                                 variant="ghost"
                                 size="icon"
                                 className="h-9 w-9"
-                                onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                                onClick={() => updateQuantity(item.productId, item.quantity - 1)}
                                 disabled={item.quantity <= 1}
                               >
                                 <Minus className="w-4 h-4" />
@@ -130,7 +130,7 @@ export default function CartPage() {
                                 variant="ghost"
                                 size="icon"
                                 className="h-9 w-9"
-                                onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                                onClick={() => updateQuantity(item.productId, item.quantity + 1)}
                                 disabled={item.quantity >= item.maxQuantity}
                               >
                                 <Plus className="w-4 h-4" />
@@ -145,7 +145,7 @@ export default function CartPage() {
                               variant="ghost"
                               size="sm"
                               className="text-red-500 ml-auto"
-                              onClick={() => removeItem(item.id)}
+                              onClick={() => removeItem(item.productId)}
                             >
                               <Trash2 className="w-4 h-4 mr-1" />
                               Remove

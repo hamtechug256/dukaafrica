@@ -60,17 +60,17 @@ export async function POST(request: NextRequest) {
     // Get user and store
     const user = await prisma.user.findUnique({
       where: { clerkId: userId },
-      include: { store: true }
+      include: { Store: true }
     })
 
-    if (!user || !user.store) {
+    if (!user || !user.Store) {
       return NextResponse.json(
         { error: 'Store not found' },
         { status: 404 }
       )
     }
 
-    const store = user.store
+    const store = user.Store
     const currency = COUNTRY_CURRENCY[store.country] || 'UGX'
 
     // Check minimum withdrawal
@@ -142,7 +142,7 @@ export async function POST(request: NextRequest) {
         accountNumber = store.payoutPhone?.replace(/\D/g, '') || ''
         narration = `DuukaAfrica payout to ${store.payoutPhone}`
       } else {
-        accountBank = store.payoutBankCode || ''
+        accountBank = '' // Bank code would need to be stored or determined differently
         accountNumber = store.payoutBankAccount || ''
         narration = `DuukaAfrica payout to ${store.payoutBankName}`
       }

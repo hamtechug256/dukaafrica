@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
     // Get order
     const order = await prisma.order.findUnique({
       where: { id: orderId },
-      include: { payment: true },
+      include: { Payment: true },
     })
 
     if (!order) {
@@ -39,11 +39,11 @@ export async function POST(req: NextRequest) {
       : 'https://sandbox.momodeveloper.mtn.com'
 
     // Create access token
-    const auth = Buffer.from(`${userIdMomo}:${apiKey}`).toString('base64')
+    const basicAuth = Buffer.from(`${userIdMomo}:${apiKey}`).toString('base64')
     const tokenResponse = await fetch(`${baseUrl}/collection/token/`, {
       method: 'POST',
       headers: {
-        Authorization: `Basic ${auth}`,
+        Authorization: `Basic ${basicAuth}`,
         'Ocp-Apim-Subscription-Key': subscriptionKey!,
       },
     })
@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
     if (payResponse.status === 202) {
       // Update payment with reference
       await prisma.payment.update({
-        where: { id: order.payment?.id },
+        where: { id: order.Payment?.id },
         data: {
           providerRef: referenceId,
           phone: formattedPhone,

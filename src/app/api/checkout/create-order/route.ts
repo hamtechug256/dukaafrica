@@ -79,7 +79,7 @@ export async function POST(req: Request) {
         status: 'PENDING',
         
         // Items
-        items: {
+        OrderItem: {
           create: items.map((item: any) => ({
             productId: item.productId,
             variantId: item.variantId,
@@ -95,7 +95,7 @@ export async function POST(req: Request) {
         },
       },
       include: {
-        items: true,
+        OrderItem: true,
       },
     })
 

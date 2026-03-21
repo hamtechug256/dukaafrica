@@ -101,7 +101,7 @@ export async function POST(req: Request) {
             avatar: image_url,
             role: role as any,
             country: unsafe_metadata?.country as any || null,
-            currency: unsafe_metadata?.currency || null,
+            currency: unsafe_metadata?.currency ?? undefined,
             emailVerified: email_addresses[0]?.verification?.status === 'verified' ? new Date() : null,
           },
           update: {
@@ -131,7 +131,7 @@ export async function POST(req: Request) {
             name: [first_name, last_name].filter(Boolean).join(' ') || null,
             avatar: image_url,
             country: unsafe_metadata?.country as any || null,
-            currency: unsafe_metadata?.currency || null,
+            currency: unsafe_metadata?.currency ?? undefined,
             ...(isSuperAdmin ? { role: 'SUPER_ADMIN' } : unsafe_metadata?.role && { role: unsafe_metadata.role as any }),
             emailVerified: email_addresses[0]?.verification?.status === 'verified' ? new Date() : null,
           }

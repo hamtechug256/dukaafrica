@@ -17,14 +17,14 @@ export async function GET(request: NextRequest) {
         flashSaleEnd: { gte: now },
       },
       include: {
-        store: {
+        Store: {
           select: {
             id: true,
             name: true,
             slug: true,
           },
         },
-        category: {
+        Category: {
           select: {
             id: true,
             name: true,
@@ -56,8 +56,8 @@ export async function GET(request: NextRequest) {
         sold: product.flashSaleClaimed,
         total: product.flashSaleStock || 0,
         endTime: product.flashSaleEnd,
-        store: product.store,
-        category: product.category,
+        store: product.Store,
+        category: product.Category,
         currency: product.currency,
       }
     })

@@ -24,7 +24,7 @@ async function searchProducts(query: string, page: number = 1) {
         ],
       },
       include: {
-        store: {
+        Store: {
           select: {
             id: true,
             name: true,
@@ -33,7 +33,7 @@ async function searchProducts(query: string, page: number = 1) {
             rating: true,
           },
         },
-        category: {
+        Category: {
           select: {
             id: true,
             name: true,

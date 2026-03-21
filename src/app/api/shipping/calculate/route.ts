@@ -7,7 +7,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { Country, Currency } from '@prisma/client';
+// Country and Currency are string types in our Prisma schema
+type Country = 'UGANDA' | 'KENYA' | 'TANZANIA' | 'RWANDA';
+type Currency = 'UGX' | 'KES' | 'TZS' | 'RWF';
 import {
   calculateShippingFee,
   canShipToCountry,

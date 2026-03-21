@@ -16,6 +16,12 @@ export interface CartItem {
   variantId?: string
   variantName?: string
   maxQuantity: number
+  // Additional fields for checkout
+  sellerCountry?: string
+  weight?: number
+  currency?: string
+  localShippingOnly?: boolean
+  shipsToCountries?: string[]
 }
 
 interface CartStore {

@@ -21,7 +21,7 @@ export async function GET(req: Request) {
       prisma.review.findMany({
         where,
         include: {
-          user: {
+          User: {
             select: { name: true, avatar: true }
           }
         },
@@ -113,7 +113,7 @@ export async function POST(req: Request) {
         where: {
           orderId,
           productId,
-          order: { userId: user.id }
+          Order: { userId: user.id }
         }
       })
       isVerifiedPurchase = !!orderItem

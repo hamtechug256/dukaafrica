@@ -39,7 +39,7 @@ export function CartSidebar() {
             <ScrollArea className="flex-1 -mx-6 px-6">
               <div className="space-y-4 py-4">
                 {items.map((item) => (
-                  <div key={item.id} className="flex gap-4">
+                  <div key={item.productId} className="flex gap-4">
                     {/* Image */}
                     <div className="w-20 h-20 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
                       {item.image ? (
@@ -76,7 +76,7 @@ export function CartSidebar() {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8"
-                            onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                            onClick={() => updateQuantity(item.productId, item.quantity - 1)}
                             disabled={item.quantity <= 1}
                           >
                             <Minus className="w-3 h-3" />
@@ -86,7 +86,7 @@ export function CartSidebar() {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8"
-                            onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                            onClick={() => updateQuantity(item.productId, item.quantity + 1)}
                             disabled={item.quantity >= item.maxQuantity}
                           >
                             <Plus className="w-3 h-3" />
@@ -98,7 +98,7 @@ export function CartSidebar() {
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 text-red-500 hover:text-red-600"
-                          onClick={() => removeItem(item.id)}
+                          onClick={() => removeItem(item.productId)}
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>

@@ -40,10 +40,10 @@ export async function GET(
         storeId: store.id 
       },
       include: {
-        category: {
+        Category: {
           select: { id: true, name: true, slug: true },
         },
-        variants: true,
+        ProductVariant: true,
       },
     })
 

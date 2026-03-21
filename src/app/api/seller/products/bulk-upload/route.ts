@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
     }
 
     const store = await prisma.store.findFirst({
-      where: { user: { clerkId: userId } },
+      where: { User: { clerkId: userId } },
     })
 
     if (!store) {

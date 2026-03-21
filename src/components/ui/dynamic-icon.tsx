@@ -80,25 +80,21 @@ const iconMap: Record<string, React.ComponentType<ComponentProps<typeof LucideIc
   // Sports
   Dumbbell: LucideIcons.Dumbbell,
   Trophy: LucideIcons.Trophy,
-  Bike: LucideIcons.Bike,
   Goal: LucideIcons.Goal,
   Basketball: LucideIcons.Circle,
   Football: LucideIcons.Circle,
-  
+
   // Jobs
   Briefcase: LucideIcons.Briefcase,
   FileText: LucideIcons.FileText,
-  
+
   // Real Estate
   Building: LucideIcons.Building,
-  Home: LucideIcons.Home,
   MapPin: LucideIcons.MapPin,
-  
+
   // Vehicles
-  Car: LucideIcons.Car,
-  Truck: LucideIcons.Truck,
   Motorcycle: LucideIcons.Bike,
-  
+
   // Generic
   Package: LucideIcons.Package,
   Box: LucideIcons.Box,

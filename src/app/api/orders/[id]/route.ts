@@ -29,24 +29,23 @@ export async function GET(
     const order = await prisma.order.findUnique({
       where: { id },
       include: {
-        items: {
+        OrderItem: {
           include: {
-            product: {
+            Product: {
               include: {
-                store: {
+                Store: {
                   select: { id: true, name: true, slug: true },
                 },
               },
             },
           },
         },
-        store: {
-          select: { id: true, name: true, slug: true, user: { select: { clerkId: true } } },
+        Store: {
+          select: { id: true, name: true, slug: true, User: { select: { clerkId: true } } },
         },
-        user: {
+        User: {
           select: { id: true, clerkId: true, firstName: true, lastName: true, email: true },
         },
-        coupon: true,
       },
     })
 
@@ -57,7 +56,7 @@ export async function GET(
     // Check access rights
     const isAdmin = ['ADMIN', 'SUPER_ADMIN'].includes(user.role)
     const isBuyer = order.userId === user.id
-    const isSeller = order.store.user.clerkId === userId
+    const isSeller = order.Store?.User?.clerkId === userId
 
     if (!isAdmin && !isBuyer && !isSeller) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
@@ -103,8 +102,8 @@ export async function PUT(
     const order = await prisma.order.findUnique({
       where: { id },
       include: {
-        store: { select: { id: true, user: { select: { clerkId: true } } } },
-        user: { select: { id: true, email: true, firstName: true } },
+        Store: { select: { id: true, User: { select: { clerkId: true } } } },
+        User: { select: { id: true, email: true, firstName: true } },
       },
     })
 
@@ -114,7 +113,7 @@ export async function PUT(
 
     // Check access rights
     const isAdmin = ['ADMIN', 'SUPER_ADMIN'].includes(user.role)
-    const isSeller = order.store.user.clerkId === userId
+    const isSeller = order.Store?.User?.clerkId === userId
 
     if (!isAdmin && !isSeller) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
@@ -172,14 +171,14 @@ export async function PUT(
       where: { id },
       data: updateData,
       include: {
-        items: {
+        OrderItem: {
           include: {
-            product: {
-              include: { store: true },
+            Product: {
+              include: { Store: true },
             },
           },
         },
-        store: true,
+        Store: true,
       },
     })
 

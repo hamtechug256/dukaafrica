@@ -119,7 +119,6 @@ export default function SellerLoginPage() {
                   routing="path"
                   path="/seller/login"
                   signUpUrl="/seller/register"
-                  redirectUrl="/seller/dashboard"
                   appearance={{
                     elements: {
                       rootBox: "w-full",

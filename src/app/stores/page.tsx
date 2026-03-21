@@ -42,16 +42,16 @@ export default async function StoresPage({
 
   // Build filter
   const where: any = {
-    status: 'ACTIVE',
+    isActive: true,
   }
-  
+
   if (query) {
     where.OR = [
       { name: { contains: query, mode: 'insensitive' } },
       { description: { contains: query, mode: 'insensitive' } },
     ]
   }
-  
+
   if (country && country !== 'ALL') {
     where.country = country
   }
@@ -68,16 +68,13 @@ export default async function StoresPage({
         logo: true,
         country: true,
         createdAt: true,
+        rating: true,
+        reviewCount: true,
         _count: {
           select: {
-            products: { where: { status: 'ACTIVE' } },
-            reviews: true,
+            Product: { where: { status: 'ACTIVE' } },
           }
         },
-        reviews: {
-          select: { rating: true },
-          take: 100,
-        }
       },
       orderBy: [
         { createdAt: 'desc' }
@@ -90,15 +87,12 @@ export default async function StoresPage({
 
   const totalPages = Math.ceil(total / limit)
 
-  // Calculate average rating for each store
+  // Format stores with rating
   const storesWithRating = stores.map(store => {
-    const avgRating = store.reviews.length > 0
-      ? store.reviews.reduce((sum, r) => sum + r.rating, 0) / store.reviews.length
-      : 0
     return {
       ...store,
-      avgRating: avgRating.toFixed(1),
-      reviewCount: store._count.reviews,
+      avgRating: store.rating.toFixed(1),
+      reviewCount: store.reviewCount,
     }
   })
 
@@ -246,7 +240,7 @@ export default async function StoresPage({
                       <div className="flex items-center gap-3">
                         <div className="flex items-center gap-1 text-gray-500">
                           <Package className="w-4 h-4" />
-                          <span>{store._count.products}</span>
+                          <span>{store._count.Product}</span>
                         </div>
                         {parseFloat(store.avgRating) > 0 && (
                           <div className="flex items-center gap-1 text-yellow-500">

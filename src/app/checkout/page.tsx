@@ -392,7 +392,7 @@ export default function CheckoutPage() {
                       </div>
                       <ul className="mt-2 text-sm text-red-600">
                         {cantShipItems.map(item => (
-                          <li key={item.id}>• {item.name}</li>
+                          <li key={item.productId}>• {item.name}</li>
                         ))}
                       </ul>
                     </div>
@@ -643,7 +643,7 @@ export default function CheckoutPage() {
                     <h4 className="font-medium mb-2">Order Items ({itemCount})</h4>
                     <div className="space-y-2">
                       {items.map((item) => (
-                        <div key={item.id} className="flex justify-between text-sm">
+                        <div key={item.productId} className="flex justify-between text-sm">
                           <span className="text-gray-600 dark:text-gray-400">
                             {item.name} x {item.quantity}
                           </span>
@@ -687,7 +687,7 @@ export default function CheckoutPage() {
                 {/* Items Preview */}
                 <div className="space-y-3">
                   {items.slice(0, 3).map((item) => (
-                    <div key={item.id} className="flex items-center gap-3">
+                    <div key={item.productId} className="flex items-center gap-3">
                       <div className="w-12 h-12 bg-gray-100 rounded overflow-hidden">
                         {item.image ? (
                           <img src={item.image} alt="" className="w-full h-full object-cover" />

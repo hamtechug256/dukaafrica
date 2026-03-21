@@ -30,7 +30,6 @@ export default function SignInPage() {
             }
           }}
           signUpUrl="/sign-up"
-          redirectUrl="/dashboard"
         />
         
         {/* Trust badges */}

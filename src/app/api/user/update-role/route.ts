@@ -1,7 +1,11 @@
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { Country, Currency, UserRole } from '@prisma/client'
+
+// Types for our string-based fields
+type Country = 'UGANDA' | 'KENYA' | 'TANZANIA' | 'RWANDA'
+type Currency = 'UGX' | 'KES' | 'TZS' | 'RWF'
+type UserRole = 'BUYER' | 'SELLER' | 'ADMIN'
 
 // Valid countries and currencies
 const VALID_COUNTRIES: Country[] = ['UGANDA', 'KENYA', 'TANZANIA', 'RWANDA']

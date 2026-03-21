@@ -30,7 +30,6 @@ export default function SignUpPage() {
             }
           }}
           signInUrl="/sign-in"
-          redirectUrl="/onboarding"
         />
         
         {/* Benefits */}

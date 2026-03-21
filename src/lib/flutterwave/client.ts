@@ -8,8 +8,6 @@
  * - Webhook handling for payment confirmation
  */
 
-import { Currency, Country } from '@prisma/client'
-
 // ============================================
 // FLUTTERWAVE CONFIGURATION
 // ============================================
@@ -25,6 +23,9 @@ export const FLUTTERWAVE_CONFIG = {
 // ============================================
 // CURRENCY TO FLUTTERWAVE COUNTRY CODE
 // ============================================
+
+type Country = 'UGANDA' | 'KENYA' | 'TANZANIA' | 'RWANDA'
+type Currency = 'UGX' | 'KES' | 'TZS' | 'RWF'
 
 export const COUNTRY_TO_FW_COUNTRY: Record<Country, string> = {
   UGANDA: 'UG',
@@ -383,4 +384,58 @@ export function getMobileMoneyBankCode(country: Country): string {
     RWANDA: 'MTNRW'  // MTN Mobile Money Rwanda
   }
   return codes[country]
+}
+
+/**
+ * Create a seller subaccount (wrapper for createSubaccount)
+ */
+export async function createSellerSubaccount(params: {
+  storeId: string
+  storeName: string
+  email: string
+  country: string
+  payoutMethod: string
+  payoutPhone?: string
+  bankName?: string
+  bankAccount?: string
+}): Promise<{ subaccount_id: string } | null> {
+  try {
+    const fwCountry = COUNTRY_TO_FW_COUNTRY[params.country as Country] || 'UG'
+    
+    // Determine bank code based on payout method
+    let accountBank: string
+    let accountNumber: string
+    
+    if (params.payoutMethod === 'MOBILE_MONEY' && params.payoutPhone) {
+      accountBank = getMobileMoneyBankCode(params.country as Country)
+      accountNumber = params.payoutPhone.replace(/\D/g, '')
+    } else if (params.bankAccount) {
+      // For bank transfers, we'd need the actual bank code
+      // For now, use a placeholder - in production, seller would select their bank
+      accountBank = '044' // Default placeholder
+      accountNumber = params.bankAccount
+    } else {
+      return null
+    }
+
+    const subaccount = await flutterwaveClient.createSubaccount({
+      account_bank: accountBank,
+      account_number: accountNumber,
+      business_name: params.storeName,
+      business_email: params.email,
+      business_contact: params.storeName,
+      business_contact_mobile: params.payoutPhone || '',
+      business_mobile: params.payoutPhone || '',
+      country: fwCountry,
+      split_type: 'percentage',
+      split_value: 90, // Seller gets 90%, platform gets 10%
+    })
+
+    return {
+      subaccount_id: String(subaccount.data.id)
+    }
+  } catch (error) {
+    console.error('Error creating seller subaccount:', error)
+    return null
+  }
 }

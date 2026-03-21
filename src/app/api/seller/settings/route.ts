@@ -14,7 +14,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/db'
-import { Country } from '@prisma/client'
+// Country is a string type in our Prisma schema
 
 // GET - Retrieve seller's store settings
 export async function GET() {
@@ -29,7 +29,7 @@ export async function GET() {
     const user = await prisma.user.findUnique({
       where: { clerkId: userId },
       include: {
-        store: true,
+        Store: true,
       },
     })
 
@@ -37,11 +37,11 @@ export async function GET() {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    if (!user.store) {
+    if (!user.Store) {
       return NextResponse.json({ error: 'Store not found', needsOnboarding: true }, { status: 404 })
     }
 
-    const store = user.store
+    const store = user.Store
 
     // Parse ships to countries
     let shipsToCountries: string[] = []
@@ -114,10 +114,10 @@ export async function PUT(request: NextRequest) {
     // Get user and their store
     const user = await prisma.user.findUnique({
       where: { clerkId: userId },
-      include: { store: true },
+      include: { Store: true },
     })
 
-    if (!user || !user.store) {
+    if (!user || !user.Store) {
       return NextResponse.json({ error: 'Store not found' }, { status: 404 })
     }
 
@@ -128,7 +128,7 @@ export async function PUT(request: NextRequest) {
       case 'store':
         // Update store profile
         await prisma.store.update({
-          where: { id: user.store.id },
+          where: { id: user.Store.id },
           data: {
             name: data.name,
             description: data.description,
@@ -144,7 +144,7 @@ export async function PUT(request: NextRequest) {
       case 'shipping':
         // Update shipping preferences
         await prisma.store.update({
-          where: { id: user.store.id },
+          where: { id: user.Store.id },
           data: {
             // Store which countries this seller ships to
             shipsToCountries: JSON.stringify(data.shipsToCountries),
@@ -162,14 +162,14 @@ export async function PUT(request: NextRequest) {
         }
 
         // Create Flutterwave subaccount if not exists
-        if (!user.store.flutterwaveSubaccountId && data.method) {
+        if (!user.Store.flutterwaveSubaccountId && data.method) {
           try {
             const { createSellerSubaccount } = await import('@/lib/flutterwave/client')
             const subaccount = await createSellerSubaccount({
-              storeId: user.store.id,
-              storeName: user.store.name,
-              email: user.store.email || user.email,
-              country: user.store.country,
+              storeId: user.Store.id,
+              storeName: user.Store.name,
+              email: user.Store.email || user.email,
+              country: user.Store.country,
               payoutMethod: data.method,
               payoutPhone: data.phone,
               bankName: data.bankName,
@@ -186,7 +186,7 @@ export async function PUT(request: NextRequest) {
         }
 
         await prisma.store.update({
-          where: { id: user.store.id },
+          where: { id: user.Store.id },
           data: payoutData,
         })
         break
@@ -194,7 +194,7 @@ export async function PUT(request: NextRequest) {
       case 'logo':
         // Update store logo
         await prisma.store.update({
-          where: { id: user.store.id },
+          where: { id: user.Store.id },
           data: { logo: data.logo },
         })
         break
@@ -202,7 +202,7 @@ export async function PUT(request: NextRequest) {
       case 'banner':
         // Update store banner
         await prisma.store.update({
-          where: { id: user.store.id },
+          where: { id: user.Store.id },
           data: { banner: data.banner },
         })
         break
