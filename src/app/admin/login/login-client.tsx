@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { useSignIn, useClerk } from '@clerk/nextjs'
+import { useSignIn, useClerk, useAuth } from '@clerk/nextjs'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -14,6 +14,7 @@ export function Login() {
   const router = useRouter()
   const { signIn, setActive, isLoaded } = useSignIn()
   const { signOut } = useClerk()
+  const { isSignedIn, userId } = useAuth()
   
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -21,6 +22,43 @@ export function Login() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [status, setStatus] = useState('')
+  const [clerkReady, setClerkReady] = useState(false)
+
+  // Wait for Clerk to be fully loaded
+  useEffect(() => {
+    if (isLoaded) {
+      setClerkReady(true)
+    }
+  }, [isLoaded])
+
+  // If already signed in, check role and redirect
+  useEffect(() => {
+    async function checkExistingSession() {
+      if (isSignedIn && userId && isLoaded) {
+        setStatus('Checking admin access...')
+        try {
+          const roleRes = await fetch('/api/user/role')
+          const roleData = await roleRes.json()
+          
+          if (roleData.user?.isAdmin) {
+            setStatus('Redirecting to admin dashboard...')
+            router.push('/admin')
+          } else {
+            // Already signed in but not admin - sign out and show error
+            await signOut()
+            setError('Access denied. This portal is for administrators only.')
+            setStatus('')
+          }
+        } catch (err) {
+          console.error('Role check error:', err)
+          setError('Failed to verify admin status. Please try again.')
+          setStatus('')
+        }
+      }
+    }
+    
+    checkExistingSession()
+  }, [isSignedIn, userId, isLoaded, router, signOut])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -29,8 +67,8 @@ export function Login() {
     setIsLoading(true)
 
     try {
-      if (!isLoaded) {
-        setError('Authentication service not ready. Please refresh.')
+      if (!clerkReady) {
+        setError('Authentication service is still loading. Please wait...')
         setIsLoading(false)
         return
       }
@@ -164,23 +202,34 @@ export function Login() {
                 </div>
               </div>
 
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={isLoading || !email || !password}
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Signing in...
-                  </>
-                ) : (
-                  <>
-                    <Shield className="w-4 h-4 mr-2" />
-                    Sign in to Admin Portal
-                  </>
-                )}
-              </Button>
+              {!clerkReady ? (
+                <Button
+                  type="button"
+                  className="w-full"
+                  disabled
+                >
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Initializing authentication...
+                </Button>
+              ) : (
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={isLoading || !email || !password}
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Signing in...
+                    </>
+                  ) : (
+                    <>
+                      <Shield className="w-4 h-4 mr-2" />
+                      Sign in to Admin Portal
+                    </>
+                  )}
+                </Button>
+              )
             </form>
 
             <div className="mt-6 pt-6 border-t border-gray-700">

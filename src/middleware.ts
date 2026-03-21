@@ -38,22 +38,21 @@ export default clerkMiddleware(async (auth, req) => {
   const { userId, sessionClaims } = await auth()
   const url = req.nextUrl
 
-  // Handle admin routes
+  // Handle admin routes (excluding admin/login which is public)
   if (isAdminRoute(req) && !isAdminLoginRoute(req)) {
     // Require authentication
     if (!userId) {
       const adminLoginUrl = new URL('/admin/login', req.url)
       return NextResponse.redirect(adminLoginUrl)
     }
-    // Role check happens client-side in the admin pages
-    // This is intentional - we check the database role, not Clerk metadata
+    // Role check happens in the admin pages and API routes
+    // We check the database role, not Clerk metadata
   }
 
-  // If admin is logged in and tries to access admin login, redirect to admin dashboard
-  if (isAdminLoginRoute(req) && userId) {
-    const adminDashboardUrl = new URL('/admin', req.url)
-    return NextResponse.redirect(adminDashboardUrl)
-  }
+  // Note: We don't redirect logged-in users from /admin/login to /admin
+  // because the admin login page handles this - it checks if the user
+  // is already logged in and has admin role, then redirects accordingly.
+  // This prevents redirect loops for logged-in non-admin users.
 
   // Handle seller routes
   if (isSellerRoute(req)) {
