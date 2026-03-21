@@ -22,14 +22,6 @@ export function Login() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [status, setStatus] = useState('')
-  const [clerkReady, setClerkReady] = useState(false)
-
-  // Wait for Clerk to be fully loaded
-  useEffect(() => {
-    if (isLoaded) {
-      setClerkReady(true)
-    }
-  }, [isLoaded])
 
   // If already signed in, check role and redirect
   useEffect(() => {
@@ -44,7 +36,6 @@ export function Login() {
             setStatus('Redirecting to admin dashboard...')
             router.push('/admin')
           } else {
-            // Already signed in but not admin - sign out and show error
             await signOut()
             setError('Access denied. This portal is for administrators only.')
             setStatus('')
@@ -67,7 +58,7 @@ export function Login() {
     setIsLoading(true)
 
     try {
-      if (!clerkReady || !signIn) {
+      if (!isLoaded || !signIn) {
         setError('Authentication service is still loading. Please wait...')
         setIsLoading(false)
         return
@@ -75,16 +66,46 @@ export function Login() {
 
       setStatus('Authenticating...')
 
-      // Sign in with Clerk
-      const signInAttempt = await signIn.create({
+      // Clerk v7 sign in flow:
+      // 1. Create sign-in with identifier (email)
+      const createResult = await signIn.create({
         identifier: email,
-        password,
       })
 
-      if (signInAttempt.status === 'complete' && signInAttempt.createdSessionId) {
-        await setActive({ session: signInAttempt.createdSessionId })
-        
+      if (createResult.error) {
+        const errorCode = (createResult.error as any)?.errors?.[0]?.code
+        if (errorCode === 'form_identifier_not_found') {
+          setError('Account not found. Please check your email.')
+        } else {
+          setError((createResult.error as any)?.errors?.[0]?.message || 'Failed to initiate sign in.')
+        }
+        setStatus('')
+        setIsLoading(false)
+        return
+      }
+
+      // 2. Submit password
+      const passwordResult = await signIn.password({ password })
+
+      if (passwordResult.error) {
+        const errorCode = (passwordResult.error as any)?.errors?.[0]?.code
+        if (errorCode === 'form_password_incorrect') {
+          setError('Incorrect password. Please try again.')
+        } else if (errorCode === 'too_many_attempts') {
+          setError('Too many failed attempts. Please try again later.')
+        } else {
+          setError((passwordResult.error as any)?.errors?.[0]?.message || 'Authentication failed.')
+        }
+        setStatus('')
+        setIsLoading(false)
+        return
+      }
+
+      // 3. Check if sign-in is complete
+      if (signIn.status === 'complete' && signIn.createdSessionId) {
         setStatus('Verifying admin privileges...')
+        
+        await setActive({ session: signIn.createdSessionId })
 
         // Check if user is admin
         const roleRes = await fetch('/api/user/role')
@@ -92,34 +113,21 @@ export function Login() {
 
         if (roleData.user?.isAdmin) {
           setStatus('Access granted! Redirecting...')
-          // Small delay for user to see success message
           setTimeout(() => {
             router.push('/admin')
           }, 500)
         } else {
-          // Not an admin - sign them out and show error
           await signOut()
           setError('Access denied. This portal is for administrators only.')
           setStatus('')
         }
       } else {
-        setError('Authentication failed. Please check your credentials.')
+        setError(`Authentication incomplete. Status: ${signIn.status}`)
         setStatus('')
       }
     } catch (err: any) {
       console.error('Login error:', err)
-      
-      // Handle specific Clerk errors
-      const errorCode = err?.errors?.[0]?.code
-      if (errorCode === 'form_identifier_not_found') {
-        setError('Account not found. Please check your email.')
-      } else if (errorCode === 'form_password_incorrect') {
-        setError('Incorrect password. Please try again.')
-      } else if (errorCode === 'too_many_attempts') {
-        setError('Too many failed attempts. Please try again later.')
-      } else {
-        setError(err?.message || 'Login failed. Please try again.')
-      }
+      setError(err?.message || 'Login failed. Please try again.')
       setStatus('')
     } finally {
       setIsLoading(false)
@@ -202,7 +210,7 @@ export function Login() {
                 </div>
               </div>
 
-              {!clerkReady ? (
+              {!isLoaded ? (
                 <Button
                   type="button"
                   className="w-full"
