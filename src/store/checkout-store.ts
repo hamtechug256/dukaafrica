@@ -19,6 +19,7 @@ interface Address {
 }
 
 interface PaymentMethod {
+  id?: string
   type: 'MOBILE_MONEY' | 'CARD' | 'BANK_TRANSFER'
   provider?: 'MPESA' | 'MTN' | 'AIRTEL' | 'PAYSTACK' | 'FLUTTERWAVE'
   phoneNumber?: string
