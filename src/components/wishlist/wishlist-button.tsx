@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
 
 interface WishlistButtonProps {
   productId: string
-  variant?: 'default' | 'outline' | 'ghost' | 'icon'
+  variant?: 'default' | 'outline' | 'ghost' | 'secondary' | 'destructive' | 'link'
   size?: 'default' | 'sm' | 'lg' | 'icon'
   className?: string
   showText?: boolean
