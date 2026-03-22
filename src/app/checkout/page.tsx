@@ -29,7 +29,7 @@ import {
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { formatPrice, COUNTRY_INFO, COUNTRY_CURRENCY, MOBILE_MONEY_PROVIDERS } from '@/lib/currency'
+import { formatPrice, COUNTRY_INFO, COUNTRY_CURRENCY, MOBILE_MONEY_PROVIDERS, Currency } from '@/lib/currency'
 
 // Countries we support (East Africa only)
 const countries = [
@@ -647,7 +647,7 @@ export default function CheckoutPage() {
                           <span className="text-gray-600 dark:text-gray-400">
                             {item.name} x {item.quantity}
                           </span>
-                          <span>{formatPrice(item.price * item.quantity, item.currency || 'UGX')}</span>
+                          <span>{formatPrice(item.price * item.quantity, (item.currency || 'UGX') as Currency)}</span>
                         </div>
                       ))}
                     </div>
@@ -702,7 +702,7 @@ export default function CheckoutPage() {
                         <p className="text-xs text-gray-500">Qty: {item.quantity}</p>
                       </div>
                       <p className="text-sm font-medium">
-                        {formatPrice(item.price * item.quantity, item.currency || 'UGX')}
+                        {formatPrice(item.price * item.quantity, (item.currency || 'UGX') as Currency)}
                       </p>
                     </div>
                   ))}
