@@ -1,6 +1,39 @@
 import { auth } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { z } from 'zod'
+import { logger } from '@/lib/logger'
+
+// ============================================
+// VALIDATION SCHEMAS
+// ============================================
+
+const createAddressSchema = z.object({
+  label: z.enum(['HOME', 'WORK', 'OFFICE', 'OTHER']).optional(),
+  fullName: z.string().min(2, 'Full name must be at least 2 characters').max(100),
+  phone: z.string().min(10, 'Valid phone number is required').max(15),
+  country: z.string().min(1, 'Country is required'),
+  region: z.string().min(1, 'Region is required'),
+  city: z.string().min(1, 'City is required'),
+  addressLine1: z.string().min(5, 'Address is required').max(200),
+  addressLine2: z.string().max(200).optional(),
+  postalCode: z.string().max(20).optional(),
+  isDefault: z.boolean().optional(),
+})
+
+const updateAddressSchema = z.object({
+  id: z.string().min(1, 'Address ID is required'),
+  label: z.enum(['HOME', 'WORK', 'OFFICE', 'OTHER']).optional(),
+  fullName: z.string().min(2).max(100).optional(),
+  phone: z.string().min(10).max(15).optional(),
+  country: z.string().min(1).optional(),
+  region: z.string().min(1).optional(),
+  city: z.string().min(1).optional(),
+  addressLine1: z.string().min(5).max(200).optional(),
+  addressLine2: z.string().max(200).optional().nullable(),
+  postalCode: z.string().max(20).optional().nullable(),
+  isDefault: z.boolean().optional(),
+})
 
 // GET user's addresses
 export async function GET() {
@@ -41,7 +74,17 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json()
-    const { label, fullName, phone, country, region, city, addressLine1, addressLine2, postalCode, isDefault } = body
+    
+    // Validate input with Zod
+    const validationResult = createAddressSchema.safeParse(body)
+    if (!validationResult.success) {
+      return NextResponse.json(
+        { error: 'Invalid input', details: validationResult.error.flatten().fieldErrors },
+        { status: 400 }
+      )
+    }
+
+    const { label, fullName, phone, country, region, city, addressLine1, addressLine2, postalCode, isDefault } = validationResult.data
 
     const user = await prisma.user.findUnique({
       where: { clerkId: userId },
@@ -92,7 +135,17 @@ export async function PUT(req: Request) {
     }
 
     const body = await req.json()
-    const { id, ...data } = body
+    
+    // Validate input with Zod
+    const validationResult = updateAddressSchema.safeParse(body)
+    if (!validationResult.success) {
+      return NextResponse.json(
+        { error: 'Invalid input', details: validationResult.error.flatten().fieldErrors },
+        { status: 400 }
+      )
+    }
+
+    const { id, ...data } = validationResult.data
 
     const user = await prisma.user.findUnique({
       where: { clerkId: userId },
@@ -119,9 +172,22 @@ export async function PUT(req: Request) {
       })
     }
 
+    // Only update fields that were provided
+    const updateData: Record<string, unknown> = {}
+    if (data.label !== undefined) updateData.label = data.label
+    if (data.fullName !== undefined) updateData.fullName = data.fullName
+    if (data.phone !== undefined) updateData.phone = data.phone
+    if (data.country !== undefined) updateData.country = data.country
+    if (data.region !== undefined) updateData.region = data.region
+    if (data.city !== undefined) updateData.city = data.city
+    if (data.addressLine1 !== undefined) updateData.addressLine1 = data.addressLine1
+    if (data.addressLine2 !== undefined) updateData.addressLine2 = data.addressLine2
+    if (data.postalCode !== undefined) updateData.postalCode = data.postalCode
+    if (data.isDefault !== undefined) updateData.isDefault = data.isDefault
+
     const address = await prisma.address.update({
       where: { id },
-      data
+      data: updateData
     })
 
     return NextResponse.json({ address })
