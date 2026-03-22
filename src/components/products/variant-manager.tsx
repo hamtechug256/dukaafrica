@@ -237,7 +237,7 @@ export function VariantManager({
   }, [variantOptions, onVariantOptionsChange, onVariantsChange])
 
   // Update variant field
-  const updateVariant = useCallback((variantId: string, field: keyof ProductVariant, value: string | number | boolean) => {
+  const updateVariant = useCallback((variantId: string, field: keyof ProductVariant, value: string | number | boolean | null) => {
     const updated = variants.map(v =>
       v.id === variantId ? { ...v, [field]: value } : v
     )

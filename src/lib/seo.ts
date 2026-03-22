@@ -98,7 +98,7 @@ export function generateProductMetadata(product: {
       title: `${product.name} - DuukaAfrica`,
       description: product.description || `Buy ${product.name} at ${product.currency} ${product.price.toLocaleString()} on DuukaAfrica.`,
       images: [{ url: imageUrl, width: 800, height: 800 }],
-      type: 'product',
+      type: 'website',
     },
     twitter: {
       card: 'summary_large_image',

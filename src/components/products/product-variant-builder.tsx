@@ -112,7 +112,7 @@ export function ProductVariantBuilder({
     onChange(newVariants, variantOptions)
   }
 
-  const updateVariant = (id: string, field: keyof Variant, value: string | number | boolean) => {
+  const updateVariant = (id: string, field: keyof Variant, value: string | number | boolean | undefined) => {
     const updated = variants.map(v => 
       v.id === id ? { ...v, [field]: value } : v
     )
