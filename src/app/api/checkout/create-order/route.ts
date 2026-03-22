@@ -1,6 +1,50 @@
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { z } from 'zod'
+
+// Zod validation schema for order creation
+const OrderItemSchema = z.object({
+  productId: z.string().min(1),
+  variantId: z.string().optional(),
+  name: z.string().min(1),
+  variantName: z.string().optional(),
+  quantity: z.number().int().positive(),
+  price: z.number().positive(),
+  storeId: z.string().min(1),
+  storeName: z.string().min(1),
+  image: z.string().optional(),
+})
+
+const ShippingAddressSchema = z.object({
+  fullName: z.string().min(1, 'Full name is required'),
+  phone: z.string().min(10, 'Valid phone number is required'),
+  country: z.string().min(1, 'Country is required'),
+  region: z.string().min(1, 'Region is required'),
+  city: z.string().min(1, 'City is required'),
+  addressLine1: z.string().min(1, 'Address is required'),
+  addressLine2: z.string().optional(),
+  postalCode: z.string().optional(),
+})
+
+const PaymentMethodSchema = z.object({
+  type: z.enum(['CARD', 'MOBILE_MONEY']),
+  provider: z.string().min(1),
+})
+
+const DeliveryOptionSchema = z.object({
+  id: z.string().min(1),
+})
+
+const CreateOrderSchema = z.object({
+  items: z.array(OrderItemSchema).min(1, 'At least one item is required'),
+  shippingAddress: ShippingAddressSchema,
+  deliveryOption: DeliveryOptionSchema,
+  paymentMethod: PaymentMethodSchema,
+  subtotal: z.number().positive(),
+  shipping: z.number().nonnegative(),
+  total: z.number().positive(),
+})
 
 // Generate unique order number
 function generateOrderNumber(): string {
@@ -19,12 +63,17 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json()
-    const { items, shippingAddress, deliveryOption, paymentMethod, subtotal, shipping, total } = body
 
-    // Validate
-    if (!items || items.length === 0) {
-      return NextResponse.json({ error: 'No items in cart' }, { status: 400 })
+    // Validate input with Zod
+    const validationResult = CreateOrderSchema.safeParse(body)
+    if (!validationResult.success) {
+      return NextResponse.json(
+        { error: 'Validation failed', details: validationResult.error.flatten() },
+        { status: 400 }
+      )
     }
+
+    const { items, shippingAddress, deliveryOption, paymentMethod, subtotal, shipping, total } = validationResult.data
 
     // Get or create user in database
     let dbUser = await prisma.user.findUnique({
@@ -45,72 +94,80 @@ export async function POST(req: Request) {
       })
     }
 
-    // Create order
+    // Generate unique order number
     const orderNumber = generateOrderNumber()
 
-    const order = await prisma.order.create({
-      data: {
-        orderNumber,
-        userId: dbUser.id,
-        
-        // Shipping address
-        shippingName: shippingAddress.fullName,
-        shippingPhone: shippingAddress.phone,
-        shippingCountry: shippingAddress.country,
-        shippingRegion: shippingAddress.region,
-        shippingCity: shippingAddress.city,
-        shippingAddress: shippingAddress.addressLine1 + (shippingAddress.addressLine2 ? `, ${shippingAddress.addressLine2}` : ''),
-        shippingPostal: shippingAddress.postalCode,
-        
-        // Pricing
-        subtotal,
-        shippingFee: shipping,
-        tax: 0,
-        discount: 0,
-        total,
-        currency: 'UGX',
-        
-        // Delivery
-        deliveryMethod: deliveryOption.id.toUpperCase(),
-        
-        // Payment
-        paymentMethod: paymentMethod.type,
-        paymentStatus: 'PENDING',
-        status: 'PENDING',
-        
-        // Items
-        OrderItem: {
-          create: items.map((item: any) => ({
-            productId: item.productId,
-            variantId: item.variantId,
-            productName: item.name,
-            variantName: item.variantName,
-            quantity: item.quantity,
-            price: item.price,
-            total: item.price * item.quantity,
-            storeId: item.storeId,
-            storeName: item.storeName,
-            productImage: item.image,
-          })),
+    // Use transaction for atomic order creation
+    const result = await prisma.$transaction(async (tx) => {
+      // Create order
+      const order = await tx.order.create({
+        data: {
+          orderNumber,
+          userId: dbUser!.id,
+          
+          // Shipping address
+          shippingName: shippingAddress.fullName,
+          shippingPhone: shippingAddress.phone,
+          shippingCountry: shippingAddress.country,
+          shippingRegion: shippingAddress.region,
+          shippingCity: shippingAddress.city,
+          shippingAddress: shippingAddress.addressLine1 + (shippingAddress.addressLine2 ? `, ${shippingAddress.addressLine2}` : ''),
+          shippingPostal: shippingAddress.postalCode,
+          
+          // Pricing
+          subtotal,
+          shippingFee: shipping,
+          tax: 0,
+          discount: 0,
+          total,
+          currency: 'UGX',
+          
+          // Delivery
+          deliveryMethod: deliveryOption.id.toUpperCase(),
+          
+          // Payment
+          paymentMethod: paymentMethod.type,
+          paymentStatus: 'PENDING',
+          status: 'PENDING',
+          
+          // Items - using OrderItem relation name as per Prisma schema
+          OrderItem: {
+            create: items.map((item) => ({
+              productId: item.productId,
+              variantId: item.variantId,
+              productName: item.name,
+              variantName: item.variantName,
+              quantity: item.quantity,
+              price: item.price,
+              total: item.price * item.quantity,
+              storeId: item.storeId,
+              storeName: item.storeName,
+              productImage: item.image,
+            })),
+          },
         },
-      },
-      include: {
-        OrderItem: true,
-      },
+        include: {
+          OrderItem: true,
+        },
+      })
+
+      // Create payment record
+      const payment = await tx.payment.create({
+        data: {
+          orderId: order.id,
+          userId: dbUser!.id,
+          amount: total,
+          currency: 'UGX',
+          method: paymentMethod.type,
+          provider: paymentMethod.provider,
+          status: 'PENDING',
+        },
+      })
+
+      return { order, payment }
     })
 
-    // Create payment record
-    const payment = await prisma.payment.create({
-      data: {
-        orderId: order.id,
-        userId: dbUser.id,
-        amount: total,
-        currency: 'UGX',
-        method: paymentMethod.type,
-        provider: paymentMethod.provider,
-        status: 'PENDING',
-      },
-    })
+    const { order, payment } = result
 
     // If card payment, initialize Paystack transaction
     if (paymentMethod.type === 'CARD' && paymentMethod.provider === 'PAYSTACK') {
