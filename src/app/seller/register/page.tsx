@@ -13,7 +13,7 @@ import { Store, User, Mail, Phone, MapPin, Loader2, CheckCircle } from 'lucide-r
 import Link from 'next/link'
 
 export default function SellerRegisterPage() {
-  const { signUp, isLoaded } = useSignUp()
+  const signUp = useSignUp()
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [step, setStep] = useState(1)
@@ -44,7 +44,7 @@ export default function SellerRegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!isLoaded) return
+    if (!signUp) return
 
     setIsLoading(true)
     try {
