@@ -230,7 +230,7 @@ async function getShippingRates(
         isActive: true,
       },
       include: {
-        tier: true,
+        ShippingTier: true,
       },
     });
 
