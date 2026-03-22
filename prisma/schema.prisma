@@ -608,3 +608,31 @@ model NewsletterSubscriber {
   @@index([email])
   @@index([isActive])
 }
+
+model RateLimitEntry {
+  id           String   @id @default(uuid())
+  identifier   String   // IP address or user ID
+  action       String   // e.g., "login", "api_call", "password_reset"
+  attempts     Int      @default(1)
+  blockedUntil DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([identifier, action])
+  @@index([identifier])
+  @@index([blockedUntil])
+}
+
+model SecurityLog {
+  id           String   @id @default(uuid())
+  type         String   // LOGIN_ATTEMPT, BLOCKED_ACCESS, SUSPICIOUS_ACTIVITY
+  identifier   String   // IP address or user ID
+  details      String
+  userAgent    String?
+  path         String?
+  createdAt    DateTime @default(now())
+
+  @@index([type])
+  @@index([identifier])
+  @@index([createdAt])
+}

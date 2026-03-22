@@ -15,8 +15,8 @@ import {
  */
 export async function GET(request: NextRequest) {
   const ip = getClientIP(request)
-  const blockStatus = isIPBlocked(ip)
-  const attemptCount = getAttemptCount(ip)
+  const blockStatus = await isIPBlocked(ip)
+  const attemptCount = await getAttemptCount(ip)
   
   const response = NextResponse.json({
     blocked: blockStatus.blocked,
@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
   const ip = getClientIP(request)
   
   // Check if already blocked
-  const blockStatus = isIPBlocked(ip)
+  const blockStatus = await isIPBlocked(ip)
   if (blockStatus.blocked) {
     logSecurityEvent({
       type: 'BLOCKED_ACCESS',
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
   }
   
   // Record the failed attempt
-  const result = recordFailedAttempt(ip)
+  const result = await recordFailedAttempt(ip)
   
   logSecurityEvent({
     type: 'LOGIN_ATTEMPT',
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
  */
 export async function DELETE(request: NextRequest) {
   const ip = getClientIP(request)
-  clearFailedAttempts(ip)
+  await clearFailedAttempts(ip)
   
   const response = NextResponse.json({
     success: true,

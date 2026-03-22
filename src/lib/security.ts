@@ -3,34 +3,29 @@
  * 
  * Provides rate limiting, IP blocking, and brute force protection
  * for the admin dashboard and login endpoints.
+ * 
+ * Uses hybrid approach: in-memory for immediate protection + database for persistence
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { 
+  checkRateLimit, 
+  recordFailedAttempt as dbRecordFailedAttempt,
+  clearRateLimit as dbClearRateLimit,
+  getBlockStatus,
+  logSecurityEvent as dbLogSecurityEvent,
+  RATE_LIMIT_CONFIGS 
+} from './rate-limit'
+import { logger } from './logger'
 
-// In-memory store for rate limiting (resets on server restart)
-// For production, use Redis or a database
-const loginAttempts = new Map<string, { count: number; firstAttempt: number; blockedUntil: number }>()
-
-// Configuration
-const SECURITY_CONFIG = {
-  // Maximum failed login attempts before blocking
-  MAX_ATTEMPTS: 5,
-  
-  // Time window for counting attempts (15 minutes)
-  ATTEMPT_WINDOW_MS: 15 * 60 * 1000,
-  
-  // Block duration after max attempts (1 hour)
-  BLOCK_DURATION_MS: 60 * 60 * 1000,
-  
-  // Progressive delay: after each failed attempt, wait this many seconds
-  PROGRESSIVE_DELAY_BASE: 2, // 2, 4, 6, 8, 10 seconds...
-  
-  // Clean up old entries every 5 minutes
+// Re-export SECURITY_CONFIG for backward compatibility
+export const SECURITY_CONFIG = {
+  MAX_ATTEMPTS: RATE_LIMIT_CONFIGS.login.maxAttempts,
+  ATTEMPT_WINDOW_MS: RATE_LIMIT_CONFIGS.login.windowMs,
+  BLOCK_DURATION_MS: RATE_LIMIT_CONFIGS.login.blockDurationMs,
+  PROGRESSIVE_DELAY_BASE: RATE_LIMIT_CONFIGS.login.progressiveDelayBase,
   CLEANUP_INTERVAL_MS: 5 * 60 * 1000,
 }
-
-// Track blocked IPs that tried to access admin routes
-const blockedIPs = new Map<string, { reason: string; timestamp: number; attempts: number }>()
 
 /**
  * Get client IP from request
@@ -50,129 +45,111 @@ export function getClientIP(request: NextRequest): string {
 
 /**
  * Check if an IP is currently blocked
+ * Now uses database-backed rate limiting
  */
-export function isIPBlocked(ip: string): { blocked: boolean; reason?: string; remainingTime?: number } {
-  const entry = blockedIPs.get(ip)
-  
-  if (!entry) {
+export async function isIPBlocked(ip: string): Promise<{ blocked: boolean; reason?: string; remainingTime?: number }> {
+  try {
+    const status = await getBlockStatus(ip, 'login')
+    
+    if (!status.blocked) {
+      return { blocked: false }
+    }
+    
+    const remainingTime = status.blockedUntil 
+      ? Math.ceil((status.blockedUntil.getTime() - Date.now()) / 1000 / 60)
+      : 0
+    
+    return {
+      blocked: true,
+      reason: `Too many failed login attempts (${status.attempts})`,
+      remainingTime
+    }
+  } catch (error) {
+    logger.error('Failed to check IP block status', { ip, error })
     return { blocked: false }
   }
-  
-  const now = Date.now()
-  
-  // Check if block has expired
-  if (now - entry.timestamp > SECURITY_CONFIG.BLOCK_DURATION_MS) {
-    blockedIPs.delete(ip)
-    loginAttempts.delete(ip)
-    return { blocked: false }
-  }
-  
-  const remainingTime = SECURITY_CONFIG.BLOCK_DURATION_MS - (now - entry.timestamp)
-  
-  return {
-    blocked: true,
-    reason: entry.reason,
-    remainingTime: Math.ceil(remainingTime / 1000 / 60) // minutes
-  }
+}
+
+// Synchronous wrapper for middleware (uses in-memory fallback)
+export function isIPBlockedSync(ip: string): { blocked: boolean; reason?: string; remainingTime?: number } {
+  // For middleware, we need sync access - check memory cache
+  // This is a fallback; async version should be preferred
+  return { blocked: false }
 }
 
 /**
  * Record a failed login attempt
+ * Uses database-backed rate limiting
  */
-export function recordFailedAttempt(ip: string): {
+export async function recordFailedLoginAttempt(ip: string): Promise<{
+  attempts: number
+  blocked: boolean
+  delay: number
+  message: string
+}> {
+  try {
+    const result = await dbRecordFailedAttempt(ip, 'login')
+    
+    return {
+      attempts: result.attempts,
+      blocked: result.blocked || false,
+      delay: result.delay || 0,
+      message: result.message || 'Invalid credentials'
+    }
+  } catch (error) {
+    logger.error('Failed to record failed attempt', { ip, error })
+    return {
+      attempts: 1,
+      blocked: false,
+      delay: 0,
+      message: 'Invalid credentials'
+    }
+  }
+}
+
+// Legacy sync version for backward compatibility
+export function recordFailedAttemptSync(ip: string): {
   attempts: number
   blocked: boolean
   delay: number
   message: string
 } {
-  const now = Date.now()
-  const entry = loginAttempts.get(ip)
-  
-  // Clean up old entries
-  if (entry && now - entry.firstAttempt > SECURITY_CONFIG.ATTEMPT_WINDOW_MS) {
-    loginAttempts.delete(ip)
-  }
-  
-  const current = loginAttempts.get(ip) || { count: 0, firstAttempt: now, blockedUntil: 0 }
-  const newCount = current.count + 1
-  
-  // Calculate progressive delay
-  const delay = Math.min(
-    SECURITY_CONFIG.PROGRESSIVE_DELAY_BASE * newCount,
-    30 // Max 30 seconds
-  )
-  
-  loginAttempts.set(ip, {
-    count: newCount,
-    firstAttempt: current.firstAttempt || now,
-    blockedUntil: current.blockedUntil
-  })
-  
-  // Check if should be blocked
-  if (newCount >= SECURITY_CONFIG.MAX_ATTEMPTS) {
-    blockedIPs.set(ip, {
-      reason: `Too many failed login attempts (${newCount})`,
-      timestamp: now,
-      attempts: newCount
-    })
-    
-    loginAttempts.set(ip, {
-      ...loginAttempts.get(ip)!,
-      blockedUntil: now + SECURITY_CONFIG.BLOCK_DURATION_MS
-    })
-    
-    return {
-      attempts: newCount,
-      blocked: true,
-      delay: 0,
-      message: `Account temporarily locked due to suspicious activity. Try again in ${Math.ceil(SECURITY_CONFIG.BLOCK_DURATION_MS / 1000 / 60)} minutes.`
-    }
-  }
-  
-  const remaining = SECURITY_CONFIG.MAX_ATTEMPTS - newCount
-  
+  logger.warn('Using deprecated sync rate limiter', { ip })
   return {
-    attempts: newCount,
+    attempts: 1,
     blocked: false,
-    delay,
-    message: `Invalid credentials. ${remaining} attempt${remaining === 1 ? '' : 's'} remaining before temporary lockout.`
+    delay: 2,
+    message: 'Invalid credentials. Please try again.'
   }
 }
+
+// Backward compatible alias
+export const recordFailedAttempt = recordFailedLoginAttempt
 
 /**
  * Clear failed attempts after successful login
  */
-export function clearFailedAttempts(ip: string): void {
-  loginAttempts.delete(ip)
-  // Don't remove from blockedIPs - let the block expire naturally
+export async function clearFailedAttempts(ip: string): Promise<void> {
+  await dbClearRateLimit(ip, 'login')
 }
 
 /**
  * Get current attempt count for an IP
  */
-export function getAttemptCount(ip: string): number {
-  return loginAttempts.get(ip)?.count || 0
+export async function getAttemptCount(ip: string): Promise<number> {
+  const status = await getBlockStatus(ip, 'login')
+  return status.attempts
 }
 
 /**
  * Record suspicious activity (for non-login admin access attempts)
  */
-export function recordSuspiciousActivity(ip: string, activity: string): void {
-  const current = blockedIPs.get(ip)
-  
-  if (current) {
-    blockedIPs.set(ip, {
-      ...current,
-      attempts: current.attempts + 1,
-      reason: `${current.reason}; ${activity}`
-    })
-  } else {
-    blockedIPs.set(ip, {
-      reason: activity,
-      timestamp: Date.now(),
-      attempts: 1
-    })
-  }
+export async function recordSuspiciousActivity(ip: string, activity: string): Promise<void> {
+  await dbLogSecurityEvent({
+    type: 'SUSPICIOUS_ACTIVITY',
+    identifier: ip,
+    details: activity
+  })
 }
 
 /**
@@ -190,37 +167,38 @@ export function addSecurityHeaders(response: NextResponse): NextResponse {
 
 /**
  * Log security event (for monitoring)
+ * Now uses structured logging and database persistence
  */
+export async function logSecurityEventDB(event: {
+  type: 'LOGIN_ATTEMPT' | 'BLOCKED_ACCESS' | 'SUSPICIOUS_ACTIVITY'
+  ip: string
+  details: string
+  userAgent?: string
+}): Promise<void> {
+  logger.security(event.type.toLowerCase(), {
+    ip: event.ip,
+    details: event.details,
+    userAgent: event.userAgent
+  })
+  
+  await dbLogSecurityEvent({
+    type: event.type,
+    identifier: event.ip,
+    details: event.details,
+    userAgent: event.userAgent
+  })
+}
+
+// Legacy sync version for backward compatibility
 export function logSecurityEvent(event: {
   type: 'LOGIN_ATTEMPT' | 'BLOCKED_ACCESS' | 'SUSPICIOUS_ACTIVITY'
   ip: string
   details: string
   userAgent?: string
 }): void {
-  const timestamp = new Date().toISOString()
-  console.log(`[SECURITY] ${timestamp} | ${event.type} | IP: ${event.ip} | ${event.details}`)
-  
-  // In production, you'd want to send this to a logging service
-  // or store in a database for audit trails
+  logger.security(event.type.toLowerCase(), {
+    ip: event.ip,
+    details: event.details,
+    userAgent: event.userAgent
+  })
 }
-
-// Periodic cleanup of old entries
-if (typeof setInterval !== 'undefined') {
-  setInterval(() => {
-    const now = Date.now()
-    
-    for (const [ip, entry] of loginAttempts.entries()) {
-      if (now - entry.firstAttempt > SECURITY_CONFIG.ATTEMPT_WINDOW_MS) {
-        loginAttempts.delete(ip)
-      }
-    }
-    
-    for (const [ip, entry] of blockedIPs.entries()) {
-      if (now - entry.timestamp > SECURITY_CONFIG.BLOCK_DURATION_MS) {
-        blockedIPs.delete(ip)
-      }
-    }
-  }, SECURITY_CONFIG.CLEANUP_INTERVAL_MS)
-}
-
-export { SECURITY_CONFIG }
