@@ -1,4 +1,4 @@
-import { auth } from '@clerk/nextjs/server'
+import { auth, clerkClient } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 
@@ -11,12 +11,37 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const user = await prisma.user.findUnique({
+    let user = await prisma.user.findUnique({
       where: { clerkId: userId },
     })
 
+    // Auto-create user if not found (in case webhook didn't fire)
     if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+      console.log(`[Orders API] User not found in database, auto-creating: ${userId}`)
+      
+      try {
+        const client = await clerkClient()
+        const clerkUser = await client.users.getUser(userId)
+        
+        user = await prisma.user.create({
+          data: {
+            clerkId: userId,
+            email: clerkUser.emailAddresses[0]?.emailAddress || '',
+            firstName: clerkUser.firstName,
+            lastName: clerkUser.lastName,
+            name: [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(' ') || null,
+            avatar: clerkUser.imageUrl,
+            role: 'BUYER',
+          }
+        })
+        console.log(`[Orders API] User auto-created: ${userId}`)
+      } catch (createError) {
+        console.error('[Orders API] Failed to auto-create user:', createError)
+        return NextResponse.json({ 
+          error: 'User account setup incomplete. Please try logging out and back in.',
+          code: 'USER_NOT_FOUND'
+        }, { status: 400 })
+      }
     }
 
     const { searchParams } = new URL(req.url)
