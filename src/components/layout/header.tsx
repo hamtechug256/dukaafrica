@@ -22,7 +22,8 @@ import {
   Store,
   Package,
   Settings,
-  LayoutDashboard
+  LayoutDashboard,
+  LogOut
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useUser, useClerk, SignInButton, UserButton } from "@clerk/nextjs";
@@ -42,11 +43,16 @@ const categories = [
 export function Header() {
   const [searchQuery, setSearchQuery] = useState("");
   const { isSignedIn, user } = useUser();
-  const { openSignIn } = useClerk();
+  const { openSignIn, signOut } = useClerk();
   const { getItemCount } = useCartStore();
   const cartCount = getItemCount();
   const [isAdmin, setIsAdmin] = useState(false);
   const [isSeller, setIsSeller] = useState(false);
+  
+  // Handle logout
+  const handleSignOut = async () => {
+    await signOut();
+  };
 
   // Check user role on mount
   useEffect(() => {
@@ -220,6 +226,14 @@ export function Header() {
                       <Settings className="mr-2 h-4 w-4" />
                       Settings
                     </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem 
+                    className="cursor-pointer text-red-600 focus:text-red-600"
+                    onClick={handleSignOut}
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Sign Out
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
