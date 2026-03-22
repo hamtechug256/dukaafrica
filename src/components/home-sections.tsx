@@ -43,6 +43,32 @@ const headerCategories = [
 export function Header() {
   const [searchQuery, setSearchQuery] = useState("");
   const { isSignedIn } = useUser();
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isSeller, setIsSeller] = useState(false);
+
+  // Check user role on mount
+  useEffect(() => {
+    async function checkUserRole() {
+      if (!isSignedIn) {
+        setIsAdmin(false);
+        setIsSeller(false);
+        return;
+      }
+      
+      try {
+        const response = await fetch('/api/user/role');
+        if (response.ok) {
+          const data = await response.json();
+          setIsAdmin(data.user?.isAdmin || false);
+          setIsSeller(data.user?.isSeller || false);
+        }
+      } catch (error) {
+        console.error('Failed to check user role:', error);
+      }
+    }
+    
+    checkUserRole();
+  }, [isSignedIn]);
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
@@ -164,19 +190,23 @@ export function Header() {
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link href="/seller/dashboard" className="cursor-pointer">
-                      <Store className="mr-2 h-4 w-4" />
-                      Seller Dashboard
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/admin" className="cursor-pointer">
-                      <LayoutDashboard className="mr-2 h-4 w-4" />
-                      Admin Panel
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
+                  {isSeller && (
+                    <DropdownMenuItem asChild>
+                      <Link href="/seller/dashboard" className="cursor-pointer">
+                        <Store className="mr-2 h-4 w-4" />
+                        Seller Dashboard
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
+                  {isAdmin && (
+                    <DropdownMenuItem asChild>
+                      <Link href="/admin" className="cursor-pointer">
+                        <LayoutDashboard className="mr-2 h-4 w-4" />
+                        Admin Panel
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
+                  {(isSeller || isAdmin) && <DropdownMenuSeparator />}
                   <DropdownMenuItem asChild>
                     <Link href="/settings" className="cursor-pointer">
                       <Settings className="mr-2 h-4 w-4" />
