@@ -201,7 +201,7 @@ export default function CheckoutPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           orderId: orderData.order.id,
-          customerEmail: user?.emailAddresses[0]?.emailAddress || formData.email,
+          customerEmail: user?.emailAddresses[0]?.emailAddress || '',
           customerPhone: formData.phone,
           customerName: formData.fullName
         })
