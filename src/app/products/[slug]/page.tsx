@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db'
 import { notFound } from 'next/navigation'
 import { ProductDetailClient } from './product-detail-client'
+import { ProductJsonLd, BreadcrumbJsonLd } from '@/components/seo/json-ld'
 
 // Get product by slug
 async function getProduct(slug: string) {
@@ -89,12 +90,24 @@ export default async function ProductPage({ params }: ProductPageProps) {
   // Parse images
   const images = product.images ? JSON.parse(product.images) : []
 
+  // Breadcrumb items for SEO
+  const breadcrumbItems = [
+    { name: 'Home', url: '/' },
+    { name: 'Products', url: '/products' },
+    ...(product.Category ? [{ name: product.Category.name, url: `/categories/${product.Category.slug}` }] : []),
+    { name: product.name, url: `/products/${product.slug}` },
+  ]
+
   return (
-    <ProductDetailClient 
-      product={JSON.parse(JSON.stringify(product))} 
-      images={images}
-      relatedProducts={JSON.parse(JSON.stringify(relatedProducts))}
-    />
+    <>
+      <ProductJsonLd product={product} />
+      <BreadcrumbJsonLd items={breadcrumbItems} />
+      <ProductDetailClient 
+        product={JSON.parse(JSON.stringify(product))} 
+        images={images}
+        relatedProducts={JSON.parse(JSON.stringify(relatedProducts))}
+      />
+    </>
   )
 }
 

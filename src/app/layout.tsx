@@ -7,6 +7,7 @@ import { ThemeProvider } from "next-themes";
 import { QueryProvider } from "@/components/query-provider";
 import { CartSidebar } from "@/components/cart/cart-sidebar";
 import { CookieConsent } from "@/components/cookie-consent";
+import { OrganizationJsonLd, WebsiteJsonLd } from "@/components/seo/json-ld";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -53,6 +54,8 @@ export default function RootLayout({
             disableTransitionOnChange
           >
             <QueryProvider>
+              <OrganizationJsonLd />
+              <WebsiteJsonLd />
               {children}
               <CartSidebar />
               <Toaster />
