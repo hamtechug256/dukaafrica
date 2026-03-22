@@ -24,15 +24,37 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: "DuukaAfrica - East Africa's Trusted Marketplace",
-    description: "Shop millions of products from verified sellers across East Africa",
+    description: "Shop millions of products from verified sellers across East Africa. Best prices on electronics, fashion, home & more. Fast delivery to Uganda, Kenya, Tanzania, Rwanda.",
     url: "https://duukaafrica.com",
     siteName: "DuukaAfrica",
     type: "website",
+    locale: "en_US",
+    images: [
+      {
+        url: "/logo.svg",
+        width: 1200,
+        height: 630,
+        alt: "DuukaAfrica - East Africa's Trusted Marketplace",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "DuukaAfrica - East Africa's Trusted Marketplace",
-    description: "Shop millions of products from verified sellers across East Africa",
+    description: "Shop millions of products from verified sellers across East Africa. Best prices on electronics, fashion, home & more.",
+    images: ["/logo.svg"],
+    creator: "@duukaafrica",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
   },
 };
 
