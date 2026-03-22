@@ -2,19 +2,18 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useSignUp, useClerk } from '@clerk/nextjs'
+import { useClerk } from '@clerk/nextjs'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Store, User, Mail, Phone, MapPin, Loader2, CheckCircle } from 'lucide-react'
+import { Store, Mail, Phone, Loader2, CheckCircle } from 'lucide-react'
 import Link from 'next/link'
 
 export default function SellerRegisterPage() {
-  const signUp = useSignUp()
-  const { setActive } = useClerk()
+  const { redirectToSignUp } = useClerk()
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [step, setStep] = useState(1)
@@ -45,34 +44,27 @@ export default function SellerRegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!signUp) return
 
     setIsLoading(true)
     try {
-      // Clerk v7 sign-up flow:
-      // 1. Create sign-up with identifier (email)
-      const createResult = await signUp.create({
-        emailAddress: formData.email,
-        password: formData.password,
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-      })
-
-      if (createResult.error) {
-        console.error('Sign-up error:', createResult.error)
-        alert((createResult.error as any)?.errors?.[0]?.message || 'Registration failed')
-        setIsLoading(false)
-        return
-      }
-
-      // 2. Prepare email verification
-      await signUp.prepareEmailAddressVerification({ strategy: 'email_code' })
+      // Store form data in session storage for retrieval after sign-up
+      sessionStorage.setItem('sellerOnboarding', JSON.stringify({
+        storeName: formData.storeName,
+        storeSlug: formData.storeSlug,
+        country: formData.country,
+        city: formData.city,
+        businessType: formData.businessType,
+        phone: formData.phone,
+      }))
       
-      // 3. Redirect to verification page
-      router.push('/sign-up/verify-email?redirect_url=/seller/onboarding')
+      // Redirect to Clerk sign-up with custom metadata
+      redirectToSignUp({
+        signInForceRedirectUrl: '/seller/onboarding',
+        signUpForceRedirectUrl: '/seller/onboarding',
+      })
     } catch (error: any) {
       console.error('Registration error:', error)
-      alert(error?.errors?.[0]?.message || error?.message || 'Registration failed')
+      alert(error?.message || 'Registration failed')
     } finally {
       setIsLoading(false)
     }
