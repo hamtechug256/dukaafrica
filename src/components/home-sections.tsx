@@ -139,7 +139,7 @@ export function Header() {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="flex items-center gap-2">
-                    <UserButton afterSignOutUrl="/" />
+                    <UserButton />
                     <span className="hidden lg:inline text-sm">Account</span>
                     <ChevronRight className="h-4 w-4 rotate-90 hidden lg:inline" />
                   </Button>

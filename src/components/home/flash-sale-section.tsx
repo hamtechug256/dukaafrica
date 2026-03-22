@@ -157,8 +157,6 @@ export function FlashSaleSection() {
                 endTime={mainEndTime}
                 variant="compact"
                 showIcon={false}
-                size="sm"
-                className="text-white"
               />
               <span className="text-white/80 text-sm hidden sm:inline">remaining</span>
             </div>

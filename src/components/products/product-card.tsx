@@ -9,7 +9,7 @@ import { Heart, ShoppingCart, Star, Store, Check, Loader2, Zap, Clock } from 'lu
 import { useCartStore } from '@/store/cart-store'
 import { useToast } from '@/hooks/use-toast'
 import { MiniFlashSaleBadge } from './flash-sale-badge'
-import { FlashSaleTimerMini } from './flash-sale-timer'
+import { FlashSaleTimer } from './flash-sale-timer'
 import { WishlistButton } from '@/components/wishlist/wishlist-button'
 
 interface Product {
@@ -197,7 +197,7 @@ export function ProductCard({ product, showStore = true }: ProductCardProps) {
           </div>
 
           <div className="absolute top-2 right-2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            <WishlistButton productId={product.id} variant="secondary" size="icon" className="h-8 w-8 bg-white/90 hover:bg-white" />
+            <WishlistButton productId={product.id} variant="outline" size="icon" className="h-8 w-8 bg-white/90 hover:bg-white" />
           </div>
 
           {/* Sold Out Overlay */}
@@ -236,7 +236,7 @@ export function ProductCard({ product, showStore = true }: ProductCardProps) {
         {/* Flash Sale Timer */}
         {isFlashSaleActive && flashSaleEnd && (
           <div className="mb-2">
-            <FlashSaleTimerMini endTime={flashSaleEnd} />
+            <FlashSaleTimer endTime={flashSaleEnd} variant="compact" />
           </div>
         )}
 

@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Clock, ArrowRight, Store, Trash2 } from 'lucide-react'
-import { useRecentlyViewedStore, type RecentlyViewedProduct } from '@/store/recently-viewed-store'
+import { useRecentlyViewedStore, type RecentProduct } from '@/store/recently-viewed-store'
 
 export function RecentlyViewedSection() {
   const { products, clearHistory, removeProduct } = useRecentlyViewedStore()
@@ -83,7 +83,7 @@ export function RecentlyViewedSection() {
 }
 
 interface RecentlyViewedGridCardProps {
-  product: RecentlyViewedProduct
+  product: RecentProduct
   onRemove: () => void
 }
 

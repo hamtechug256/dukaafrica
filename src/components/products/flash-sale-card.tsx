@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
-import { FlashSaleTimerMini } from './flash-sale-timer'
+import { FlashSaleTimer } from './flash-sale-timer'
 import { MiniFlashSaleBadge } from './flash-sale-badge'
 import { ShoppingCart, Check, Loader2, Heart, Store, Star } from 'lucide-react'
 import { useCartStore } from '@/store/cart-store'
@@ -151,7 +151,7 @@ export function FlashSaleCard({ product, showStore = true, onExpire, compact = f
           </Link>
 
           {/* Timer */}
-          <FlashSaleTimerMini endTime={endTime} className="mb-2" />
+          <FlashSaleTimer endTime={endTime} variant="compact" />
 
           {/* Pricing */}
           <div className="flex items-baseline gap-2 mb-2">
@@ -266,7 +266,7 @@ export function FlashSaleCard({ product, showStore = true, onExpire, compact = f
 
         {/* Countdown Timer */}
         <div className="mb-3">
-          <FlashSaleTimerMini endTime={endTime} />
+          <FlashSaleTimer endTime={endTime} variant="compact" />
         </div>
 
         {/* Pricing */}
