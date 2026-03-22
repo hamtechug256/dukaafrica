@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { logger } from '@/lib/logger'
 
 // Paystack webhook handler
 export async function POST(req: NextRequest) {
@@ -12,13 +13,14 @@ export async function POST(req: NextRequest) {
     //   .update(JSON.stringify(body))
     //   .digest('hex')
     // if (hash !== signature) {
+    //   logger.security('Invalid Paystack webhook signature')
     //   return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
     // }
 
     const event = body.event
     const data = body.data
 
-    console.log('Paystack webhook event:', event)
+    logger.info('Paystack webhook received', { event, reference: data?.reference })
 
     switch (event) {
       case 'charge.success': {
@@ -99,7 +101,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ received: true })
   } catch (error) {
-    console.error('Paystack webhook error:', error)
+    logger.error('Paystack webhook error', { error: error instanceof Error ? error.message : 'Unknown error' })
     return NextResponse.json({ error: 'Webhook error' }, { status: 500 })
   }
 }

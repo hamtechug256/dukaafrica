@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { FLUTTERWAVE_CONFIG, flutterwaveClient } from '@/lib/flutterwave/client'
+import { logger } from '@/lib/logger'
 import crypto from 'crypto'
 
 /**
@@ -38,7 +39,7 @@ export async function POST(request: NextRequest) {
     const expectedSignature = FLUTTERWAVE_CONFIG.webhookHash
     
     if (!signature || !expectedSignature || !safeCompare(signature, expectedSignature)) {
-      console.error('Invalid webhook signature')
+      logger.security('Invalid webhook signature', { hasSignature: !!signature })
       return NextResponse.json(
         { error: 'Invalid signature' },
         { status: 401 }
@@ -47,7 +48,7 @@ export async function POST(request: NextRequest) {
 
     const payload = await request.json()
     
-    console.log('Flutterwave webhook received:', {
+    logger.info('Flutterwave webhook received', {
       event: payload.event,
       txRef: payload.tx_ref,
       status: payload.status
@@ -63,7 +64,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ received: true })
 
   } catch (error) {
-    console.error('Webhook processing error:', error)
+    logger.error('Webhook processing error', { error: error instanceof Error ? error.message : 'Unknown error' })
     return NextResponse.json(
       { error: 'Webhook processing failed' },
       { status: 500 }
@@ -75,7 +76,7 @@ async function handleSuccessfulPayment(payload: any) {
   const { tx_ref, status, data } = payload
 
   if (status !== 'successful') {
-    console.log(`Payment ${tx_ref} not successful: ${status}`)
+    logger.warn('Payment not successful', { txRef: tx_ref, status })
     return
   }
 
@@ -86,7 +87,7 @@ async function handleSuccessfulPayment(payload: any) {
   })
 
   if (!payment) {
-    console.error(`Payment not found for tx_ref: ${tx_ref}`)
+    logger.error('Payment not found for transaction', { txRef: tx_ref })
     return
   }
 
@@ -122,10 +123,10 @@ async function handleSuccessfulPayment(payload: any) {
         }
       }
     })
-    console.log(`Payment ${tx_ref} processed successfully for order ${order.orderNumber}, seller balance updated`)
+    logger.info('Payment processed successfully', { txRef: tx_ref, orderNumber: order.orderNumber, sellerAmount: payment.sellerAmount })
   } else {
     // Log warning for orders without storeId (platform orders or data issues)
-    console.warn(`Order ${order.orderNumber} has no storeId - seller balance not updated. Payment: ${tx_ref}`)
+    logger.warn('Order has no storeId - seller balance not updated', { orderNumber: order.orderNumber, txRef: tx_ref })
   }
 }
 
@@ -133,7 +134,7 @@ async function handleSuccessfulTransfer(payload: any) {
   const { reference, status, data } = payload
 
   if (status !== 'successful') {
-    console.log(`Transfer ${reference} not successful: ${status}`)
+    logger.warn('Transfer not successful', { reference, status })
     return
   }
 
@@ -143,7 +144,7 @@ async function handleSuccessfulTransfer(payload: any) {
   })
 
   if (!payout) {
-    console.error(`Payout not found for reference: ${reference}`)
+    logger.error('Payout not found for reference', { reference })
     return
   }
 
@@ -166,5 +167,5 @@ async function handleSuccessfulTransfer(payload: any) {
     }
   })
 
-  console.log(`Transfer ${reference} completed successfully`)
+  logger.info('Transfer completed successfully', { reference, amount: payout.amount })
 }
