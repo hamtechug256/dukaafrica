@@ -1,6 +1,9 @@
-import { PrismaClient, NotificationType } from '@prisma/client'
+import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
+
+// Define notification type locally since Prisma schema uses string, not enum
+export type NotificationType = string
 
 interface CreateNotificationData {
   userId: string

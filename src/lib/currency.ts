@@ -5,7 +5,9 @@
  * Sellers price in their local currency, buyers see prices converted to their currency.
  */
 
-import { Currency, Country } from '@prisma/client'
+// Define types locally since Prisma uses strings instead of enums
+export type Currency = 'UGX' | 'KES' | 'TZS' | 'RWF'
+export type Country = 'UGANDA' | 'KENYA' | 'TANZANIA' | 'RWANDA'
 
 // ============================================
 // CURRENCY SYMBOLS AND FORMATTING

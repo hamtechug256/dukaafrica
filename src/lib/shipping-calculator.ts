@@ -11,8 +11,11 @@
  * Seller handles actual shipping via bus - no platform coordination needed
  */
 
-import { Country, ShippingZoneType, Currency } from '@prisma/client';
+import { Country, Currency } from '@/lib/currency';
 import { prisma } from './db';
+
+// Define ShippingZoneType locally since Prisma schema uses string, not enum
+export type ShippingZoneType = 'LOCAL' | 'DOMESTIC' | 'REGIONAL' | 'CROSS_BORDER'
 
 // ============================================
 // ZONE MATRIX: Which country-to-country is which zone
@@ -252,7 +255,7 @@ async function getShippingRates(
 
   // Return default rates converted to requested currency
   const defaultRates = DEFAULT_SHIPPING_RATES[zoneType];
-  const conversionRate = getConversionRate(Currency.UGX, currency);
+  const conversionRate = getConversionRate('UGX', currency);
   
   return {
     baseFee: Math.round(defaultRates.baseFee * conversionRate),

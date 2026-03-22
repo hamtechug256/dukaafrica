@@ -16,7 +16,7 @@
  * Platform earnings can be withdrawn by admin via configured payout method.
  */
 
-import { Country, Currency } from '@prisma/client';
+import { Country, Currency } from '@/lib/currency';
 import { calculateShippingFee, getConversionRate } from './shipping-calculator';
 
 // ============================================

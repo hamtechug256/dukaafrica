@@ -2,7 +2,7 @@
 
 import { useUser } from '@clerk/nextjs'
 import { useState, useEffect, useMemo, createContext, useContext, ReactNode } from 'react'
-import { Currency, Country } from '@prisma/client'
+import { Currency, Country } from '@/lib/currency'
 import {
   convertCurrency,
   formatPrice,
