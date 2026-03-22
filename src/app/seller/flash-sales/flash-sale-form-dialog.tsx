@@ -245,7 +245,6 @@ export function FlashSaleFormDialog({
               <Select
                 value={selectedProductId}
                 onValueChange={setSelectedProductId}
-                disabled={mode === 'edit'}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Choose a product for flash sale" />
