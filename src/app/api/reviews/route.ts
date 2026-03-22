@@ -1,6 +1,28 @@
 import { auth } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { z } from 'zod'
+
+// ============================================
+// VALIDATION SCHEMAS
+// ============================================
+
+const createReviewSchema = z.object({
+  productId: z.string().min(1, 'Product ID is required'),
+  orderId: z.string().optional(),
+  rating: z.number().int().min(1, 'Rating must be at least 1').max(5, 'Rating cannot exceed 5'),
+  title: z.string().max(100, 'Title too long').optional(),
+  comment: z.string().max(2000, 'Comment too long').optional(),
+  images: z.array(z.string().url()).max(5, 'Maximum 5 images allowed').optional(),
+})
+
+const updateReviewSchema = z.object({
+  reviewId: z.string().min(1, 'Review ID is required'),
+  rating: z.number().int().min(1).max(5).optional(),
+  title: z.string().max(100).optional(),
+  comment: z.string().max(2000).optional(),
+  images: z.array(z.string().url()).max(5).optional().nullable(),
+})
 
 // GET reviews for a product
 export async function GET(req: Request) {
@@ -76,12 +98,17 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json()
-    const { productId, orderId, rating, title, comment, images } = body
-
-    // Validate
-    if (!productId || !rating || rating < 1 || rating > 5) {
-      return NextResponse.json({ error: 'Invalid review data' }, { status: 400 })
+    
+    // Validate input with Zod
+    const validationResult = createReviewSchema.safeParse(body)
+    if (!validationResult.success) {
+      return NextResponse.json(
+        { error: 'Invalid input', details: validationResult.error.flatten().fieldErrors },
+        { status: 400 }
+      )
     }
+
+    const { productId, orderId, rating, title, comment, images } = validationResult.data
 
     // Get user from database
     const user = await prisma.user.findUnique({
@@ -165,7 +192,17 @@ export async function PUT(req: Request) {
     }
 
     const body = await req.json()
-    const { reviewId, rating, title, comment, images } = body
+    
+    // Validate input with Zod
+    const validationResult = updateReviewSchema.safeParse(body)
+    if (!validationResult.success) {
+      return NextResponse.json(
+        { error: 'Invalid input', details: validationResult.error.flatten().fieldErrors },
+        { status: 400 }
+      )
+    }
+
+    const { reviewId, rating, title, comment, images } = validationResult.data
 
     const user = await prisma.user.findUnique({
       where: { clerkId: userId }
@@ -184,14 +221,16 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: 'Review not found' }, { status: 404 })
     }
 
+    // Only update fields that were provided
+    const updateData: Record<string, unknown> = {}
+    if (rating !== undefined) updateData.rating = rating
+    if (title !== undefined) updateData.title = title
+    if (comment !== undefined) updateData.comment = comment
+    if (images !== undefined) updateData.images = images ? JSON.stringify(images) : null
+
     const updatedReview = await prisma.review.update({
       where: { id: reviewId },
-      data: {
-        rating,
-        title,
-        comment,
-        images: images ? JSON.stringify(images) : null,
-      },
+      data: updateData,
     })
 
     // Update product rating
