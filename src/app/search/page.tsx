@@ -13,7 +13,7 @@ async function searchProducts(query: string, page: number = 1) {
   const limit = 24
   const skip = (page - 1) * limit
 
-  const [products, total] = await Promise.all([
+  const [rawProducts, total] = await Promise.all([
     prisma.product.findMany({
       where: {
         status: 'ACTIVE',
@@ -56,6 +56,13 @@ async function searchProducts(query: string, page: number = 1) {
       },
     }),
   ])
+
+  // Transform to match ProductGrid expected shape
+  const products = rawProducts.map((p) => ({
+    ...p,
+    store: p.Store,
+    category: p.Category,
+  }))
 
   return {
     products,
