@@ -12,10 +12,11 @@ import { prisma } from '@/lib/db'
 // GET - Fetch order details
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { userId } = await auth()
+    const { id } = await params
     
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -33,7 +34,7 @@ export async function GET(
     // Get order with items
     const order = await prisma.order.findFirst({
       where: {
-        id: params.id,
+        id,
         storeId: store.id,
       },
       include: {
@@ -76,10 +77,11 @@ export async function GET(
 // PATCH - Update order status and bus details
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { userId } = await auth()
+    const { id } = await params
     
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -100,7 +102,7 @@ export async function PATCH(
     // Verify order belongs to this store
     const existingOrder = await prisma.order.findFirst({
       where: {
-        id: params.id,
+        id,
         storeId: store.id,
       }
     })
@@ -130,7 +132,7 @@ export async function PATCH(
 
     // Update order
     const order = await prisma.order.update({
-      where: { id: params.id },
+      where: { id },
       data: updateData,
       include: {
         items: {

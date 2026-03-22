@@ -10,10 +10,11 @@ import { prisma } from '@/lib/db'
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { userId } = await auth()
+    const { id } = await params
     
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -32,7 +33,7 @@ export async function PATCH(
     const { baseFee, perKgFee, crossBorderFee, platformMarkupPercent, isActive } = body
 
     const rate = await prisma.shippingRate.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         ...(baseFee !== undefined && { baseFee }),
         ...(perKgFee !== undefined && { perKgFee }),
