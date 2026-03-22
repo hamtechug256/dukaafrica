@@ -30,6 +30,7 @@ import {
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { formatPrice, COUNTRY_INFO, COUNTRY_CURRENCY, MOBILE_MONEY_PROVIDERS, Currency } from '@/lib/currency'
+import { useToast } from '@/hooks/use-toast'
 
 // Countries we support (East Africa only)
 const countries = [
@@ -57,6 +58,7 @@ interface ShippingResult {
 export default function CheckoutPage() {
   const { user, isLoaded } = useUser()
   const router = useRouter()
+  const { toast } = useToast()
   const { items, getSubtotal, getTotalSavings, getItemCount } = useCartStore()
   const {
     currentStep,
@@ -218,7 +220,11 @@ export default function CheckoutPage() {
 
     } catch (error: any) {
       console.error('Error placing order:', error)
-      alert(error.message || 'Something went wrong. Please try again.')
+      toast({
+        variant: 'destructive',
+        title: 'Order Failed',
+        description: error.message || 'Something went wrong. Please try again.'
+      })
     } finally {
       setIsLoading(false)
     }

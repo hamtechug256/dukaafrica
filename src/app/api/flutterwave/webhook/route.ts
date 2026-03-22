@@ -110,18 +110,23 @@ async function handleSuccessfulPayment(payload: any) {
     }
   })
 
-  // Update seller's balance
+  // Update seller's balance (only if order has a valid storeId)
   const order = payment.Order
-  await prisma.store.update({
-    where: { id: order.storeId || '' },
-    data: {
-      pendingBalance: {
-        increment: payment.sellerAmount
+  
+  if (order.storeId) {
+    await prisma.store.update({
+      where: { id: order.storeId },
+      data: {
+        pendingBalance: {
+          increment: payment.sellerAmount
+        }
       }
-    }
-  })
-
-  console.log(`Payment ${tx_ref} processed successfully for order ${order.orderNumber}`)
+    })
+    console.log(`Payment ${tx_ref} processed successfully for order ${order.orderNumber}, seller balance updated`)
+  } else {
+    // Log warning for orders without storeId (platform orders or data issues)
+    console.warn(`Order ${order.orderNumber} has no storeId - seller balance not updated. Payment: ${tx_ref}`)
+  }
 }
 
 async function handleSuccessfulTransfer(payload: any) {

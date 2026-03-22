@@ -596,3 +596,15 @@ model Wishlist {
   @@unique([userId, productId])
   @@index([userId])
 }
+
+model NewsletterSubscriber {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  isActive  Boolean  @default(true)
+  source    String   @default("FOOTER")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+  @@index([isActive])
+}

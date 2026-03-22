@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { useState } from "react";
 import { 
   Facebook, 
   Twitter, 
@@ -6,10 +7,54 @@ import {
   Youtube,
   Mail,
   Phone,
-  MapPin
+  MapPin,
+  Loader2,
+  CheckCircle
 } from "lucide-react";
 
 export function Footer() {
+  const [email, setEmail] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle')
+  const [message, setMessage] = useState('')
+
+  const handleSubscribe = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!email || !email.includes('@')) {
+      setStatus('error')
+      setMessage('Please enter a valid email address')
+      return
+    }
+
+    setIsLoading(true)
+    setStatus('idle')
+
+    try {
+      const response = await fetch('/api/newsletter/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setStatus('success')
+        setMessage(data.message)
+        setEmail('')
+      } else {
+        setStatus('error')
+        setMessage(data.error || 'Something went wrong. Please try again.')
+      }
+    } catch {
+      setStatus('error')
+      setMessage('Failed to subscribe. Please try again later.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   return (
     <footer className="bg-gray-900 text-gray-300 mt-auto">
       {/* Newsletter */}
@@ -20,18 +65,41 @@ export function Footer() {
               <h3 className="text-lg font-semibold text-white">Subscribe to our Newsletter</h3>
               <p className="text-sm text-gray-400">Get the latest deals and offers directly in your inbox</p>
             </div>
-            <form className="flex w-full md:w-auto gap-2">
-              <input
-                type="email"
-                placeholder="Enter your email"
-                className="px-4 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-primary w-full md:w-64"
-              />
-              <button
-                type="submit"
-                className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 whitespace-nowrap"
-              >
-                Subscribe
-              </button>
+            <form onSubmit={handleSubscribe} className="flex w-full md:w-auto gap-2 flex-col sm:flex-row">
+              <div className="flex gap-2">
+                <input
+                  type="email"
+                  placeholder="Enter your email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={isLoading || status === 'success'}
+                  className="px-4 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-primary w-full md:w-64 disabled:opacity-50"
+                />
+                <button
+                  type="submit"
+                  disabled={isLoading || status === 'success'}
+                  className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 whitespace-nowrap disabled:opacity-50 flex items-center gap-2"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span className="hidden sm:inline">Subscribing...</span>
+                    </>
+                  ) : status === 'success' ? (
+                    <>
+                      <CheckCircle className="h-4 w-4" />
+                      <span className="hidden sm:inline">Subscribed!</span>
+                    </>
+                  ) : (
+                    'Subscribe'
+                  )}
+                </button>
+              </div>
+              {message && (
+                <p className={`text-sm mt-1 ${status === 'success' ? 'text-green-400' : 'text-red-400'}`}>
+                  {message}
+                </p>
+              )}
             </form>
           </div>
         </div>
