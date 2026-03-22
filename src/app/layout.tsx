@@ -6,6 +6,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { ThemeProvider } from "next-themes";
 import { QueryProvider } from "@/components/query-provider";
 import { CartSidebar } from "@/components/cart/cart-sidebar";
+import { CookieConsent } from "@/components/cookie-consent";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -55,6 +56,7 @@ export default function RootLayout({
               {children}
               <CartSidebar />
               <Toaster />
+              <CookieConsent />
             </QueryProvider>
           </ThemeProvider>
         </body>

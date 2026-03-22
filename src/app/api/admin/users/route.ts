@@ -1,6 +1,14 @@
 import { auth } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { z } from 'zod'
+
+// Validation schema for updating user
+const updateUserSchema = z.object({
+  targetUserId: z.string().min(1, 'User ID is required'),
+  role: z.enum(['USER', 'SELLER', 'ADMIN', 'SUPER_ADMIN']).optional(),
+  isActive: z.boolean().optional(),
+})
 
 export async function GET() {
   try {
@@ -65,7 +73,25 @@ export async function PUT(req: Request) {
     }
 
     const body = await req.json()
-    const { targetUserId, role, isActive } = body
+    
+    // Validate input with Zod
+    const validationResult = updateUserSchema.safeParse(body)
+    if (!validationResult.success) {
+      return NextResponse.json(
+        { error: 'Invalid input', details: validationResult.error.flatten().fieldErrors },
+        { status: 400 }
+      )
+    }
+
+    const { targetUserId, role, isActive } = validationResult.data
+
+    // Prevent admins from demoting themselves
+    if (targetUserId === adminUser.id && role && role !== adminUser.role) {
+      return NextResponse.json(
+        { error: 'Cannot change your own role' },
+        { status: 400 }
+      )
+    }
 
     const updatedUser = await prisma.user.update({
       where: { id: targetUserId },

@@ -1,6 +1,72 @@
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { z } from 'zod'
+
+// ============================================
+// VALIDATION SCHEMAS
+// ============================================
+
+const variantSchema = z.object({
+  name: z.string().min(1, 'Variant name is required'),
+  sku: z.string().optional(),
+  price: z.number().positive('Price must be positive'),
+  comparePrice: z.number().optional(),
+  quantity: z.number().int().min(0, 'Quantity cannot be negative').optional(),
+  image: z.string().url().optional().nullable(),
+  options: z.record(z.string(), z.any()).optional(),
+  isActive: z.boolean().optional(),
+})
+
+const createProductSchema = z.object({
+  name: z.string().min(1, 'Product name is required').max(200, 'Name too long'),
+  description: z.string().max(5000).optional(),
+  shortDesc: z.string().max(300).optional(),
+  categoryId: z.string().optional().nullable(),
+  price: z.number().positive('Price must be positive'),
+  comparePrice: z.number().optional(),
+  costPrice: z.number().optional(),
+  sku: z.string().max(100).optional(),
+  quantity: z.number().int().min(0, 'Quantity cannot be negative').optional(),
+  lowStockThreshold: z.number().int().min(0).optional(),
+  trackQuantity: z.boolean().optional(),
+  freeShipping: z.boolean().optional(),
+  weight: z.number().positive().optional(),
+  length: z.number().positive().optional(),
+  width: z.number().positive().optional(),
+  height: z.number().positive().optional(),
+  status: z.enum(['DRAFT', 'ACTIVE', 'ARCHIVED']).optional(),
+  isFeatured: z.boolean().optional(),
+  images: z.array(z.string().url('Invalid image URL')).max(10, 'Maximum 10 images allowed').optional(),
+  variants: z.array(variantSchema).optional(),
+})
+
+const updateProductSchema = z.object({
+  id: z.string().min(1, 'Product ID is required'),
+  name: z.string().min(1).max(200).optional(),
+  description: z.string().max(5000).optional(),
+  shortDesc: z.string().max(300).optional(),
+  categoryId: z.string().optional().nullable(),
+  price: z.number().positive().optional(),
+  comparePrice: z.number().optional(),
+  costPrice: z.number().optional(),
+  sku: z.string().max(100).optional(),
+  quantity: z.number().int().min(0).optional(),
+  lowStockThreshold: z.number().int().min(0).optional(),
+  trackQuantity: z.boolean().optional(),
+  freeShipping: z.boolean().optional(),
+  weight: z.number().positive().optional(),
+  length: z.number().positive().optional(),
+  width: z.number().positive().optional(),
+  height: z.number().positive().optional(),
+  status: z.enum(['DRAFT', 'ACTIVE', 'ARCHIVED']).optional(),
+  isFeatured: z.boolean().optional(),
+  images: z.array(z.string().url()).max(10).optional(),
+  submitForReview: z.boolean().optional(),
+  hasVariants: z.boolean().optional(),
+  variantOptions: z.record(z.string(), z.any()).optional(),
+  variants: z.array(variantSchema).optional(),
+})
 
 // Generate unique slug
 function generateSlug(name: string): string {
@@ -84,6 +150,16 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json()
+    
+    // Validate input with Zod
+    const validationResult = createProductSchema.safeParse(body)
+    if (!validationResult.success) {
+      return NextResponse.json(
+        { error: 'Invalid input', details: validationResult.error.flatten().fieldErrors },
+        { status: 400 }
+      )
+    }
+
     const {
       name,
       description,
@@ -105,11 +181,7 @@ export async function POST(req: Request) {
       isFeatured,
       images,
       variants,
-    } = body
-
-    if (!name || !price) {
-      return NextResponse.json({ error: 'Name and price are required' }, { status: 400 })
-    }
+    } = validationResult.data
 
     const product = await prisma.product.create({
       data: {
@@ -192,7 +264,17 @@ export async function PUT(req: Request) {
     }
 
     const body = await req.json()
-    const { id, submitForReview, variants, variantOptions, hasVariants, ...data } = body
+    
+    // Validate input with Zod
+    const validationResult = updateProductSchema.safeParse(body)
+    if (!validationResult.success) {
+      return NextResponse.json(
+        { error: 'Invalid input', details: validationResult.error.flatten().fieldErrors },
+        { status: 400 }
+      )
+    }
+
+    const { id, submitForReview, variants, variantOptions, hasVariants, ...data } = validationResult.data
 
     // Verify product belongs to store
     const existingProduct = await prisma.product.findFirst({
@@ -203,13 +285,38 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 })
     }
 
-    // Prepare update data
-    const updateData: any = {
-      ...data,
-      images: data.images ? JSON.stringify(data.images) : null,
-      categoryId: data.categoryId || null,
-      hasVariants: hasVariants ?? false,
-      variantOptions: variantOptions ? JSON.stringify(variantOptions) : null,
+    // Prepare update data with proper typing
+    const updateData: Record<string, unknown> = {}
+    
+    // Only include fields that were provided
+    if (data.name !== undefined) updateData.name = data.name
+    if (data.description !== undefined) updateData.description = data.description
+    if (data.shortDesc !== undefined) updateData.shortDesc = data.shortDesc
+    if (data.categoryId !== undefined) updateData.categoryId = data.categoryId
+    if (data.price !== undefined) updateData.price = data.price
+    if (data.comparePrice !== undefined) updateData.comparePrice = data.comparePrice
+    if (data.costPrice !== undefined) updateData.costPrice = data.costPrice
+    if (data.sku !== undefined) updateData.sku = data.sku
+    if (data.quantity !== undefined) updateData.quantity = data.quantity
+    if (data.lowStockThreshold !== undefined) updateData.lowStockThreshold = data.lowStockThreshold
+    if (data.trackQuantity !== undefined) updateData.trackQuantity = data.trackQuantity
+    if (data.freeShipping !== undefined) updateData.freeShipping = data.freeShipping
+    if (data.weight !== undefined) updateData.weight = data.weight
+    if (data.length !== undefined) updateData.length = data.length
+    if (data.width !== undefined) updateData.width = data.width
+    if (data.height !== undefined) updateData.height = data.height
+    if (data.status !== undefined) updateData.status = data.status
+    if (data.isFeatured !== undefined) updateData.isFeatured = data.isFeatured
+    
+    // Handle images
+    if (data.images !== undefined) {
+      updateData.images = data.images.length > 0 ? JSON.stringify(data.images) : null
+    }
+    
+    // Handle variants
+    updateData.hasVariants = hasVariants ?? false
+    if (variantOptions !== undefined) {
+      updateData.variantOptions = variantOptions ? JSON.stringify(variantOptions) : null
     }
 
     // Handle submit for review
