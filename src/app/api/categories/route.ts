@@ -64,11 +64,11 @@ export async function GET() {
     const categories = await prisma.category.findMany({
       where: { isActive: true },
       include: {
-        children: {
+        other_Category: {
           where: { isActive: true },
         },
         _count: {
-          select: { products: { where: { status: 'ACTIVE' } } },
+          select: { Product: { where: { status: 'ACTIVE' } } },
         },
       },
       orderBy: { order: 'asc' },

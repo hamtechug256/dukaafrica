@@ -158,12 +158,12 @@ export async function GET() {
         active: activeStores,
         pending: pendingStores,
       },
-      products: {
+      Product: {
         total: totalProducts,
         active: activeProducts,
         flagged: 0,
       },
-      orders: {
+      Order: {
         total: totalOrders,
         today: todayOrders,
         disputed: disputedOrders,

@@ -29,7 +29,7 @@ export async function GET() {
     const user = await prisma.user.findUnique({
       where: { clerkId: userId },
       include: {
-        store: true,
+        Store: true,
       },
     })
 
@@ -37,11 +37,11 @@ export async function GET() {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    if (!user.store) {
+    if (!user.Store) {
       return NextResponse.json({ error: 'Store not found', needsOnboarding: true }, { status: 404 })
     }
 
-    const store = user.store
+    const store = user.Store
 
     // Parse ships to countries
     let shipsToCountries: string[] = []
@@ -54,7 +54,7 @@ export async function GET() {
     }
 
     const settings = {
-      store: {
+      Store: {
         id: store.id,
         name: store.name,
         slug: store.slug,
@@ -114,10 +114,10 @@ export async function PUT(request: NextRequest) {
     // Get user and their store
     const user = await prisma.user.findUnique({
       where: { clerkId: userId },
-      include: { store: true },
+      include: { Store: true },
     })
 
-    if (!user || !user.store) {
+    if (!user || !user.Store) {
       return NextResponse.json({ error: 'Store not found' }, { status: 404 })
     }
 
@@ -128,7 +128,7 @@ export async function PUT(request: NextRequest) {
       case 'store':
         // Update store profile
         await prisma.store.update({
-          where: { id: user.store.id },
+          where: { id: user.Store.id },
           data: {
             name: data.name,
             description: data.description,
@@ -144,7 +144,7 @@ export async function PUT(request: NextRequest) {
       case 'shipping':
         // Update shipping preferences
         await prisma.store.update({
-          where: { id: user.store.id },
+          where: { id: user.Store.id },
           data: {
             // Store which countries this seller ships to
             shipsToCountries: JSON.stringify(data.shipsToCountries),
@@ -165,7 +165,7 @@ export async function PUT(request: NextRequest) {
         // This just stores the payout preferences
 
         await prisma.store.update({
-          where: { id: user.store.id },
+          where: { id: user.Store.id },
           data: payoutData,
         })
         break
@@ -173,7 +173,7 @@ export async function PUT(request: NextRequest) {
       case 'logo':
         // Update store logo
         await prisma.store.update({
-          where: { id: user.store.id },
+          where: { id: user.Store.id },
           data: { logo: data.logo },
         })
         break
@@ -181,7 +181,7 @@ export async function PUT(request: NextRequest) {
       case 'banner':
         // Update store banner
         await prisma.store.update({
-          where: { id: user.store.id },
+          where: { id: user.Store.id },
           data: { banner: data.banner },
         })
         break

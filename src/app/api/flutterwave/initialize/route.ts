@@ -41,16 +41,16 @@ export async function POST(request: NextRequest) {
     const order = await prisma.order.findUnique({
       where: { id: orderId },
       include: {
-        items: {
+        OrderItem: {
           include: {
-            product: {
+            Product: {
               include: {
-                store: true
+                Store: true
               }
             }
           }
         },
-        store: true
+        Store: true
       }
     })
 
@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get seller's Flutterwave subaccount
-    const store = order.store
+    const store = order.Store
     if (!store?.flutterwaveSubaccountId) {
       return NextResponse.json(
         { error: 'Seller payment account not configured' },
@@ -88,13 +88,13 @@ export async function POST(request: NextRequest) {
     // Calculate payment breakdown
     const paymentBreakdown = await calculatePaymentBreakdown({
       productPrice: order.subtotal,
-      sellerCurrency: order.currency,
-      sellerCountry: order.sellerCountry,
+      sellerCurrency: order.currency as any,
+      sellerCountry: order.sellerCountry as any,
       sellerCommissionRate: store.commissionRate,
-      buyerCurrency: order.currency,
-      buyerCountry: order.buyerCountry,
-      productWeightKg: order.items.reduce((sum, item) => {
-        return sum + (item.product.weight || 1) * item.quantity
+      buyerCurrency: order.currency as any,
+      buyerCountry: order.buyerCountry as any,
+      productWeightKg: order.OrderItem.reduce((sum, item) => {
+        return sum + (item.Product?.weight || 1) * item.quantity
       }, 0),
       sellerSubaccountId: store.flutterwaveSubaccountId
     })
@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
         buyer_country: order.buyerCountry,
         seller_country: order.sellerCountry,
         platform_commission: paymentBreakdown.platformTotalEarnings,
-        shipping_zone: order.shippingZoneType
+        shipping_zone: order.shippingZoneType || 'unknown'
       }
     }
 

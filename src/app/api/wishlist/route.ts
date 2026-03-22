@@ -28,12 +28,12 @@ export async function GET() {
     const wishlist = await prisma.wishlist.findMany({
       where: { userId: user.id },
       include: {
-        product: {
+        Product: {
           include: {
-            store: {
+            Store: {
               select: { id: true, name: true, slug: true, isVerified: true }
             },
-            category: {
+            Category: {
               select: { id: true, name: true, slug: true }
             }
           }

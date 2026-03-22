@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
         orderBy: { order: 'asc' }
       }),
       prisma.shippingRate.findMany({
-        include: { tier: true }
+        include: { ShippingTier: true }
       }),
       prisma.shippingZoneMatrix.findMany({
         orderBy: [{ originCountry: 'asc' }, { destCountry: 'asc' }]

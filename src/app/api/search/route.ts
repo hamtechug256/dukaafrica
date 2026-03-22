@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
         price: true,
         currency: true,
         images: true,
-        store: {
+        Store: {
           select: { name: true },
         },
       },
@@ -114,7 +114,7 @@ export async function GET(request: NextRequest) {
         price: p.price,
         currency: p.currency,
         image: p.images ? JSON.parse(p.images)[0] : null,
-        storeName: p.store.name,
+        storeName: p.Store.name,
       })),
       categories: categories.map((c) => ({
         id: c.id,

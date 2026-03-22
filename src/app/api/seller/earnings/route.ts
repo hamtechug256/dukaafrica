@@ -24,17 +24,17 @@ export async function GET(request: NextRequest) {
     // Get user and store
     const user = await prisma.user.findUnique({
       where: { clerkId: userId },
-      include: { store: true }
+      include: { Store: true }
     })
 
-    if (!user || !user.store) {
+    if (!user || !user.Store) {
       return NextResponse.json(
         { error: 'Store not found' },
         { status: 404 }
       )
     }
 
-    const store = user.store
+    const store = user.Store
 
     // Get completed orders for this store
     const orders = await prisma.order.findMany({
@@ -43,9 +43,9 @@ export async function GET(request: NextRequest) {
         paymentStatus: 'PAID'
       },
       include: {
-        items: {
+        OrderItem: {
           include: {
-            product: true
+            Product: true
           }
         }
       }
@@ -95,7 +95,7 @@ export async function GET(request: NextRequest) {
     const availableBalance = Math.max(0, store.availableBalance)
 
     return NextResponse.json({
-      store: {
+      Store: {
         id: store.id,
         name: store.name,
         country: store.country,

@@ -7,7 +7,7 @@ async function getProduct(slug: string) {
   const product = await prisma.product.findUnique({
     where: { slug },
     include: {
-      store: {
+      Store: {
         select: {
           id: true,
           name: true,
@@ -21,17 +21,17 @@ async function getProduct(slug: string) {
           totalSales: true,
         },
       },
-      category: {
+      Category: {
         select: {
           id: true,
           name: true,
           slug: true,
         },
       },
-      variants: true,
-      reviews: {
+      ProductVariant: true,
+      Review: {
         include: {
-          user: {
+          User: {
             select: {
               name: true,
               avatar: true,
@@ -56,7 +56,7 @@ async function getRelatedProducts(productId: string, categoryId: string | null) 
       ...(categoryId ? { categoryId } : {}),
     },
     include: {
-      store: {
+      Store: {
         select: {
           id: true,
           name: true,
@@ -111,7 +111,7 @@ export async function generateMetadata({ params }: ProductPageProps) {
 
   return {
     title: `${product.name} - DuukaAfrica`,
-    description: product.description || product.shortDesc || `Buy ${product.name} at the best price from ${product.store.name}. Fast delivery across East Africa.`,
+    description: product.description || product.shortDesc || `Buy ${product.name} at the best price from ${product.Store?.name}. Fast delivery across East Africa.`,
     openGraph: {
       title: product.name,
       description: product.description || undefined,

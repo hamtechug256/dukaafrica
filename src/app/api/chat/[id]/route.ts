@@ -41,15 +41,15 @@ export async function GET(
     const chat = await prisma.chat.findUnique({
       where: { id },
       include: {
-        participants: {
+        ChatParticipant: {
           include: {
-            user: {
+            User: {
               select: {
                 id: true,
                 name: true,
                 avatar: true,
                 role: true,
-                store: {
+                Store: {
                   select: {
                     id: true,
                     name: true,
@@ -60,10 +60,10 @@ export async function GET(
             },
           },
         },
-        messages: {
+        Message: {
           orderBy: { createdAt: 'asc' },
           include: {
-            user: {
+            User: {
               select: {
                 id: true,
                 name: true,
@@ -80,7 +80,7 @@ export async function GET(
     }
 
     // Get product info if exists
-    let product = null
+    let product: { id: string; name: string; currency: string; images: string | null; slug: string; price: number } | null = null
     if (chat.productId) {
       product = await prisma.product.findUnique({
         where: { id: chat.productId },
@@ -111,12 +111,12 @@ export async function GET(
       data: { lastRead: new Date() },
     })
 
-    const otherParticipant = chat.participants.find((p) => p.userId !== user.id)
+    const otherParticipant = chat.ChatParticipant.find((p) => p.userId !== user.id)
 
     return NextResponse.json({
       chat,
       product,
-      otherParticipant: otherParticipant?.user,
+      otherParticipant: otherParticipant?.User,
     })
   } catch (error) {
     console.error('Error fetching chat:', error)
@@ -174,7 +174,7 @@ export async function POST(
         fileUrl,
       },
       include: {
-        user: {
+        User: {
           select: {
             id: true,
             name: true,

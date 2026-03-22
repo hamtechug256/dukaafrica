@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
         ],
       },
       include: {
-        store: {
+        Store: {
           select: {
             id: true,
             name: true,
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
             isVerified: true,
           },
         },
-        category: {
+        Category: {
           select: {
             id: true,
             name: true,
@@ -54,8 +54,8 @@ export async function GET(request: NextRequest) {
         discount,
         currency: product.currency,
         images: product.images ? JSON.parse(product.images) : [],
-        store: product.store,
-        category: product.category,
+        store: product.Store,
+        category: product.Category,
         quantity: product.quantity,
         // Flash deals end at midnight
         endTime: new Date(now.getTime() + 24 * 60 * 60 * 1000),

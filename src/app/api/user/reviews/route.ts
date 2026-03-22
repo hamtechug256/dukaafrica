@@ -22,7 +22,7 @@ export async function GET() {
     const reviews = await prisma.review.findMany({
       where: { userId: user.id },
       include: {
-        product: {
+        Product: {
           select: {
             id: true,
             name: true,

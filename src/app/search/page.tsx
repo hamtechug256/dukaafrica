@@ -24,7 +24,7 @@ async function searchProducts(query: string, page: number = 1) {
         ],
       },
       include: {
-        store: {
+        Store: {
           select: {
             id: true,
             name: true,
@@ -33,7 +33,7 @@ async function searchProducts(query: string, page: number = 1) {
             rating: true,
           },
         },
-        category: {
+        Category: {
           select: {
             id: true,
             name: true,
@@ -57,8 +57,15 @@ async function searchProducts(query: string, page: number = 1) {
     }),
   ])
 
+  // Transform products to match ProductGrid interface
+  const transformedProducts = products.map(p => ({
+    ...p,
+    store: p.Store,
+    category: p.Category,
+  }))
+
   return {
-    products,
+    products: transformedProducts,
     pagination: {
       page,
       totalPages: Math.ceil(total / limit),

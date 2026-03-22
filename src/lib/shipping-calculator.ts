@@ -243,13 +243,13 @@ async function getShippingRates(
         isActive: true,
       },
       include: {
-        tier: true,
+        ShippingTier: true,
       },
     });
 
     if (rates) {
       // Convert to requested currency if needed
-      const conversionRate = getConversionRate(rates.currency, currency);
+      const conversionRate = getConversionRate(rates.currency as any, currency);
       return {
         baseFee: Math.round(rates.baseFee * conversionRate),
         perKgFee: Math.round(rates.perKgFee * conversionRate),

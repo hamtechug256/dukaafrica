@@ -57,10 +57,10 @@ export async function POST(request: NextRequest) {
 
     const user = await prisma.user.findUnique({
       where: { clerkId: userId },
-      include: { store: true }
+      include: { Store: true }
     })
 
-    if (!user || !user.store) {
+    if (!user || !user.Store) {
       return NextResponse.json(
         { error: 'Store not found' },
         { status: 404 }
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
       accountNumber,// For bank transfer
     } = body
 
-    const store = user.store
+    const store = user.Store
     const country = store.country as Country
 
     // Prepare subaccount data
@@ -167,17 +167,17 @@ export async function GET(request: NextRequest) {
 
     const user = await prisma.user.findUnique({
       where: { clerkId: userId },
-      include: { store: true }
+      include: { Store: true }
     })
 
-    if (!user || !user.store) {
+    if (!user || !user.Store) {
       return NextResponse.json(
         { error: 'Store not found' },
         { status: 404 }
       )
     }
 
-    const store = user.store
+    const store = user.Store
     const country = store.country as Country
 
     const providers = MOBILE_MONEY_BANKS[country]

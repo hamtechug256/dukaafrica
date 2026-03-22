@@ -49,13 +49,13 @@ export async function GET(request: NextRequest) {
       prisma.product.findMany({
         where,
         include: {
-          store: {
+          Store: {
             select: {
               id: true,
               name: true,
               country: true,
               isVerified: true,
-              user: {
+              User: {
                 select: {
                   id: true,
                   name: true,
@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
               },
             },
           },
-          category: {
+          Category: {
             select: {
               id: true,
               name: true,
@@ -72,8 +72,8 @@ export async function GET(request: NextRequest) {
           },
           _count: {
             select: {
-              reviews: true,
-              orderItems: true,
+              Review: true,
+              OrderItem: true,
             },
           },
         },
@@ -165,9 +165,9 @@ export async function PATCH(request: NextRequest) {
     const product = await prisma.product.findUnique({
       where: { id: productId },
       include: {
-        store: {
+        Store: {
           include: {
-            user: true,
+            User: true,
           },
         },
       },
@@ -194,7 +194,7 @@ export async function PATCH(request: NextRequest) {
       // Create notification for seller
       await prisma.notification.create({
         data: {
-          userId: product.store.user.id,
+          userId: product.Store.User.id,
           type: 'ORDER_PLACED',
           title: 'Product Approved! 🎉',
           message: `Your product "${product.name}" has been approved and is now live on DuukaAfrica.`,
@@ -216,7 +216,7 @@ export async function PATCH(request: NextRequest) {
       // Create notification for seller
       await prisma.notification.create({
         data: {
-          userId: product.store.user.id,
+          userId: product.Store.User.id,
           type: 'ORDER_CANCELLED',
           title: 'Product Needs Revision',
           message: `Your product "${product.name}" was not approved. Reason: ${rejectionReason}`,

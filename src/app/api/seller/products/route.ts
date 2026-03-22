@@ -42,7 +42,7 @@ export async function GET() {
     const products = await prisma.product.findMany({
       where: { storeId: store.id },
       include: {
-        category: {
+        Category: {
           select: { id: true, name: true, slug: true },
         },
       },
@@ -137,7 +137,7 @@ export async function POST(req: Request) {
         hasVariants: variants && variants.length > 0,
       },
       include: {
-        category: true,
+        Category: true,
       },
     })
 

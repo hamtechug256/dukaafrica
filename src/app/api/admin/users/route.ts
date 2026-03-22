@@ -27,7 +27,7 @@ export async function GET() {
         role: true,
         isActive: true,
         createdAt: true,
-        store: {
+        Store: {
           select: { id: true, name: true }
         }
       },

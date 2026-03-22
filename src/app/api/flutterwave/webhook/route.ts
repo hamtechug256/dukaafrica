@@ -85,7 +85,7 @@ async function handleSuccessfulPayment(payload: any) {
   // Find the payment record
   const payment = await prisma.payment.findFirst({
     where: { reference: tx_ref },
-    include: { order: true }
+    include: { Order: true }
   })
 
   if (!payment) {
@@ -114,7 +114,7 @@ async function handleSuccessfulPayment(payload: any) {
   })
 
   // Update seller's balance
-  const order = payment.order
+  const order = payment.Order
   await prisma.store.update({
     where: { id: order.storeId || '' },
     data: {

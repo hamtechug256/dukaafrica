@@ -20,11 +20,11 @@ export async function GET() {
 
     const stores = await prisma.store.findMany({
       include: {
-        user: {
+        User: {
           select: { id: true, name: true, email: true }
         },
         _count: {
-          select: { products: true }
+          select: { Product: true }
         }
       },
       orderBy: { createdAt: 'desc' },

@@ -41,8 +41,8 @@ export async function GET(req: Request) {
       where.OR = [
         { orderNumber: { contains: search, mode: 'insensitive' } },
         { shippingName: { contains: search, mode: 'insensitive' } },
-        { store: { name: { contains: search, mode: 'insensitive' } } },
-        { user: { email: { contains: search, mode: 'insensitive' } } },
+        { Store: { name: { contains: search, mode: 'insensitive' } } },
+        { User: { email: { contains: search, mode: 'insensitive' } } },
       ]
     }
 
@@ -50,13 +50,13 @@ export async function GET(req: Request) {
     const orders = await prisma.order.findMany({
       where,
       include: {
-        items: {
+        OrderItem: {
           select: { id: true },
         },
-        store: {
+        Store: {
           select: { id: true, name: true, slug: true },
         },
-        user: {
+        User: {
           select: { id: true, email: true },
         },
       },

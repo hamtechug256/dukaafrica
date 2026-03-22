@@ -28,9 +28,9 @@ export async function GET(
     const order = await prisma.order.findUnique({
       where: { id },
       include: {
-        items: {
+        OrderItem: {
           include: {
-            product: {
+            Product: {
               select: {
                 id: true,
                 name: true,
@@ -40,17 +40,17 @@ export async function GET(
             }
           }
         },
-        store: {
+        Store: {
           select: {
             id: true,
             name: true,
             slug: true,
-            user: {
+            User: {
               select: { email: true }
             }
           }
         },
-        user: {
+        User: {
           select: {
             id: true,
             email: true,

@@ -56,13 +56,13 @@ export async function GET(request: NextRequest) {
       prisma.product.findMany({
         where,
         include: {
-          store: {
+          Store: {
             select: {
               id: true,
               name: true,
               slug: true,
               isVerified: true,
-              user: {
+              User: {
                 select: {
                   email: true,
                   name: true,
@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
               },
             },
           },
-          category: {
+          Category: {
             select: {
               id: true,
               name: true,
@@ -78,8 +78,8 @@ export async function GET(request: NextRequest) {
           },
           _count: {
             select: {
-              reviews: true,
-              orderItems: true,
+              Review: true,
+              OrderItem: true,
             },
           },
         },
@@ -153,7 +153,7 @@ export async function PUT(request: NextRequest) {
 
     const product = await prisma.product.findUnique({
       where: { id: productId },
-      include: { store: true },
+      include: { Store: true },
     })
 
     if (!product) {

@@ -24,7 +24,7 @@ export async function GET(
 
     // Get seller's store
     const store = await prisma.store.findFirst({
-      where: { user: { clerkId: userId } }
+      where: { User: { clerkId: userId } }
     })
 
     if (!store) {
@@ -38,9 +38,9 @@ export async function GET(
         storeId: store.id,
       },
       include: {
-        items: {
+        OrderItem: {
           include: {
-            product: {
+            Product: {
               select: {
                 id: true,
                 name: true,
@@ -59,10 +59,10 @@ export async function GET(
     // Format response
     const formattedOrder = {
       ...order,
-      items: order.items.map(item => ({
+      OrderItem: order.OrderItem.map(item => ({
         ...item,
-        productImage: item.product.images ? JSON.parse(item.product.images)[0] : null,
-        productName: item.product.name,
+        productImage: item.Product.images ? JSON.parse(item.Product.images)[0] : null,
+        productName: item.Product.name,
       }))
     }
 
@@ -89,7 +89,7 @@ export async function PATCH(
 
     // Get seller's store
     const store = await prisma.store.findFirst({
-      where: { user: { clerkId: userId } }
+      where: { User: { clerkId: userId } }
     })
 
     if (!store) {
@@ -135,9 +135,9 @@ export async function PATCH(
       where: { id },
       data: updateData,
       include: {
-        items: {
+        OrderItem: {
           include: {
-            product: {
+            Product: {
               select: { name: true, images: true }
             }
           }

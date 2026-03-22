@@ -26,7 +26,7 @@ export async function GET() {
     }
 
     return NextResponse.json({
-      user: {
+      User: {
         id: dbUser.id,
         email: dbUser.email,
         isAdmin: dbUser.role === 'ADMIN' || dbUser.role === 'SUPER_ADMIN',

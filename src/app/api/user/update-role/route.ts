@@ -72,7 +72,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ 
       success: true, 
-      user: {
+      User: {
         id: updatedUser.id,
         email: updatedUser.email,
         role: updatedUser.role,

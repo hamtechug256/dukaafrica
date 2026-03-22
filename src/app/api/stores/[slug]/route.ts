@@ -14,7 +14,7 @@ export async function GET(
     const store = await prisma.store.findUnique({
       where: { slug },
       include: {
-        user: {
+        User: {
           select: {
             id: true,
             name: true,
@@ -22,7 +22,7 @@ export async function GET(
             createdAt: true,
           },
         },
-        products: {
+        Product: {
           where: { status: 'ACTIVE' },
           select: {
             id: true,
@@ -35,7 +35,7 @@ export async function GET(
             rating: true,
             reviewCount: true,
             quantity: true,
-            category: {
+            Category: {
               select: {
                 id: true,
                 name: true,
@@ -48,8 +48,8 @@ export async function GET(
         },
         _count: {
           select: {
-            products: { where: { status: 'ACTIVE' } },
-            orders: true,
+            Product: { where: { status: 'ACTIVE' } },
+            Order: true,
           },
         },
       },
@@ -64,13 +64,13 @@ export async function GET(
     }
 
     // Parse images for products
-    const productsWithImages = store.products.map(product => ({
+    const productsWithImages = store.Product.map(product => ({
       ...product,
       imagesArray: product.images ? JSON.parse(product.images) : [],
     }))
 
     return NextResponse.json({
-      store: {
+      Store: {
         ...store,
         products: productsWithImages,
       },

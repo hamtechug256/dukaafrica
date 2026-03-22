@@ -51,11 +51,11 @@ export async function POST(req: NextRequest) {
       // Update product quantities
       const order = await prisma.order.findUnique({
         where: { id: payment.orderId },
-        include: { items: true },
+        include: { OrderItem: true },
       })
 
       if (order) {
-        for (const item of order.items) {
+        for (const item of order.OrderItem) {
           await prisma.product.update({
             where: { id: item.productId },
             data: {

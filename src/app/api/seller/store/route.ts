@@ -143,12 +143,12 @@ export async function GET() {
     const store = await prisma.store.findUnique({
       where: { userId: user.id },
       include: {
-        products: {
+        Product: {
           take: 5,
           orderBy: { createdAt: 'desc' }
         },
         _count: {
-          select: { products: true }
+          select: { Product: true }
         }
       }
     })

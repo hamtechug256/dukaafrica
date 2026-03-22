@@ -53,7 +53,7 @@ export async function GET(request: Request) {
       prisma.product.findMany({
         where,
         include: {
-          store: {
+          Store: {
             select: {
               id: true,
               name: true,
@@ -62,7 +62,7 @@ export async function GET(request: Request) {
               rating: true,
             },
           },
-          category: {
+          Category: {
             select: {
               id: true,
               name: true,

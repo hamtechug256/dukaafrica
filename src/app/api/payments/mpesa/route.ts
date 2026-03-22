@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
     // Get order
     const order = await prisma.order.findUnique({
       where: { id: orderId },
-      include: { payment: true },
+      include: { Payment: true },
     })
 
     if (!order) {
@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
     if (stkData.ResponseCode === '0') {
       // Update payment with checkout request ID
       await prisma.payment.update({
-        where: { id: order.payment?.id },
+        where: { id: order.Payment?.id },
         data: {
           providerRef: stkData.CheckoutRequestID,
           phone: formattedPhone,

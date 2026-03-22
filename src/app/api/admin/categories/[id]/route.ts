@@ -23,9 +23,9 @@ export async function GET(
     const category = await prisma.category.findUnique({
       where: { id },
       include: {
-        children: true,
+        other_Category: true,
         _count: {
-          select: { products: true },
+          select: { Product: true },
         },
       },
     })

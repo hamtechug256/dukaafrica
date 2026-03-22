@@ -33,19 +33,12 @@ export async function GET(request: NextRequest) {
     const tickets = await prisma.supportTicket.findMany({
       where,
       include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-        replies: {
+        TicketReply: {
           orderBy: { createdAt: 'desc' },
           take: 1,
         },
         _count: {
-          select: { replies: true },
+          select: { TicketReply: true },
         },
       },
       orderBy: { createdAt: 'desc' },
@@ -89,15 +82,6 @@ export async function POST(request: NextRequest) {
         message,
         priority: priority || 'NORMAL',
         category: category || 'OTHER',
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
       },
     })
 
@@ -203,10 +187,7 @@ export async function PATCH(request: NextRequest) {
     const updatedTicket = await prisma.supportTicket.findUnique({
       where: { id: ticketId },
       include: {
-        user: {
-          select: { id: true, name: true, email: true },
-        },
-        replies: {
+        TicketReply: {
           orderBy: { createdAt: 'asc' },
         },
       },

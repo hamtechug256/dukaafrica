@@ -134,7 +134,7 @@ export async function POST(req: Request) {
           status: 'PENDING',
           
           // Items
-          items: {
+          OrderItem: {
             create: items.map((item) => ({
               productId: item.productId,
               variantId: item.variantId,
@@ -150,7 +150,7 @@ export async function POST(req: Request) {
           },
         },
         include: {
-          items: true,
+          OrderItem: true,
         },
       })
 
@@ -205,7 +205,7 @@ export async function POST(req: Request) {
 
         return NextResponse.json({
           order,
-          payment: {
+          Payment: {
             id: payment.id,
             authorization_url: paystackData.data.authorization_url,
             reference: paystackData.data.reference,
@@ -222,7 +222,7 @@ export async function POST(req: Request) {
     // For mobile money, return order and payment info
     return NextResponse.json({
       order,
-      payment: {
+      Payment: {
         id: payment.id,
         method: paymentMethod.type,
         provider: paymentMethod.provider,

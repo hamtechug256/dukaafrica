@@ -81,7 +81,7 @@ export async function GET() {
     // Get shipping rates from DB
     const shippingRates = await prisma.shippingRate.findMany({
       where: { isActive: true },
-      include: { tier: true },
+      include: { ShippingTier: true },
       orderBy: { zoneType: 'asc' },
     })
 
@@ -132,7 +132,7 @@ export async function GET() {
           id: r.id,
           zoneType: r.zoneType,
           tierId: r.tierId,
-          tierName: r.tier?.name,
+          tierName: r.ShippingTier?.name,
           baseFee: r.baseFee,
           perKgFee: r.perKgFee,
           crossBorderFee: r.crossBorderFee,

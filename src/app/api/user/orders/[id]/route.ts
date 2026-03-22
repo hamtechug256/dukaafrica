@@ -32,7 +32,7 @@ export async function GET(
         userId: user.id,
       },
       include: {
-        store: {
+        Store: {
           select: {
             id: true,
             name: true,
@@ -40,9 +40,9 @@ export async function GET(
             phone: true,
           },
         },
-        items: {
+        OrderItem: {
           include: {
-            product: {
+            Product: {
               select: {
                 id: true,
                 name: true,
@@ -52,7 +52,7 @@ export async function GET(
             },
           },
         },
-        payment: true,
+        Payment: true,
       },
     })
 
@@ -63,9 +63,9 @@ export async function GET(
     // Parse images
     const orderWithImages = {
       ...order,
-      items: order.items.map(item => ({
+      OrderItem: order.OrderItem.map(item => ({
         ...item,
-        productImage: item.product?.images ? JSON.parse(item.product.images)[0] : null,
+        productImage: item.Product?.images ? JSON.parse(item.Product.images)[0] : null,
       })),
     }
 
