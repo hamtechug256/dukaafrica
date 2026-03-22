@@ -8,14 +8,39 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { FLUTTERWAVE_CONFIG, flutterwaveClient } from '@/lib/flutterwave/client'
+import { FLUTTERWAVE_CONFIG } from '@/lib/flutterwave/client'
+import crypto from 'crypto'
+
+/**
+ * Compare two strings using timing-safe comparison
+ * to prevent timing attacks
+ */
+function safeCompare(a: string, b: string): boolean {
+  try {
+    // Create buffers from the strings
+    const bufferA = Buffer.from(a, 'utf8')
+    const bufferB = Buffer.from(b, 'utf8')
+    
+    // If lengths differ, still compare to prevent length-based timing attacks
+    if (bufferA.length !== bufferB.length) {
+      // Use a dummy comparison to maintain constant time
+      crypto.timingSafeEqual(bufferA, bufferA)
+      return false
+    }
+    
+    return crypto.timingSafeEqual(bufferA, bufferB)
+  } catch {
+    return false
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
-    // Verify webhook signature
+    // Verify webhook signature using timing-safe comparison
     const signature = request.headers.get('verif-hash')
+    const webhookHash = FLUTTERWAVE_CONFIG.webhookHash
     
-    if (!signature || signature !== FLUTTERWAVE_CONFIG.webhookHash) {
+    if (!signature || !webhookHash || !safeCompare(signature, webhookHash)) {
       console.error('Invalid webhook signature')
       return NextResponse.json(
         { error: 'Invalid signature' },

@@ -67,8 +67,16 @@ export async function GET(request: NextRequest) {
     // Get store info for product chats
     const chatsWithStore = await Promise.all(
       chats.map(async (chat) => {
-        let product = null
-        let store = null
+        let product: {
+          id: string
+          name: string
+          images: string | null
+          price: number
+          currency: string
+          slug: string
+          store: { id: string; name: string; slug: string }
+        } | null = null
+        let store: { id: string; name: string; slug: string } | null = null
 
         if (chat.productId) {
           product = await prisma.product.findUnique({
@@ -89,7 +97,7 @@ export async function GET(request: NextRequest) {
               },
             },
           })
-          store = product?.store
+          store = product?.store ?? null
         }
 
         // Get other participant (the one we're chatting with)

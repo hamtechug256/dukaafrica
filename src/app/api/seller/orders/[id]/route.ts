@@ -149,7 +149,7 @@ export async function PATCH(
       
       await prisma.store.update({
         where: { id: store.id },
-        {
+        data: {
           availableBalance: { increment: sellerEarnings },
           pendingBalance: { decrement: Math.min(sellerEarnings, store.pendingBalance) },
           totalSales: { increment: existingOrder.subtotal },

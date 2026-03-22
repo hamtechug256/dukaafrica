@@ -16,7 +16,7 @@ import {
   MOBILE_MONEY_METHODS,
 } from '@/lib/flutterwave/client'
 import { calculatePaymentBreakdown } from '@/lib/payment-split'
-import { Country, Currency } from '@prisma/client'
+import { Country, Currency } from '@/types/enums'
 
 export async function POST(request: NextRequest) {
   try {

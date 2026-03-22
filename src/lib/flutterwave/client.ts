@@ -8,7 +8,7 @@
  * - Webhook handling for payment confirmation
  */
 
-import { Currency, Country } from '@prisma/client'
+import { Currency, Country } from '@/types/enums'
 
 // ============================================
 // FLUTTERWAVE CONFIGURATION
@@ -26,25 +26,26 @@ export const FLUTTERWAVE_CONFIG = {
 // CURRENCY TO FLUTTERWAVE COUNTRY CODE
 // ============================================
 
-export const COUNTRY_TO_FW_COUNTRY: Record<Country, string> = {
+export const COUNTRY_TO_FW_COUNTRY: Partial<Record<Country, string>> = {
   UGANDA: 'UG',
   KENYA: 'KE',
   TANZANIA: 'TZ',
   RWANDA: 'RW'
 }
 
-export const CURRENCY_TO_FW_CURRENCY: Record<Currency, string> = {
+export const CURRENCY_TO_FW_CURRENCY: Partial<Record<Currency, string>> = {
   UGX: 'UGX',
   KES: 'KES',
   TZS: 'TZS',
-  RWF: 'RWF'
+  RWF: 'RWF',
+  USD: 'USD'
 }
 
 // ============================================
 // MOBILE MONEY PAYMENT METHODS
 // ============================================
 
-export const MOBILE_MONEY_METHODS: Record<Country, string> = {
+export const MOBILE_MONEY_METHODS: Partial<Record<Country, string>> = {
   UGANDA: 'mobilemoneyuganda',
   KENYA: 'mpesa',
   TANZANIA: 'mobilemoneytanzania',
@@ -376,11 +377,11 @@ export function verifyWebhookSignature(
  * Get bank code for mobile money
  */
 export function getMobileMoneyBankCode(country: Country): string {
-  const codes: Record<Country, string> = {
+  const codes: Partial<Record<Country, string>> = {
     UGANDA: 'MTNUG', // MTN Mobile Money Uganda
     KENYA: 'MPESA',  // M-Pesa Kenya
     TANZANIA: 'VODATZ', // Vodacom/Tigo Tanzania
     RWANDA: 'MTNRW'  // MTN Mobile Money Rwanda
   }
-  return codes[country]
+  return codes[country] || 'MTNUG'
 }

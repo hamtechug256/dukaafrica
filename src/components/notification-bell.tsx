@@ -119,7 +119,7 @@ export function NotificationBell() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => markReadMutation.mutate()}
+              onClick={() => markReadMutation.mutate(undefined)}
               className="text-xs text-primary"
             >
               Mark all read

@@ -13,7 +13,7 @@ import {
   flutterwaveClient,
   COUNTRY_TO_FW_COUNTRY,
 } from '@/lib/flutterwave/client'
-import { Country } from '@prisma/client'
+import { Country } from '@/types/enums'
 
 // Bank codes for mobile money per country
 const MOBILE_MONEY_BANKS: Record<Country, Array<{ code: string; name: string }>> = {
@@ -33,6 +33,14 @@ const MOBILE_MONEY_BANKS: Record<Country, Array<{ code: string; name: string }>>
   RWANDA: [
     { code: 'MTNRW', name: 'MTN Mobile Money Rwanda' },
     { code: 'AIRTELRW', name: 'Airtel Money Rwanda' }
+  ],
+  SOUTH_SUDAN: [
+    { code: 'MTNSS', name: 'MTN Mobile Money South Sudan' },
+    { code: 'ZAINSS', name: 'Zain Cash South Sudan' }
+  ],
+  BURUNDI: [
+    { code: 'LUMITEL', name: 'Lumitel' },
+    { code: 'ECOCASH', name: 'EcoCash Burundi' }
   ]
 }
 
@@ -90,6 +98,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Create Flutterwave subaccount
+    const fwCountry = COUNTRY_TO_FW_COUNTRY[country]
+    if (!fwCountry) {
+      return NextResponse.json(
+        { error: 'Country not supported for payouts' },
+        { status: 400 }
+      )
+    }
+
     const subaccountResponse = await flutterwaveClient.createSubaccount({
       account_bank: accountBank,
       account_number: accountNumberFinal,
@@ -98,7 +114,7 @@ export async function POST(request: NextRequest) {
       business_contact: user.name || store.name,
       business_contact_mobile: phoneNumber || store.phone || '',
       business_mobile: phoneNumber || store.phone || '',
-      country: COUNTRY_TO_FW_COUNTRY[country],
+      country: fwCountry,
       split_type: 'flat',
       split_value: 0
     })

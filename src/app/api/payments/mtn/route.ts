@@ -39,11 +39,11 @@ export async function POST(req: NextRequest) {
       : 'https://sandbox.momodeveloper.mtn.com'
 
     // Create access token
-    const auth = Buffer.from(`${userIdMomo}:${apiKey}`).toString('base64')
+    const authHeader = Buffer.from(`${userIdMomo}:${apiKey}`).toString('base64')
     const tokenResponse = await fetch(`${baseUrl}/collection/token/`, {
       method: 'POST',
       headers: {
-        Authorization: `Basic ${auth}`,
+        Authorization: `Basic ${authHeader}`,
         'Ocp-Apim-Subscription-Key': subscriptionKey!,
       },
     })

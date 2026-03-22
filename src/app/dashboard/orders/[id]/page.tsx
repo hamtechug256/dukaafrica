@@ -107,7 +107,11 @@ export default function OrderDetailPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <OrderTimeline order={order} />
+                <OrderTimeline 
+                  currentStatus={order.status}
+                  statusHistory={order.statusHistory}
+                  estimatedDelivery={order.estimatedDelivery}
+                />
               </CardContent>
             </Card>
 

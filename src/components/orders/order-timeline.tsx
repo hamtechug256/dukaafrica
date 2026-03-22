@@ -33,7 +33,7 @@ export interface TimelineStep {
   title: string
   description: string
   timestamp?: string | Date
-  icon: typeof CheckCircle | Package | Truck | MapPin | Bus
+  icon: typeof ShoppingBag | typeof CheckCircle | typeof Package | typeof Truck | typeof Bus | typeof MapPin | typeof XCircle
 }
 
 interface OrderTimelineProps {

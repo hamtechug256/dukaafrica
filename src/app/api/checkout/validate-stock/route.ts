@@ -17,7 +17,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No items provided' }, { status: 400 })
     }
 
-    const validationResults = []
+    const validationResults: Array<{
+      productId: string
+      productName?: string
+      variantId?: string
+      valid: boolean
+      available?: number
+      requested?: number
+      error?: string
+    }> = []
     let allValid = true
 
     for (const item of items) {

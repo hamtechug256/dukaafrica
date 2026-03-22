@@ -343,7 +343,7 @@ export function ProductVariantBuilder({
                           <Input
                             type="number"
                             value={variant.comparePrice || ''}
-                            onChange={(e) => updateVariant(variant.id, 'comparePrice', parseFloat(e.target.value) || undefined)}
+                            onChange={(e) => updateVariant(variant.id, 'comparePrice', parseFloat(e.target.value) || 0)}
                             placeholder="Optional"
                           />
                         </div>

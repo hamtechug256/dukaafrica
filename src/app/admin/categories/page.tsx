@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { useUser } from '@clerk/nextjs'
 import {
   Card, CardContent, CardHeader, CardTitle, CardDescription
 } from '@/components/ui/card'
@@ -101,6 +102,7 @@ async function deleteCategory(id: string) {
 export default function AdminCategoriesPage() {
   const router = useRouter()
   const queryClient = useQueryClient()
+  const { user } = useUser()
   const [searchTerm, setSearchTerm] = useState('')
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)

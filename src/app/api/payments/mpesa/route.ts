@@ -41,11 +41,11 @@ export async function POST(req: NextRequest) {
       : 'https://sandbox.safaricom.co.ke'
 
     // Get access token
-    const auth = Buffer.from(`${consumerKey}:${consumerSecret}`).toString('base64')
+    const authHeader = Buffer.from(`${consumerKey}:${consumerSecret}`).toString('base64')
     const tokenResponse = await fetch(`${baseUrl}/oauth/v1/generate?grant_type=client_credentials`, {
       method: 'GET',
       headers: {
-        Authorization: `Basic ${auth}`,
+        Authorization: `Basic ${authHeader}`,
       },
     })
     const tokenData = await tokenResponse.json()

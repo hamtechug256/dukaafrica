@@ -7,7 +7,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { Country, Currency } from '@prisma/client';
+import { Country, Currency } from '@/types/enums';
 import {
   calculateShippingFee,
   canShipToCountry,

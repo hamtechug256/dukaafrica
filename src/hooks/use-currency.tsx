@@ -2,7 +2,7 @@
 
 import { useUser } from '@clerk/nextjs'
 import { useState, useEffect, useMemo, createContext, useContext, ReactNode } from 'react'
-import { Currency, Country } from '@prisma/client'
+import { Currency, Country } from '@/types/enums'
 import {
   convertCurrency,
   formatPrice,
@@ -37,9 +37,9 @@ interface CurrencyContextType {
   }
   
   // Country/Currency info
-  getCountryInfo: (country: Country) => { name: string; flag: string; phoneCode: string }
+  getCountryInfo: (country: Country) => { name: string; flag: string; phoneCode: string } | undefined
   getCurrencyInfo: (currency: Currency) => { symbol: string; name: string }
-  getMobileMoneyProviders: (country: Country) => Array<{ id: string; name: string }>
+  getMobileMoneyProviders: (country: Country) => Array<{ id: string; name: string }> | undefined
 }
 
 const CurrencyContext = createContext<CurrencyContextType | null>(null)

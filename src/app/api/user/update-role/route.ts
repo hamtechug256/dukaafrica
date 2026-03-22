@@ -1,7 +1,7 @@
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { Country, Currency, UserRole } from '@prisma/client'
+import { Country, Currency, UserRole } from '@/types/enums'
 
 // Valid countries and currencies
 const VALID_COUNTRIES: Country[] = ['UGANDA', 'KENYA', 'TANZANIA', 'RWANDA']

@@ -10,6 +10,7 @@ export interface CheckoutStep {
 interface Address {
   fullName: string
   phone: string
+  email?: string
   country: string
   region: string
   city: string
@@ -19,8 +20,9 @@ interface Address {
 }
 
 interface PaymentMethod {
+  id?: string
   type: 'MOBILE_MONEY' | 'CARD' | 'BANK_TRANSFER'
-  provider?: 'MPESA' | 'MTN' | 'AIRTEL' | 'PAYSTACK' | 'FLUTTERWAVE'
+  provider?: 'MPESA' | 'MTN' | 'AIRTEL' | 'PAYSTACK' | 'FLUTTERWAVE' | 'CARD'
   phoneNumber?: string
   cardLast4?: string
   cardBrand?: string
@@ -29,7 +31,7 @@ interface PaymentMethod {
 interface DeliveryOption {
   id: string
   name: string
-  description: string
+  description?: string
   price: number
   estimatedDays: string
 }

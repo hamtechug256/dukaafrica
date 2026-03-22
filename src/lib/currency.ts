@@ -5,7 +5,7 @@
  * Sellers price in their local currency, buyers see prices converted to their currency.
  */
 
-import { Currency, Country } from '@prisma/client'
+import { Currency, Country } from '@/types/enums'
 
 // ============================================
 // CURRENCY SYMBOLS AND FORMATTING
@@ -40,6 +40,12 @@ export const CURRENCY_INFO: Record<Currency, {
     name: 'Rwandan Franc',
     decimals: 0, // RWF doesn't use decimals
     locale: 'rw-RW'
+  },
+  USD: {
+    symbol: 'USD',
+    name: 'US Dollar',
+    decimals: 2,
+    locale: 'en-US'
   }
 }
 
@@ -51,10 +57,12 @@ export const COUNTRY_CURRENCY: Record<Country, Currency> = {
   UGANDA: 'UGX',
   KENYA: 'KES',
   TANZANIA: 'TZS',
-  RWANDA: 'RWF'
+  RWANDA: 'RWF',
+  SOUTH_SUDAN: 'USD',
+  BURUNDI: 'USD'
 }
 
-export const CURRENCY_COUNTRY: Record<Currency, Country> = {
+export const CURRENCY_COUNTRY: Partial<Record<Currency, Country>> = {
   UGX: 'UGANDA',
   KES: 'KENYA',
   TZS: 'TANZANIA',
@@ -66,7 +74,7 @@ export const CURRENCY_COUNTRY: Record<Currency, Country> = {
 // These are approximate rates. Flutterwave handles actual conversion.
 // ============================================
 
-export const EXCHANGE_RATES: Record<Currency, Record<Currency, number>> = {
+export const EXCHANGE_RATES: Record<Currency, Partial<Record<Currency, number>>> = {
   UGX: {
     UGX: 1,
     KES: 0.035,      // 1 UGX ≈ 0.035 KES
@@ -90,6 +98,13 @@ export const EXCHANGE_RATES: Record<Currency, Record<Currency, number>> = {
     KES: 0.13,       // 1 RWF ≈ 0.13 KES
     TZS: 1.04,       // 1 RWF ≈ 1.04 TZS
     RWF: 1
+  },
+  USD: {
+    USD: 1,
+    UGX: 3800,
+    KES: 133,
+    TZS: 2500,
+    RWF: 1300
   }
 }
 
@@ -175,13 +190,13 @@ export function getExchangeRate(
  * Get currency for a country
  */
 export function getCurrencyForCountry(country: Country): Currency {
-  return COUNTRY_CURRENCY[country]
+  return COUNTRY_CURRENCY[country] || 'UGX'
 }
 
 /**
  * Get country for a currency
  */
-export function getCountryForCurrency(currency: Currency): Country {
+export function getCountryForCurrency(currency: Currency): Country | undefined {
   return CURRENCY_COUNTRY[currency]
 }
 
@@ -189,11 +204,11 @@ export function getCountryForCurrency(currency: Currency): Country {
 // MOBILE MONEY PROVIDERS BY COUNTRY
 // ============================================
 
-export const MOBILE_MONEY_PROVIDERS: Record<Country, Array<{
+export const MOBILE_MONEY_PROVIDERS: Partial<Record<Country, Array<{
   id: string
   name: string
   paymentCode: string
-}>> = {
+}>>> = {
   UGANDA: [
     { id: 'mtn_ug', name: 'MTN Mobile Money', paymentCode: 'mtn_ug' },
     { id: 'airtel_ug', name: 'Airtel Money', paymentCode: 'airtel_ug' }
@@ -217,11 +232,11 @@ export const MOBILE_MONEY_PROVIDERS: Record<Country, Array<{
 // COUNTRY FLAGS AND NAMES
 // ============================================
 
-export const COUNTRY_INFO: Record<Country, {
+export const COUNTRY_INFO: Partial<Record<Country, {
   name: string
   flag: string
   phoneCode: string
-}> = {
+}>> = {
   UGANDA: {
     name: 'Uganda',
     flag: '🇺🇬',

@@ -14,7 +14,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/db'
-import { Country } from '@prisma/client'
+import { Country } from '@/types/enums'
 
 // GET - Retrieve seller's store settings
 export async function GET() {
@@ -161,29 +161,8 @@ export async function PUT(request: NextRequest) {
           payoutBankAccount: data.bankAccount || null,
         }
 
-        // Create Flutterwave subaccount if not exists
-        if (!user.store.flutterwaveSubaccountId && data.method) {
-          try {
-            const { createSellerSubaccount } = await import('@/lib/flutterwave/client')
-            const subaccount = await createSellerSubaccount({
-              storeId: user.store.id,
-              storeName: user.store.name,
-              email: user.store.email || user.email,
-              country: user.store.country,
-              payoutMethod: data.method,
-              payoutPhone: data.phone,
-              bankName: data.bankName,
-              bankAccount: data.bankAccount,
-            })
-            
-            if (subaccount) {
-              payoutData.flutterwaveSubaccountId = subaccount.subaccount_id
-            }
-          } catch (error) {
-            console.error('Error creating Flutterwave subaccount:', error)
-            // Continue without subaccount - can be created later
-          }
-        }
+        // Note: Flutterwave subaccount should be created via /api/flutterwave/subaccount endpoint
+        // This just stores the payout preferences
 
         await prisma.store.update({
           where: { id: user.store.id },

@@ -570,7 +570,7 @@ export function VariantManager({
                               <Input
                                 type="number"
                                 value={variant.comparePrice || ''}
-                                onChange={(e) => updateVariant(variant.id, 'comparePrice', e.target.value ? parseFloat(e.target.value) : null)}
+                                onChange={(e) => updateVariant(variant.id, 'comparePrice', e.target.value ? parseFloat(e.target.value) : 0)}
                                 placeholder="Optional"
                                 className="w-24 h-8"
                               />

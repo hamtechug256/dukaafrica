@@ -4,6 +4,7 @@ import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 
 export interface CartItem {
+  id: string
   productId: string
   name: string
   slug: string
@@ -16,6 +17,11 @@ export interface CartItem {
   variantId?: string
   variantName?: string
   maxQuantity: number
+  sellerCountry?: string
+  weight?: number
+  currency?: string
+  localShippingOnly?: boolean
+  shipsToCountries?: string[]
 }
 
 interface CartStore {
@@ -23,7 +29,7 @@ interface CartStore {
   isOpen: boolean
   isLoading: boolean
   
-  addItem: (item: Omit<CartItem, 'id'>) => void
+  addItem: (item: Omit<CartItem, 'id'> & { id?: string }) => void
   removeItem: (productId: string, variantId?: string) => void
   updateQuantity: (productId: string, quantity: number, variantId?: string) => void
   clearCart: () => void
@@ -47,6 +53,7 @@ export const useCartStore = create<CartStore>()(
 
       addItem: (item) => {
         const items = get().items
+        const itemId = item.id || `${item.productId}-${item.variantId || 'default'}`
         
         const existingIndex = items.findIndex(
           (i) => i.productId === item.productId && i.variantId === item.variantId
@@ -64,7 +71,7 @@ export const useCartStore = create<CartStore>()(
           })
         } else {
           set({
-            items: [...items, item],
+            items: [...items, { ...item, id: itemId }],
           })
         }
         

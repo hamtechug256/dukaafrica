@@ -12,6 +12,7 @@ interface FlashSaleTimerProps {
   showIcon?: boolean
   variant?: 'default' | 'compact' | 'banner'
   onEnd?: () => void
+  className?: string
 }
 
 interface TimeLeft {
@@ -45,7 +46,8 @@ export function FlashSaleTimer({
   startTime,
   showIcon = true, 
   variant = 'default',
-  onEnd 
+  onEnd,
+  className = ''
 }: FlashSaleTimerProps) {
   const [timeLeft, setTimeLeft] = useState<TimeLeft>({ 
     days: 0, 
@@ -141,7 +143,7 @@ export function FlashSaleTimer({
   // Compact variant - for product cards
   if (variant === 'compact') {
     return (
-      <div className="flex items-center gap-1 text-xs font-medium text-red-600">
+      <div className={`flex items-center gap-1 text-xs font-medium text-red-600 ${className}`}>
         <Clock className="w-3 h-3" />
         <span>
           {timeLeft.days > 0 && `${timeLeft.days}d `}
@@ -231,5 +233,48 @@ export function FlashSaleBadge({ discount, size = 'md' }: FlashSaleBadgeProps) {
       <Zap className="w-3 h-3 mr-1" />
       {discount}% OFF
     </Badge>
+  )
+}
+
+// Mini Flash Sale Timer Component - Compact version for product cards
+interface FlashSaleTimerMiniProps {
+  endTime: Date | string
+  className?: string
+}
+
+export function FlashSaleTimerMini({ endTime, className = '' }: FlashSaleTimerMiniProps) {
+  const [timeLeft, setTimeLeft] = useState({ hours: 0, minutes: 0, seconds: 0 })
+
+  useEffect(() => {
+    const calculateTimeLeft = () => {
+      const now = new Date().getTime()
+      const end = new Date(endTime).getTime()
+      const difference = end - now
+
+      if (difference <= 0) {
+        return { hours: 0, minutes: 0, seconds: 0 }
+      }
+
+      return {
+        hours: Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+        minutes: Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60)),
+        seconds: Math.floor((difference % (1000 * 60)) / 1000),
+      }
+    }
+
+    setTimeLeft(calculateTimeLeft())
+    const timer = setInterval(() => setTimeLeft(calculateTimeLeft()), 1000)
+    return () => clearInterval(timer)
+  }, [endTime])
+
+  return (
+    <div className={`flex items-center gap-1 text-xs font-medium text-red-600 ${className}`}>
+      <Clock className="w-3 h-3" />
+      <span className="font-mono">
+        {String(timeLeft.hours).padStart(2, '0')}:
+        {String(timeLeft.minutes).padStart(2, '0')}:
+        {String(timeLeft.seconds).padStart(2, '0')}
+      </span>
+    </div>
   )
 }

@@ -1,4 +1,5 @@
-import { PrismaClient, NotificationType } from '@prisma/client'
+import { PrismaClient } from '@prisma/client'
+import { NotificationType } from '@/types/enums'
 
 const prisma = new PrismaClient()
 

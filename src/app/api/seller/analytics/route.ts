@@ -125,7 +125,12 @@ export async function GET(request: NextRequest) {
     })
 
     // Fill in missing days
-    const chartData = []
+    const chartData: Array<{
+      date: string
+      revenue: number
+      orders: number
+      products: number
+    }> = []
     const current = new Date(startDate)
     while (current <= now) {
       const day = current.toISOString().split('T')[0]

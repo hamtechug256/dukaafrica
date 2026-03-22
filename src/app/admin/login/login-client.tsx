@@ -2,39 +2,22 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { useSignIn, useClerk, useAuth } from '@clerk/nextjs'
+import { useAuth, useClerk, SignIn } from '@clerk/nextjs'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Shield, Loader2, Eye, EyeOff, AlertCircle, CheckCircle } from 'lucide-react'
+import { Shield, Loader2 } from 'lucide-react'
 
 export function Login() {
   const router = useRouter()
-  const { signIn, setActive, isLoaded } = useSignIn()
-  const { signOut } = useClerk()
   const { isSignedIn, userId } = useAuth()
-  
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState('')
+  const { signOut } = useClerk()
   const [status, setStatus] = useState('')
-  const [clerkReady, setClerkReady] = useState(false)
-
-  // Wait for Clerk to be fully loaded
-  useEffect(() => {
-    if (isLoaded) {
-      setClerkReady(true)
-    }
-  }, [isLoaded])
+  const [error, setError] = useState('')
 
   // If already signed in, check role and redirect
   useEffect(() => {
     async function checkExistingSession() {
-      if (isSignedIn && userId && isLoaded) {
+      if (isSignedIn && userId) {
         setStatus('Checking admin access...')
         try {
           const roleRes = await fetch('/api/user/role')
@@ -58,72 +41,18 @@ export function Login() {
     }
     
     checkExistingSession()
-  }, [isSignedIn, userId, isLoaded, router, signOut])
+  }, [isSignedIn, userId, router, signOut])
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    setStatus('')
-    setIsLoading(true)
-
-    try {
-      if (!clerkReady) {
-        setError('Authentication service is still loading. Please wait...')
-        setIsLoading(false)
-        return
-      }
-
-      setStatus('Authenticating...')
-
-      // Sign in with Clerk
-      const signInAttempt = await signIn.create({
-        identifier: email,
-        password,
-      })
-
-      if (signInAttempt.status === 'complete') {
-        await setActive({ session: signInAttempt.createdSessionId })
-        
-        setStatus('Verifying admin privileges...')
-
-        // Check if user is admin
-        const roleRes = await fetch('/api/user/role')
-        const roleData = await roleRes.json()
-
-        if (roleData.user?.isAdmin) {
-          setStatus('Access granted! Redirecting...')
-          // Small delay for user to see success message
-          setTimeout(() => {
-            router.push('/admin')
-          }, 500)
-        } else {
-          // Not an admin - sign them out and show error
-          await signOut()
-          setError('Access denied. This portal is for administrators only.')
-          setStatus('')
-        }
-      } else {
-        setError('Authentication failed. Please check your credentials.')
-        setStatus('')
-      }
-    } catch (err: any) {
-      console.error('Login error:', err)
-      
-      // Handle specific Clerk errors
-      const errorCode = err?.errors?.[0]?.code
-      if (errorCode === 'form_identifier_not_found') {
-        setError('Account not found. Please check your email.')
-      } else if (errorCode === 'form_password_incorrect') {
-        setError('Incorrect password. Please try again.')
-      } else if (errorCode === 'too_many_attempts') {
-        setError('Too many failed attempts. Please try again later.')
-      } else {
-        setError(err?.message || 'Login failed. Please try again.')
-      }
-      setStatus('')
-    } finally {
-      setIsLoading(false)
-    }
+  // Show loading while checking admin status
+  if (isSignedIn && status) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+        <div className="flex items-center gap-2 text-white">
+          <Loader2 className="w-6 h-6 animate-spin" />
+          <span>{status}</span>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -150,87 +79,25 @@ export function Login() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleLogin} className="space-y-4">
-              {error && (
-                <Alert variant="destructive" className="bg-red-900/20 border-red-800">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-
-              {status && !error && (
-                <Alert className="bg-green-900/20 border-green-800">
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                  <AlertDescription className="text-green-400">{status}</AlertDescription>
-                </Alert>
-              )}
-
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-gray-300">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="admin@duukaafrica.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  disabled={isLoading}
-                  className="bg-gray-900/50 border-gray-700 text-white placeholder:text-gray-500 focus:border-primary"
-                />
+            {error && (
+              <div className="mb-4 p-3 bg-red-900/20 border border-red-800 rounded-lg text-red-400 text-sm">
+                {error}
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-gray-300">Password</Label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    disabled={isLoading}
-                    className="bg-gray-900/50 border-gray-700 text-white placeholder:text-gray-500 focus:border-primary pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
-
-              {!clerkReady ? (
-                <Button
-                  type="button"
-                  className="w-full"
-                  disabled
-                >
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Initializing authentication...
-                </Button>
-              ) : (
-                <Button
-                  type="submit"
-                  className="w-full"
-                  disabled={isLoading || !email || !password}
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Signing in...
-                    </>
-                  ) : (
-                    <>
-                      <Shield className="w-4 h-4 mr-2" />
-                      Sign in to Admin Portal
-                    </>
-                  )}
-                </Button>
-              )
-            </form>
+            )}
+            
+            {/* Clerk SignIn Component */}
+            <SignIn 
+              routing="hash"
+              appearance={{
+                elements: {
+                  rootBox: "mx-auto",
+                  card: "bg-transparent border-0 shadow-none",
+                  header: "hidden",
+                  footer: "hidden",
+                  formButtonPrimary: "bg-primary hover:bg-primary/90",
+                },
+              }}
+            />
 
             <div className="mt-6 pt-6 border-t border-gray-700">
               <p className="text-xs text-gray-500 text-center">

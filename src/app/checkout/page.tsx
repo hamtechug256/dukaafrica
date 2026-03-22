@@ -30,6 +30,7 @@ import {
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { formatPrice, COUNTRY_INFO, COUNTRY_CURRENCY, MOBILE_MONEY_PROVIDERS } from '@/lib/currency'
+import { Currency } from '@/types/enums'
 
 // Countries we support (East Africa only)
 const countries = [
@@ -79,6 +80,7 @@ export default function CheckoutPage() {
   const [formData, setFormData] = useState({
     fullName: user?.fullName || '',
     phone: '',
+    email: user?.emailAddresses[0]?.emailAddress || '',
     country: 'UGANDA',
     region: '',
     city: '',
@@ -125,7 +127,6 @@ export default function CheckoutPage() {
           name: `Bus Delivery (${result.shipping.zoneType.replace('_', ' ')})`,
           price: result.shipping.fee,
           estimatedDays: result.shipping.estimatedDays,
-          zoneType: result.shipping.zoneType
         })
       }
     } catch (error) {
@@ -517,7 +518,7 @@ export default function CheckoutPage() {
                           onClick={() => setPaymentMethod({
                             id: method.id,
                             type: 'MOBILE_MONEY',
-                            provider: method.name,
+                            provider: method.name as 'MPESA' | 'MTN' | 'AIRTEL' | 'PAYSTACK' | 'FLUTTERWAVE' | 'CARD',
                           })}
                         >
                           <div className="flex items-center gap-4">
@@ -647,7 +648,7 @@ export default function CheckoutPage() {
                           <span className="text-gray-600 dark:text-gray-400">
                             {item.name} x {item.quantity}
                           </span>
-                          <span>{formatPrice(item.price * item.quantity, item.currency)}</span>
+                          <span>{formatPrice(item.price * item.quantity, (item.currency || 'UGX') as Currency)}</span>
                         </div>
                       ))}
                     </div>
@@ -702,7 +703,7 @@ export default function CheckoutPage() {
                         <p className="text-xs text-gray-500">Qty: {item.quantity}</p>
                       </div>
                       <p className="text-sm font-medium">
-                        {formatPrice(item.price * item.quantity, item.currency)}
+                        {formatPrice(item.price * item.quantity, (item.currency || 'UGX') as Currency)}
                       </p>
                     </div>
                   ))}

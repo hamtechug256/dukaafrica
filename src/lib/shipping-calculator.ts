@@ -11,7 +11,7 @@
  * Seller handles actual shipping via bus - no platform coordination needed
  */
 
-import { Country, ShippingZoneType, Currency } from '@prisma/client';
+import { Country, ShippingZoneType, Currency } from '@/types/enums';
 import { prisma } from './db';
 
 // ============================================
@@ -19,7 +19,7 @@ import { prisma } from './db';
 // Based on East African geography and bus routes
 // ============================================
 
-export const ZONE_MATRIX: Record<Country, Record<Country, ShippingZoneType>> = {
+export const ZONE_MATRIX: Partial<Record<Country, Partial<Record<Country, ShippingZoneType>>>> = {
   UGANDA: {
     UGANDA: 'LOCAL',      // Same country = Local
     KENYA: 'REGIONAL',    // Neighboring = Regional
@@ -52,12 +52,12 @@ export const ZONE_MATRIX: Record<Country, Record<Country, ShippingZoneType>> = {
 // Admin can override these in the database
 // ============================================
 
-export const DEFAULT_SHIPPING_RATES: Record<ShippingZoneType, {
+export const DEFAULT_SHIPPING_RATES: Partial<Record<ShippingZoneType, {
   baseFee: number;
   perKgFee: number;
   crossBorderFee: number;
   platformMarkupPercent: number;
-}> = {
+}>> = {
   LOCAL: {
     baseFee: 5000,      // UGX 5,000 base fee for local
     perKgFee: 500,      // UGX 500 per kg
@@ -82,6 +82,18 @@ export const DEFAULT_SHIPPING_RATES: Record<ShippingZoneType, {
     crossBorderFee: 5000, // UGX 5,000 for customs handling
     platformMarkupPercent: 5,
   },
+  NATIONAL: {
+    baseFee: 8000,
+    perKgFee: 800,
+    crossBorderFee: 0,
+    platformMarkupPercent: 5,
+  },
+  INTERNATIONAL: {
+    baseFee: 25000,
+    perKgFee: 2500,
+    crossBorderFee: 5000,
+    platformMarkupPercent: 5,
+  },
 };
 
 // ============================================
@@ -90,11 +102,12 @@ export const DEFAULT_SHIPPING_RATES: Record<ShippingZoneType, {
 // Flutterwave handles actual conversion
 // ============================================
 
-export const CURRENCY_RATES: Record<Currency, Record<Currency, number>> = {
-  UGX: { UGX: 1, KES: 0.035, TZS: 0.27, RWF: 0.26 },
-  KES: { UGX: 28.5, KES: 1, TZS: 7.7, RWF: 7.5 },
-  TZS: { UGX: 3.7, KES: 0.13, TZS: 1, RWF: 0.97 },
-  RWF: { UGX: 3.85, KES: 0.13, TZS: 1.03, RWF: 1 },
+export const CURRENCY_RATES: Record<Currency, Partial<Record<Currency, number>>> = {
+  UGX: { UGX: 1, KES: 0.035, TZS: 0.27, RWF: 0.26, USD: 0.00026 },
+  KES: { UGX: 28.5, KES: 1, TZS: 7.7, RWF: 7.5, USD: 0.0075 },
+  TZS: { UGX: 3.7, KES: 0.13, TZS: 1, RWF: 0.97, USD: 0.0004 },
+  RWF: { UGX: 3.85, KES: 0.13, TZS: 1.03, RWF: 1, USD: 0.00077 },
+  USD: { UGX: 3800, KES: 133, TZS: 2500, RWF: 1300, USD: 1 },
 };
 
 // ============================================
@@ -252,7 +265,15 @@ async function getShippingRates(
 
   // Return default rates converted to requested currency
   const defaultRates = DEFAULT_SHIPPING_RATES[zoneType];
-  const conversionRate = getConversionRate(Currency.UGX, currency);
+  if (!defaultRates) {
+    return {
+      baseFee: 5000,
+      perKgFee: 500,
+      crossBorderFee: 0,
+      platformMarkupPercent: 5,
+    };
+  }
+  const conversionRate = getConversionRate('UGX' as Currency, currency);
   
   return {
     baseFee: Math.round(defaultRates.baseFee * conversionRate),
@@ -307,14 +328,15 @@ export function formatShippingFee(
   amount: number,
   currency: Currency
 ): string {
-  const symbols: Record<Currency, string> = {
+  const symbols: Partial<Record<Currency, string>> = {
     UGX: 'UGX',
     KES: 'KES',
     TZS: 'TZS',
     RWF: 'RWF',
+    USD: 'USD',
   };
 
-  return `${symbols[currency]} ${amount.toLocaleString()}`;
+  return `${symbols[currency] || 'UGX'} ${amount.toLocaleString()}`;
 }
 
 /**
@@ -325,12 +347,14 @@ export function getEstimatedDeliveryDays(zoneType: ShippingZoneType): {
   max: number;
   description: string;
 } {
-  const estimates: Record<ShippingZoneType, { min: number; max: number; description: string }> = {
+  const estimates: Partial<Record<ShippingZoneType, { min: number; max: number; description: string }>> = {
     LOCAL: { min: 1, max: 2, description: '1-2 days (same city/region)' },
     DOMESTIC: { min: 2, max: 4, description: '2-4 days (different city)' },
     REGIONAL: { min: 3, max: 7, description: '3-7 days (neighboring country)' },
     CROSS_BORDER: { min: 5, max: 14, description: '5-14 days (distant country)' },
+    NATIONAL: { min: 2, max: 4, description: '2-4 days (different city)' },
+    INTERNATIONAL: { min: 5, max: 14, description: '5-14 days (distant country)' },
   };
 
-  return estimates[zoneType];
+  return estimates[zoneType] || { min: 5, max: 14, description: '5-14 days' };
 }

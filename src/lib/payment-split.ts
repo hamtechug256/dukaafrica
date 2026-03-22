@@ -16,7 +16,7 @@
  * Platform earnings can be withdrawn by admin via configured payout method.
  */
 
-import { Country, Currency } from '@prisma/client';
+import { Country, Currency } from '@/types/enums';
 import { calculateShippingFee, getConversionRate } from './shipping-calculator';
 
 // ============================================
@@ -352,6 +352,7 @@ const CURRENCY_SYMBOLS: Record<Currency, { symbol: string; name: string }> = {
   KES: { symbol: 'KES', name: 'Kenyan Shilling' },
   TZS: { symbol: 'TZS', name: 'Tanzanian Shilling' },
   RWF: { symbol: 'RWF', name: 'Rwandan Franc' },
+  USD: { symbol: 'USD', name: 'US Dollar' },
 };
 
 export function formatCurrency(
@@ -387,6 +388,14 @@ export function getMobileMoneyMethods(country: Country): Array<{
     RWANDA: [
       { name: 'MTN Mobile Money', code: 'MTN_MONEY_RW' },
       { name: 'Airtel Money', code: 'AIRTEL_MONEY_RW' },
+    ],
+    SOUTH_SUDAN: [
+      { name: 'MTN Mobile Money', code: 'MTN_MONEY_SS' },
+      { name: 'Zain Cash', code: 'ZAIN_CASH' },
+    ],
+    BURUNDI: [
+      { name: 'Lumitel', code: 'LUMITEL' },
+      { name: 'EcoCash', code: 'ECOCASH_BI' },
     ],
   };
 
