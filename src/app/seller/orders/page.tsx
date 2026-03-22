@@ -1,0 +1,248 @@
+'use client'
+
+import { useQuery } from '@tanstack/react-query'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { ShoppingBag, Search, MoreHorizontal, Eye, Truck, Package, CheckCircle, Clock, XCircle, DollarSign } from 'lucide-react'
+import { useState } from 'react'
+import Link from 'next/link'
+
+const statusColors: Record<string, string> = {
+  PENDING: 'bg-yellow-100 text-yellow-700',
+  CONFIRMED: 'bg-blue-100 text-blue-700',
+  PROCESSING: 'bg-purple-100 text-purple-700',
+  SHIPPED: 'bg-indigo-100 text-indigo-700',
+  OUT_FOR_DELIVERY: 'bg-cyan-100 text-cyan-700',
+  DELIVERED: 'bg-green-100 text-green-700',
+  CANCELLED: 'bg-red-100 text-red-700',
+  RETURNED: 'bg-gray-100 text-gray-700',
+}
+
+async function fetchSellerOrders() {
+  const res = await fetch('/api/seller/orders')
+  if (!res.ok) throw new Error('Failed to fetch orders')
+  return res.json()
+}
+
+export default function SellerOrdersPage() {
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['seller-orders'],
+    queryFn: fetchSellerOrders,
+  })
+
+  const orders = data?.orders || []
+
+  const filteredOrders = orders.filter((order: any) => {
+    const matchesSearch = order.orderNumber.toLowerCase().includes(search.toLowerCase()) ||
+      order.shippingName.toLowerCase().includes(search.toLowerCase())
+    const matchesStatus = statusFilter === 'all' || order.status === statusFilter
+    return matchesSearch && matchesStatus
+  })
+
+  const stats = {
+    total: orders.length,
+    pending: orders.filter((o: any) => o.status === 'PENDING').length,
+    processing: orders.filter((o: any) => o.status === 'PROCESSING' || o.status === 'CONFIRMED').length,
+    shipped: orders.filter((o: any) => o.status === 'SHIPPED' || o.status === 'OUT_FOR_DELIVERY').length,
+    delivered: orders.filter((o: any) => o.status === 'DELIVERED').length,
+    revenue: orders.reduce((sum: number, o: any) => sum + (o.paymentStatus === 'PAID' ? o.total : 0), 0),
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      {/* Header */}
+      <div className="bg-white dark:bg-gray-800 border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Orders</h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-1">Manage and track your orders</p>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Stats */}
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-8">
+          <Card>
+            <CardContent className="pt-6 text-center">
+              <p className="text-2xl font-bold">{stats.total}</p>
+              <p className="text-xs text-gray-500">Total Orders</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6 text-center">
+              <p className="text-2xl font-bold text-yellow-600">{stats.pending}</p>
+              <p className="text-xs text-gray-500">Pending</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6 text-center">
+              <p className="text-2xl font-bold text-blue-600">{stats.processing}</p>
+              <p className="text-xs text-gray-500">Processing</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6 text-center">
+              <p className="text-2xl font-bold text-indigo-600">{stats.shipped}</p>
+              <p className="text-xs text-gray-500">Shipped</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6 text-center">
+              <p className="text-2xl font-bold text-green-600">{stats.delivered}</p>
+              <p className="text-xs text-gray-500">Delivered</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6 text-center">
+              <p className="text-2xl font-bold text-primary">UGX {stats.revenue.toLocaleString()}</p>
+              <p className="text-xs text-gray-500">Revenue</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Filters */}
+        <Card className="mb-6">
+          <CardContent className="pt-6">
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input
+                  placeholder="Search by order number or customer name..."
+                  className="pl-9"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-full md:w-48">
+                  <SelectValue placeholder="Filter by status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="PENDING">Pending</SelectItem>
+                  <SelectItem value="CONFIRMED">Confirmed</SelectItem>
+                  <SelectItem value="PROCESSING">Processing</SelectItem>
+                  <SelectItem value="SHIPPED">Shipped</SelectItem>
+                  <SelectItem value="DELIVERED">Delivered</SelectItem>
+                  <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Orders Table */}
+        <Card>
+          <CardContent className="p-0">
+            {isLoading ? (
+              <div className="text-center py-8">Loading...</div>
+            ) : filteredOrders.length === 0 ? (
+              <div className="text-center py-8">
+                <ShoppingBag className="w-12 h-12 mx-auto text-gray-400 mb-4" />
+                <p className="text-gray-500">No orders found</p>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Order</TableHead>
+                    <TableHead>Customer</TableHead>
+                    <TableHead>Items</TableHead>
+                    <TableHead>Total</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Payment</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredOrders.map((order: any) => (
+                    <TableRow key={order.id}>
+                      <TableCell className="font-medium">{order.orderNumber}</TableCell>
+                      <TableCell>
+                        <div>
+                          <p className="font-medium">{order.shippingName}</p>
+                          <p className="text-xs text-gray-500">{order.shippingCity}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Package className="w-4 h-4 text-gray-400" />
+                          <span>{order.items?.length || 0} items</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        UGX {order.total?.toLocaleString()}
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={statusColors[order.status]}>
+                          {order.status.replace(/_/g, ' ')}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={order.paymentStatus === 'PAID' ? 'default' : 'secondary'}>
+                          {order.paymentStatus}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {new Date(order.createdAt).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreHorizontal className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem>
+                              <Eye className="w-4 h-4 mr-2" />
+                              View Details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem>
+                              <Truck className="w-4 h-4 mr-2" />
+                              Update Status
+                            </DropdownMenuItem>
+                            <DropdownMenuItem>
+                              <CheckCircle className="w-4 h-4 mr-2" />
+                              Mark as Shipped
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  )
+}
