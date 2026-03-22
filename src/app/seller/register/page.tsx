@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useSignUp } from '@clerk/nextjs'
+import { useSignUp, useClerk } from '@clerk/nextjs'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -14,6 +14,7 @@ import Link from 'next/link'
 
 export default function SellerRegisterPage() {
   const signUp = useSignUp()
+  const { setActive } = useClerk()
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [step, setStep] = useState(1)
@@ -48,22 +49,30 @@ export default function SellerRegisterPage() {
 
     setIsLoading(true)
     try {
-      // Create Clerk account
-      await signUp.create({
+      // Clerk v7 sign-up flow:
+      // 1. Create sign-up with identifier (email)
+      const createResult = await signUp.create({
         emailAddress: formData.email,
         password: formData.password,
         firstName: formData.firstName,
         lastName: formData.lastName,
       })
 
-      // Prepare verification (email)
+      if (createResult.error) {
+        console.error('Sign-up error:', createResult.error)
+        alert((createResult.error as any)?.errors?.[0]?.message || 'Registration failed')
+        setIsLoading(false)
+        return
+      }
+
+      // 2. Prepare email verification
       await signUp.prepareEmailAddressVerification({ strategy: 'email_code' })
       
-      // Redirect to verification
+      // 3. Redirect to verification page
       router.push('/sign-up/verify-email?redirect_url=/seller/onboarding')
     } catch (error: any) {
       console.error('Registration error:', error)
-      alert(error.errors?.[0]?.message || 'Registration failed')
+      alert(error?.errors?.[0]?.message || error?.message || 'Registration failed')
     } finally {
       setIsLoading(false)
     }
