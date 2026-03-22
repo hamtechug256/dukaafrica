@@ -107,7 +107,10 @@ export default function OrderDetailPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <OrderTimeline order={order} />
+                <OrderTimeline 
+                  currentStatus={order.status} 
+                  estimatedDelivery={order.estimatedDelivery ? new Date(order.estimatedDelivery).toLocaleDateString() : undefined}
+                />
               </CardContent>
             </Card>
 
