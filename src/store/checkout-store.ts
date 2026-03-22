@@ -29,9 +29,10 @@ interface PaymentMethod {
 interface DeliveryOption {
   id: string
   name: string
-  description: string
+  description?: string
   price: number
   estimatedDays: string
+  zoneType?: string
 }
 
 interface CheckoutStore {
