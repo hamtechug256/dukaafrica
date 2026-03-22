@@ -239,7 +239,7 @@ async function getShippingRates(
 
     if (rates) {
       // Convert to requested currency if needed
-      const conversionRate = getConversionRate(rates.currency, currency);
+      const conversionRate = getConversionRate(rates.currency as Currency, currency);
       return {
         baseFee: Math.round(rates.baseFee * conversionRate),
         perKgFee: Math.round(rates.perKgFee * conversionRate),

@@ -16,7 +16,7 @@ import {
   MOBILE_MONEY_METHODS,
 } from '@/lib/flutterwave/client'
 import { calculatePaymentBreakdown } from '@/lib/payment-split'
-// Country and Currency are string types in our schema, not enums
+import { Country, Currency } from '@/lib/currency'
 
 export async function POST(request: NextRequest) {
   try {
@@ -88,11 +88,11 @@ export async function POST(request: NextRequest) {
     // Calculate payment breakdown
     const paymentBreakdown = await calculatePaymentBreakdown({
       productPrice: order.subtotal,
-      sellerCurrency: order.currency,
-      sellerCountry: order.sellerCountry,
+      sellerCurrency: order.currency as Currency,
+      sellerCountry: order.sellerCountry as Country,
       sellerCommissionRate: store.commissionRate,
-      buyerCurrency: order.currency,
-      buyerCountry: order.buyerCountry,
+      buyerCurrency: order.currency as Currency,
+      buyerCountry: order.buyerCountry as Country,
       productWeightKg: order.OrderItem.reduce((sum, item) => {
         return sum + (item.Product.weight || 1) * item.quantity
       }, 0),

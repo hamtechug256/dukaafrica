@@ -647,7 +647,7 @@ export default function CheckoutPage() {
                           <span className="text-gray-600 dark:text-gray-400">
                             {item.name} x {item.quantity}
                           </span>
-                          <span>{formatPrice(item.price * item.quantity, item.currency)}</span>
+                          <span>{formatPrice(item.price * item.quantity, item.currency || 'UGX')}</span>
                         </div>
                       ))}
                     </div>
@@ -702,7 +702,7 @@ export default function CheckoutPage() {
                         <p className="text-xs text-gray-500">Qty: {item.quantity}</p>
                       </div>
                       <p className="text-sm font-medium">
-                        {formatPrice(item.price * item.quantity, item.currency)}
+                        {formatPrice(item.price * item.quantity, item.currency || 'UGX')}
                       </p>
                     </div>
                   ))}
