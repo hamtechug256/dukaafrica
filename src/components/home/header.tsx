@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
-import { SignInButton, SignedIn, SignedOut, UserButton } from '@clerk/nextjs'
+import { SignInButton, UserButton, useAuth } from '@clerk/nextjs'
 import {
   Search,
   Heart,
@@ -37,6 +37,7 @@ const countries = [
 ]
 
 export function Header() {
+  const { isSignedIn, isLoaded } = useAuth()
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isSearchFocused, setIsSearchFocused] = useState(false)
@@ -193,7 +194,19 @@ export function Header() {
               </Link>
 
               {/* Auth Section */}
-              <SignedOut>
+              {!isLoaded ? (
+                <div className="hidden md:flex w-10 h-10 items-center justify-center">
+                  <div className="w-5 h-5 border-2 border-[oklch(0.6_0.2_35)] border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : isSignedIn ? (
+                <div className="hidden md:flex items-center">
+                  <UserButton afterSignOutUrl="/" appearance={{
+                    elements: {
+                      userButtonTrigger: "focus:shadow-none"
+                    }
+                  }} />
+                </div>
+              ) : (
                 <Link href="/sign-in">
                   <motion.button
                     whileHover={{ scale: 1.05 }}
@@ -204,16 +217,7 @@ export function Header() {
                     <span className="text-sm font-medium text-[oklch(0.25_0.02_45)] dark:text-white">Sign In</span>
                   </motion.button>
                 </Link>
-              </SignedOut>
-              <SignedIn>
-                <div className="hidden md:flex items-center">
-                  <UserButton afterSignOutUrl="/" appearance={{
-                    elements: {
-                      userButtonTrigger: "focus:shadow-none"
-                    }
-                  }} />
-                </div>
-              </SignedIn>
+              )}
 
               {/* Sell Button */}
               <Link href="/seller/register" className="hidden lg:block">
@@ -312,7 +316,15 @@ export function Header() {
 
               {/* Actions */}
               <div className="pt-4 border-t border-[oklch(0.94_0.01_85)] dark:border-[oklch(0.22_0.02_45)] space-y-3">
-                <SignedOut>
+                {!isLoaded ? (
+                  <div className="flex justify-center py-3">
+                    <div className="w-6 h-6 border-2 border-[oklch(0.6_0.2_35)] border-t-transparent rounded-full animate-spin" />
+                  </div>
+                ) : isSignedIn ? (
+                  <div className="flex justify-center">
+                    <UserButton afterSignOutUrl="/" />
+                  </div>
+                ) : (
                   <Link href="/sign-in">
                     <motion.button
                       whileHover={{ scale: 1.02 }}
@@ -323,12 +335,7 @@ export function Header() {
                       Sign In
                     </motion.button>
                   </Link>
-                </SignedOut>
-                <SignedIn>
-                  <div className="flex justify-center">
-                    <UserButton afterSignOutUrl="/" />
-                  </div>
-                </SignedIn>
+                )}
                 <Link href="/seller/register">
                   <motion.button
                     whileHover={{ scale: 1.02 }}
