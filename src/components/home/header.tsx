@@ -162,7 +162,7 @@ export function Header() {
               </motion.button>
 
               {/* Wishlist */}
-              <Link href="/wishlist">
+              <Link href="/dashboard/wishlist">
                 <motion.div
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}

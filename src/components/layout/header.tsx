@@ -25,7 +25,7 @@ import {
   LayoutDashboard
 } from "lucide-react";
 import { useState } from "react";
-import { useUser, useClerk, SignInButton, UserButton } from "@clerk/nextjs";
+import { useAuth, SignInButton, UserButton } from "@clerk/nextjs";
 import { useCartStore } from "@/store/cart-store";
 
 const categories = [
@@ -41,8 +41,7 @@ const categories = [
 
 export function Header() {
   const [searchQuery, setSearchQuery] = useState("");
-  const { isSignedIn, user } = useUser();
-  const { openSignIn } = useClerk();
+  const { isSignedIn, isLoaded } = useAuth();
   const { getItemCount } = useCartStore();
   const cartCount = getItemCount();
 
@@ -136,7 +135,11 @@ export function Header() {
             </Link>
 
             {/* User Menu */}
-            {!isSignedIn ? (
+            {!isLoaded ? (
+              <div className="w-10 h-10 flex items-center justify-center">
+                <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : !isSignedIn ? (
               <SignInButton mode="modal">
                 <Button variant="ghost" className="flex flex-col items-center">
                   <User className="h-5 w-5" />
