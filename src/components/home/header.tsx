@@ -200,11 +200,7 @@ export function Header() {
                 </div>
               ) : isSignedIn ? (
                 <div className="hidden md:flex items-center">
-                  <UserButton afterSignOutUrl="/" appearance={{
-                    elements: {
-                      userButtonTrigger: "focus:shadow-none"
-                    }
-                  }} />
+                  <UserButton />
                 </div>
               ) : (
                 <Link href="/sign-in">
@@ -322,7 +318,7 @@ export function Header() {
                   </div>
                 ) : isSignedIn ? (
                   <div className="flex justify-center">
-                    <UserButton afterSignOutUrl="/" />
+                    <UserButton />
                   </div>
                 ) : (
                   <Link href="/sign-in">
