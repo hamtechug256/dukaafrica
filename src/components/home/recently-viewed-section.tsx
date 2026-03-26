@@ -39,7 +39,7 @@ export function RecentlyViewedSection() {
           </div>
           
           <div className="flex items-center gap-2">
-            <Link href="/recently-viewed">
+            <Link href="/products">
               <Button variant="outline" size="sm" className="hidden sm:flex">
                 View All
                 <ArrowRight className="ml-2 h-4 w-4" />
@@ -70,7 +70,7 @@ export function RecentlyViewedSection() {
 
         {/* View All Link - Mobile */}
         <div className="mt-4 text-center sm:hidden">
-          <Link href="/recently-viewed">
+          <Link href="/products">
             <Button variant="outline" className="w-full">
               View All Recently Viewed ({products.length})
               <ArrowRight className="ml-2 h-4 w-4" />

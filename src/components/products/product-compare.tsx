@@ -156,7 +156,7 @@ export function CompareBar() {
           <Button variant="ghost" size="sm" onClick={clearProducts}>
             Clear All
           </Button>
-          <Link href="/compare">
+          <Link href="/products">
             <Button size="sm">
               Compare Now
               <ArrowRight className="w-4 h-4 ml-1" />
