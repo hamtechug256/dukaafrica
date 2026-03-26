@@ -12,19 +12,23 @@ import { prisma } from '@/lib/db'
 
 // Only admins can access
 async function checkAdminAccess() {
-  const { userId } = await auth()
-  if (!userId) return null
-  
-  const user = await prisma.user.findUnique({
-    where: { clerkId: userId },
-    select: { id: true, role: true }
-  })
-  
-  if (!user || !['ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
+  try {
+    const { userId } = await auth()
+    if (!userId) return null
+    
+    const user = await prisma.user.findUnique({
+      where: { clerkId: userId },
+      select: { id: true, role: true }
+    })
+    
+    if (!user || !['ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
+      return null
+    }
+    
+    return user
+  } catch {
     return null
   }
-  
-  return user
 }
 
 export async function POST(request: NextRequest) {

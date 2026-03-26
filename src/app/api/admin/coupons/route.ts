@@ -1,15 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAuth } from '@clerk/nextjs/server'
-import { PrismaClient } from '@prisma/client'
+import { auth } from '@clerk/nextjs/server'
+import { prisma } from '@/lib/db'
 
-const prisma = new PrismaClient()
+/**
+ * Check if user has admin access
+ */
+async function checkAdminAccess() {
+  const { userId } = await auth()
+  if (!userId) return null
+
+  const user = await prisma.user.findUnique({
+    where: { clerkId: userId },
+    select: { id: true, role: true }
+  })
+
+  if (!user || !['ADMIN', 'SUPER_ADMIN'].includes(user.role)) return null
+  return user
+}
 
 // GET /api/admin/coupons - List all coupons
 export async function GET(request: NextRequest) {
   try {
-    const { userId } = getAuth(request)
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const admin = await checkAdminAccess()
+    if (!admin) {
+      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 })
     }
 
     const coupons = await prisma.coupon.findMany({
@@ -26,9 +40,9 @@ export async function GET(request: NextRequest) {
 // POST /api/admin/coupons - Create coupon
 export async function POST(request: NextRequest) {
   try {
-    const { userId } = getAuth(request)
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const admin = await checkAdminAccess()
+    if (!admin) {
+      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 })
     }
 
     const body = await request.json()
@@ -53,9 +67,34 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Code, type, and value are required' }, { status: 400 })
     }
 
+    // Validate coupon type
+    if (!['PERCENTAGE', 'FIXED'].includes(type)) {
+      return NextResponse.json({ error: 'Type must be PERCENTAGE or FIXED' }, { status: 400 })
+    }
+
+    // Validate value
+    const numValue = parseFloat(value)
+    if (isNaN(numValue) || numValue <= 0) {
+      return NextResponse.json({ error: 'Value must be a positive number' }, { status: 400 })
+    }
+
+    // Percentage coupons should be 0-100
+    if (type === 'PERCENTAGE' && numValue > 100) {
+      return NextResponse.json({ error: 'Percentage value cannot exceed 100' }, { status: 400 })
+    }
+
+    // Validate dates
+    if (startDate && endDate) {
+      const start = new Date(startDate)
+      const end = new Date(endDate)
+      if (end <= start) {
+        return NextResponse.json({ error: 'End date must be after start date' }, { status: 400 })
+      }
+    }
+
     // Check if coupon code exists
     const existing = await prisma.coupon.findUnique({
-      where: { code },
+      where: { code: code.toUpperCase() },
     })
 
     if (existing) {
@@ -67,7 +106,7 @@ export async function POST(request: NextRequest) {
         code: code.toUpperCase(),
         description,
         type,
-        value: parseFloat(value),
+        value: numValue,
         minOrder: minOrder ? parseFloat(minOrder) : null,
         maxDiscount: maxDiscount ? parseFloat(maxDiscount) : null,
         usageLimit: usageLimit ? parseInt(usageLimit) : null,
@@ -91,9 +130,9 @@ export async function POST(request: NextRequest) {
 // PATCH /api/admin/coupons - Update coupon
 export async function PATCH(request: NextRequest) {
   try {
-    const { userId } = getAuth(request)
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const admin = await checkAdminAccess()
+    if (!admin) {
+      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 })
     }
 
     const body = await request.json()
@@ -101,6 +140,17 @@ export async function PATCH(request: NextRequest) {
 
     if (!id) {
       return NextResponse.json({ error: 'Coupon ID required' }, { status: 400 })
+    }
+
+    // Validate if updating value
+    if (data.value !== undefined) {
+      const numValue = parseFloat(data.value)
+      if (isNaN(numValue) || numValue <= 0) {
+        return NextResponse.json({ error: 'Value must be a positive number' }, { status: 400 })
+      }
+      if (data.type === 'PERCENTAGE' && numValue > 100) {
+        return NextResponse.json({ error: 'Percentage value cannot exceed 100' }, { status: 400 })
+      }
     }
 
     const updateData: any = { ...data }
@@ -127,9 +177,9 @@ export async function PATCH(request: NextRequest) {
 // DELETE /api/admin/coupons - Delete coupon
 export async function DELETE(request: NextRequest) {
   try {
-    const { userId } = getAuth(request)
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const admin = await checkAdminAccess()
+    if (!admin) {
+      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 })
     }
 
     const { searchParams } = new URL(request.url)

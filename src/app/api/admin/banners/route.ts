@@ -1,15 +1,57 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAuth } from '@clerk/nextjs/server'
-import { PrismaClient } from '@prisma/client'
+import { auth } from '@clerk/nextjs/server'
+import { prisma } from '@/lib/db'
 
-const prisma = new PrismaClient()
+/**
+ * Check if user has admin access
+ */
+async function checkAdminAccess() {
+  const { userId } = await auth()
+  if (!userId) return null
+
+  const user = await prisma.user.findUnique({
+    where: { clerkId: userId },
+    select: { id: true, role: true }
+  })
+
+  if (!user || !['ADMIN', 'SUPER_ADMIN'].includes(user.role)) return null
+  return user
+}
+
+/**
+ * Validate URL - prevent javascript: and other dangerous protocols
+ */
+function isValidUrl(url: string | null | undefined): boolean {
+  if (!url) return true // Empty is valid (optional field)
+
+  // Allow relative URLs
+  if (url.startsWith('/')) return true
+
+  // Allow anchor links
+  if (url.startsWith('#')) return true
+
+  // Check for dangerous protocols
+  const dangerousProtocols = ['javascript:', 'data:', 'vbscript:', 'file:']
+  const lowerUrl = url.toLowerCase()
+  if (dangerousProtocols.some(p => lowerUrl.startsWith(p))) {
+    return false
+  }
+
+  // Validate absolute URLs
+  try {
+    new URL(url)
+    return true
+  } catch {
+    return false
+  }
+}
 
 // GET /api/admin/banners - List all banners
 export async function GET(request: NextRequest) {
   try {
-    const { userId } = getAuth(request)
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const admin = await checkAdminAccess()
+    if (!admin) {
+      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 })
     }
 
     const searchParams = request.nextUrl.searchParams
@@ -35,9 +77,9 @@ export async function GET(request: NextRequest) {
 // POST /api/admin/banners - Create banner
 export async function POST(request: NextRequest) {
   try {
-    const { userId } = getAuth(request)
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const admin = await checkAdminAccess()
+    if (!admin) {
+      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 })
     }
 
     const body = await request.json()
@@ -56,6 +98,11 @@ export async function POST(request: NextRequest) {
 
     if (!title || !image) {
       return NextResponse.json({ error: 'Title and image are required' }, { status: 400 })
+    }
+
+    // Validate link URL
+    if (!isValidUrl(link)) {
+      return NextResponse.json({ error: 'Invalid link URL' }, { status: 400 })
     }
 
     const banner = await prisma.banner.create({
@@ -83,9 +130,9 @@ export async function POST(request: NextRequest) {
 // PATCH /api/admin/banners - Update banner
 export async function PATCH(request: NextRequest) {
   try {
-    const { userId } = getAuth(request)
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const admin = await checkAdminAccess()
+    if (!admin) {
+      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 })
     }
 
     const body = await request.json()
@@ -93,6 +140,11 @@ export async function PATCH(request: NextRequest) {
 
     if (!id) {
       return NextResponse.json({ error: 'Banner ID required' }, { status: 400 })
+    }
+
+    // Validate link URL if provided
+    if (!isValidUrl(data.link)) {
+      return NextResponse.json({ error: 'Invalid link URL' }, { status: 400 })
     }
 
     const banner = await prisma.banner.update({
@@ -114,9 +166,9 @@ export async function PATCH(request: NextRequest) {
 // DELETE /api/admin/banners - Delete banner
 export async function DELETE(request: NextRequest) {
   try {
-    const { userId } = getAuth(request)
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const admin = await checkAdminAccess()
+    if (!admin) {
+      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 })
     }
 
     const { searchParams } = new URL(request.url)

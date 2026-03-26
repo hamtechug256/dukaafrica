@@ -1,14 +1,15 @@
 /**
  * API: Flutterwave Webhook Handler
- * 
+ *
  * POST /api/flutterwave/webhook
- * 
- * Handles payment confirmation and updates order status
+ *
+ * Handles payment confirmation, escrow creation, and order updates
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { FLUTTERWAVE_CONFIG, flutterwaveClient } from '@/lib/flutterwave/client'
+import { FLUTTERWAVE_CONFIG } from '@/lib/flutterwave/client'
+import { createEscrowHold } from '@/lib/escrow'
 import crypto from 'crypto'
 
 /**
@@ -16,15 +17,13 @@ import crypto from 'crypto'
  */
 function safeCompare(a: string, b: string): boolean {
   try {
-    // Convert to buffers and use timing-safe comparison
     const bufferA = Buffer.from(a, 'utf-8')
     const bufferB = Buffer.from(b, 'utf-8')
-    
-    // Lengths must match for timing-safe comparison
+
     if (bufferA.length !== bufferB.length) {
       return false
     }
-    
+
     return crypto.timingSafeEqual(bufferA, bufferB)
   } catch {
     return false
@@ -36,17 +35,14 @@ export async function POST(request: NextRequest) {
     // Verify webhook signature with timing-safe comparison
     const signature = request.headers.get('verif-hash')
     const expectedSignature = FLUTTERWAVE_CONFIG.webhookHash
-    
+
     if (!signature || !expectedSignature || !safeCompare(signature, expectedSignature)) {
-      console.error('Invalid webhook signature')
-      return NextResponse.json(
-        { error: 'Invalid signature' },
-        { status: 401 }
-      )
+      console.error('Invalid Flutterwave webhook signature')
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
     }
 
     const payload = await request.json()
-    
+
     console.log('Flutterwave webhook received:', {
       event: payload.event,
       txRef: payload.tx_ref,
@@ -64,10 +60,7 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Webhook processing error:', error)
-    return NextResponse.json(
-      { error: 'Webhook processing failed' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Webhook processing failed' }, { status: 500 })
   }
 }
 
@@ -82,11 +75,26 @@ async function handleSuccessfulPayment(payload: any) {
   // Find the payment record
   const payment = await prisma.payment.findFirst({
     where: { reference: tx_ref },
-    include: { Order: true }
+    include: {
+      Order: {
+        include: {
+          OrderItem: true,
+          User: true,
+        },
+      },
+    },
   })
 
-  if (!payment) {
+  if (!payment || !payment.Order) {
     console.error(`Payment not found for tx_ref: ${tx_ref}`)
+    return
+  }
+
+  const order = payment.Order
+
+  // Check if already processed (idempotency)
+  if (payment.status === 'PAID') {
+    console.log('Payment already processed:', tx_ref)
     return
   }
 
@@ -110,16 +118,96 @@ async function handleSuccessfulPayment(payload: any) {
     }
   })
 
-  // Update seller's balance
-  const order = payment.Order
-  await prisma.store.update({
-    where: { id: order.storeId || '' },
-    data: {
-      pendingBalance: {
-        increment: payment.sellerAmount
+  // Group items by store for escrow creation
+  const storeTotals = new Map<string, number>()
+
+  for (const item of order.OrderItem) {
+    const existing = storeTotals.get(item.storeId) || 0
+    storeTotals.set(item.storeId, existing + item.total)
+  }
+
+  // Get all unique stores
+  const storeIds = Array.from(storeTotals.keys())
+  const isMultiVendor = storeIds.length > 1
+
+  // Process each store
+  for (const [storeId, storeTotal] of storeTotals) {
+    // Get store info for escrow
+    const store = await prisma.store.findUnique({
+      where: { id: storeId },
+      select: {
+        id: true,
+        userId: true,
+        verificationTier: true,
+        verificationStatus: true,
+        commissionRate: true,
+      },
+    })
+
+    if (!store) {
+      console.error('Store not found:', storeId)
+      continue
+    }
+
+    // Update product quantities
+    const storeItems = order.OrderItem.filter(item => item.storeId === storeId)
+    for (const item of storeItems) {
+      await prisma.product.update({
+        where: { id: item.productId },
+        data: {
+          quantity: { decrement: item.quantity },
+          purchaseCount: { increment: item.quantity },
+        },
+      })
+    }
+
+    // Calculate commission for this store
+    const commissionRate = store.commissionRate || 15
+    const sellerAmount = Math.round(storeTotal * (1 - commissionRate / 100))
+
+    if (isMultiVendor) {
+      // For multi-vendor orders, update store balances directly
+      // (escrow unique constraint on orderId prevents multiple escrows)
+      await prisma.store.update({
+        where: { id: storeId },
+        data: {
+          totalSales: { increment: storeTotal },
+          totalOrders: { increment: 1 },
+          escrowBalance: { increment: sellerAmount },
+        },
+      })
+      console.log(`Multi-vendor: Updated store ${storeId} escrow balance: ${sellerAmount}`)
+    } else {
+      // Single vendor: create proper escrow
+      const escrowResult = await createEscrowHold({
+        orderId: order.id,
+        storeId: store.id,
+        buyerId: order.userId,
+        grossAmount: storeTotal,
+        currency: order.currency,
+        store: {
+          verificationTier: store.verificationTier,
+          verificationStatus: store.verificationStatus,
+          commissionRate: store.commissionRate,
+        },
+      })
+
+      if (escrowResult.success) {
+        console.log(`Escrow created for store ${storeId}:`, escrowResult.escrowId)
+      } else {
+        console.error(`Failed to create escrow for store ${storeId}:`, escrowResult.error)
+        // Fallback: update store stats without escrow
+        await prisma.store.update({
+          where: { id: storeId },
+          data: {
+            totalSales: { increment: storeTotal },
+            totalOrders: { increment: 1 },
+            escrowBalance: { increment: sellerAmount },
+          },
+        })
       }
     }
-  })
+  }
 
   console.log(`Payment ${tx_ref} processed successfully for order ${order.orderNumber}`)
 }

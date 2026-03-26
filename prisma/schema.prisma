@@ -246,6 +246,11 @@ model Order {
   @@index([storeId])
   @@index([userId])
   @@index([orderNumber])
+  @@index([createdAt])
+  @@index([userId, status])
+  @@index([storeId, status])
+  @@index([status, createdAt])
+  @@index([paymentStatus, createdAt])
 }
 
 model OrderItem {
@@ -304,6 +309,9 @@ model Payment {
   @@index([status])
   @@index([reference])
   @@index([orderId])
+  @@index([userId])
+  @@index([createdAt])
+  @@index([paidAt])
 }
 
 model PlatformSettings {
@@ -390,6 +398,9 @@ model Product {
   @@index([categoryId])
   @@index([storeId])
   @@index([slug])
+  @@index([createdAt])
+  @@index([storeId, status])
+  @@index([quantity])
 }
 
 model ProductVariant {
@@ -449,6 +460,8 @@ model SellerPayout {
 
   @@index([status])
   @@index([storeId])
+  @@index([createdAt])
+  @@index([processedAt])
 }
 
 model Setting {
@@ -759,6 +772,9 @@ model Dispute {
   @@index([storeId])
   @@index([buyerId])
   @@index([orderId])
+  @@index([createdAt])
+  @@index([sellerId])
+  @@index([resolvedAt])
 }
 
 model DisputeMessage {
@@ -856,6 +872,9 @@ model EscrowTransaction {
   autoReleased    Boolean   @default(false)
   releasedBy      String?   // Admin ID if manual
   
+  // Platform Reserve
+  reserveAmount   Float     @default(0)  // Amount held in platform reserve
+  
   // Refund
   refundAmount    Float?
   refundReason    String?
@@ -877,6 +896,8 @@ model EscrowTransaction {
   @@index([storeId])
   @@index([buyerId])
   @@index([orderId])
+  @@index([createdAt])
+  @@index([releasedAt])
 }
 
 // ============================================

@@ -11,14 +11,18 @@ import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/db'
 
 async function checkAdminAccess() {
-  const { userId } = await auth()
-  if (!userId) return null
-  const user = await prisma.user.findUnique({
-    where: { clerkId: userId },
-    select: { id: true, role: true }
-  })
-  if (!user || !['ADMIN', 'SUPER_ADMIN'].includes(user.role)) return null
-  return user
+  try {
+    const { userId } = await auth()
+    if (!userId) return null
+    const user = await prisma.user.findUnique({
+      where: { clerkId: userId },
+      select: { id: true, role: true }
+    })
+    if (!user || !['ADMIN', 'SUPER_ADMIN'].includes(user.role)) return null
+    return user
+  } catch {
+    return null
+  }
 }
 
 // Get escrow settings
@@ -27,6 +31,27 @@ export async function GET() {
     const admin = await checkAdminAccess()
     if (!admin) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+    }
+
+    // Get or create escrow settings
+    let settings = await prisma.escrowSettings.findFirst()
+    
+    if (!settings) {
+      settings = await prisma.escrowSettings.create({
+        data: {
+          defaultEscrowDays: 7,
+          starterEscrowDays: 7,
+          verifiedEscrowDays: 5,
+          premiumEscrowDays: 3,
+          starterCommissionRate: 15,
+          verifiedCommissionRate: 10,
+          premiumCommissionRate: 8,
+          autoReleaseEnabled: true,
+          autoReleaseHour: 0,
+          disputeResolutionDays: 7,
+          minWithdrawalAmount: 50000,
+        }
+      })
     }
 
     // Get or create platform reserve record
@@ -45,42 +70,26 @@ export async function GET() {
       })
     }
 
-    // Get or create escrow settings
-    let escrowSettings = await prisma.escrowSettings.findFirst()
-    
-    if (!escrowSettings) {
-      escrowSettings = await prisma.escrowSettings.create({
-        data: {
-          defaultEscrowDays: 7,
-          starterEscrowDays: 7,
-          verifiedEscrowDays: 5,
-          premiumEscrowDays: 3,
-          starterCommissionRate: 15.0,
-          verifiedCommissionRate: 10.0,
-          premiumCommissionRate: 8.0,
-          autoReleaseEnabled: true,
-          autoReleaseHour: 0,
-          disputeResolutionDays: 7,
-          minWithdrawalAmount: 50000.0,
-        }
-      })
-    }
-
     return NextResponse.json({
       settings: {
-        // Reserve settings
+        defaultEscrowDays: settings.defaultEscrowDays,
+        starterEscrowDays: settings.starterEscrowDays,
+        verifiedEscrowDays: settings.verifiedEscrowDays,
+        premiumEscrowDays: settings.premiumEscrowDays,
+        starterCommissionRate: settings.starterCommissionRate,
+        verifiedCommissionRate: settings.verifiedCommissionRate,
+        premiumCommissionRate: settings.premiumCommissionRate,
+        autoReleaseEnabled: settings.autoReleaseEnabled,
+        disputeResolutionDays: settings.disputeResolutionDays,
+        minWithdrawalAmount: settings.minWithdrawalAmount,
+      },
+      reserve: {
         reservePercent: reserve.reservePercent,
         minReserve: reserve.minReserve,
         currency: reserve.currency,
         totalReserve: reserve.totalReserve,
         availableReserve: reserve.availableReserve,
         pendingRefunds: reserve.pendingRefunds,
-        // Escrow hold days
-        defaultEscrowDays: escrowSettings.defaultEscrowDays,
-        starterEscrowDays: escrowSettings.starterEscrowDays,
-        verifiedEscrowDays: escrowSettings.verifiedEscrowDays,
-        premiumEscrowDays: escrowSettings.premiumEscrowDays,
-        autoReleaseEnabled: escrowSettings.autoReleaseEnabled,
       }
     })
   } catch (error) {
@@ -108,10 +117,15 @@ export async function PUT(request: NextRequest) {
       starterEscrowDays,
       verifiedEscrowDays,
       premiumEscrowDays,
+      starterCommissionRate,
+      verifiedCommissionRate,
+      premiumCommissionRate,
       autoReleaseEnabled,
+      disputeResolutionDays,
+      minWithdrawalAmount,
     } = body
 
-    // Validate
+    // Validate reserve settings
     if (reservePercent !== undefined && (reservePercent < 0 || reservePercent > 50)) {
       return NextResponse.json(
         { error: 'Reserve percent must be between 0 and 50' },
@@ -126,7 +140,7 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    // Get or create platform reserve record
+    // Update platform reserve
     let reserve = await prisma.platformReserve.findFirst()
     
     if (!reserve) {
@@ -140,8 +154,7 @@ export async function PUT(request: NextRequest) {
           minReserve: minReserve ?? 500000,
         }
       })
-    } else {
-      // Update existing record
+    } else if (reservePercent !== undefined || minReserve !== undefined) {
       reserve = await prisma.platformReserve.update({
         where: { id: reserve.id },
         data: {
@@ -152,34 +165,39 @@ export async function PUT(request: NextRequest) {
     }
 
     // Update escrow settings
-    let escrowSettings = await prisma.escrowSettings.findFirst()
+    let settings = await prisma.escrowSettings.findFirst()
     
-    if (!escrowSettings) {
-      escrowSettings = await prisma.escrowSettings.create({
+    const settingsData: any = {}
+    if (defaultEscrowDays !== undefined) settingsData.defaultEscrowDays = defaultEscrowDays
+    if (starterEscrowDays !== undefined) settingsData.starterEscrowDays = starterEscrowDays
+    if (verifiedEscrowDays !== undefined) settingsData.verifiedEscrowDays = verifiedEscrowDays
+    if (premiumEscrowDays !== undefined) settingsData.premiumEscrowDays = premiumEscrowDays
+    if (starterCommissionRate !== undefined) settingsData.starterCommissionRate = starterCommissionRate
+    if (verifiedCommissionRate !== undefined) settingsData.verifiedCommissionRate = verifiedCommissionRate
+    if (premiumCommissionRate !== undefined) settingsData.premiumCommissionRate = premiumCommissionRate
+    if (autoReleaseEnabled !== undefined) settingsData.autoReleaseEnabled = autoReleaseEnabled
+    if (disputeResolutionDays !== undefined) settingsData.disputeResolutionDays = disputeResolutionDays
+    if (minWithdrawalAmount !== undefined) settingsData.minWithdrawalAmount = minWithdrawalAmount
+
+    if (!settings) {
+      settings = await prisma.escrowSettings.create({
         data: {
           defaultEscrowDays: defaultEscrowDays ?? 7,
           starterEscrowDays: starterEscrowDays ?? 7,
           verifiedEscrowDays: verifiedEscrowDays ?? 5,
           premiumEscrowDays: premiumEscrowDays ?? 3,
-          starterCommissionRate: 15.0,
-          verifiedCommissionRate: 10.0,
-          premiumCommissionRate: 8.0,
+          starterCommissionRate: starterCommissionRate ?? 15,
+          verifiedCommissionRate: verifiedCommissionRate ?? 10,
+          premiumCommissionRate: premiumCommissionRate ?? 8,
           autoReleaseEnabled: autoReleaseEnabled ?? true,
-          autoReleaseHour: 0,
-          disputeResolutionDays: 7,
-          minWithdrawalAmount: 50000.0,
+          disputeResolutionDays: disputeResolutionDays ?? 7,
+          minWithdrawalAmount: minWithdrawalAmount ?? 50000,
         }
       })
-    } else {
-      escrowSettings = await prisma.escrowSettings.update({
-        where: { id: escrowSettings.id },
-        data: {
-          ...(defaultEscrowDays !== undefined && { defaultEscrowDays }),
-          ...(starterEscrowDays !== undefined && { starterEscrowDays }),
-          ...(verifiedEscrowDays !== undefined && { verifiedEscrowDays }),
-          ...(premiumEscrowDays !== undefined && { premiumEscrowDays }),
-          ...(autoReleaseEnabled !== undefined && { autoReleaseEnabled }),
-        }
+    } else if (Object.keys(settingsData).length > 0) {
+      settings = await prisma.escrowSettings.update({
+        where: { id: settings.id },
+        data: settingsData
       })
     }
 
@@ -188,24 +206,31 @@ export async function PUT(request: NextRequest) {
       data: {
         type: 'ESCROW_SETTINGS_UPDATED',
         identifier: admin.id,
-        details: `Admin ${admin.id} updated escrow settings: reservePercent=${reservePercent}, minReserve=${minReserve}`,
+        details: `Admin ${admin.id} updated escrow settings`,
       }
     })
 
     return NextResponse.json({
       success: true,
       settings: {
+        defaultEscrowDays: settings.defaultEscrowDays,
+        starterEscrowDays: settings.starterEscrowDays,
+        verifiedEscrowDays: settings.verifiedEscrowDays,
+        premiumEscrowDays: settings.premiumEscrowDays,
+        starterCommissionRate: settings.starterCommissionRate,
+        verifiedCommissionRate: settings.verifiedCommissionRate,
+        premiumCommissionRate: settings.premiumCommissionRate,
+        autoReleaseEnabled: settings.autoReleaseEnabled,
+        disputeResolutionDays: settings.disputeResolutionDays,
+        minWithdrawalAmount: settings.minWithdrawalAmount,
+      },
+      reserve: {
         reservePercent: reserve.reservePercent,
         minReserve: reserve.minReserve,
         currency: reserve.currency,
         totalReserve: reserve.totalReserve,
         availableReserve: reserve.availableReserve,
         pendingRefunds: reserve.pendingRefunds,
-        defaultEscrowDays: escrowSettings.defaultEscrowDays,
-        starterEscrowDays: escrowSettings.starterEscrowDays,
-        verifiedEscrowDays: escrowSettings.verifiedEscrowDays,
-        premiumEscrowDays: escrowSettings.premiumEscrowDays,
-        autoReleaseEnabled: escrowSettings.autoReleaseEnabled,
       }
     })
   } catch (error) {

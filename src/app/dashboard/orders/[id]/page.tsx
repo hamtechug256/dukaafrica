@@ -1,12 +1,20 @@
 'use client'
 
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import {
   ArrowLeft,
   Package,
@@ -20,9 +28,14 @@ import {
   Loader2,
   AlertCircle,
   Bus,
+  CheckCircle,
+  Camera,
+  AlertTriangle,
 } from 'lucide-react'
 import { StatusBadge } from '@/components/orders/status-badge'
 import { OrderTimeline } from '@/components/orders/order-timeline'
+import { useToast } from '@/hooks/use-toast'
+import { useState } from 'react'
 
 async function fetchOrder(id: string) {
   const res = await fetch(`/api/orders/${id}`)
@@ -33,13 +46,53 @@ async function fetchOrder(id: string) {
 export default function OrderDetailPage() {
   const params = useParams()
   const router = useRouter()
+  const { toast } = useToast()
+  const queryClient = useQueryClient()
   const orderId = params.id as string
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false)
+  const [deliveryPhoto, setDeliveryPhoto] = useState<string | null>(null)
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['order', orderId],
     queryFn: () => fetchOrder(orderId),
     enabled: !!orderId,
   })
+
+  const confirmDeliveryMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/orders/${orderId}/confirm-delivery`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deliveryPhotoUrl: deliveryPhoto }),
+      })
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.error || 'Failed to confirm delivery')
+      }
+      return res.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['order', orderId] })
+      toast({
+        title: 'Delivery Confirmed!',
+        description: 'Thank you for confirming. Funds have been released to the seller.',
+      })
+      setShowConfirmDialog(false)
+    },
+    onError: (error: Error) => {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: error.message,
+      })
+    },
+  })
+
+  const canConfirmDelivery = data?.order && 
+    data.isBuyer && 
+    ['SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(data.order.status) &&
+    data.order.paymentStatus === 'PAID' &&
+    !data.order.deliveryConfirmedAt
 
   if (isLoading) {
     return (
@@ -294,6 +347,51 @@ export default function OrderDetailPage() {
 
             {/* Actions */}
             <div className="space-y-2">
+              {/* Delivery Confirmation - Only for buyers with shipped orders */}
+              {canConfirmDelivery && (
+                <Button 
+                  className="w-full bg-green-600 hover:bg-green-700 text-white"
+                  onClick={() => setShowConfirmDialog(true)}
+                >
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Confirm Delivery
+                </Button>
+              )}
+              
+              {/* Already confirmed badge */}
+              {data.order?.deliveryConfirmedAt && (
+                <Card className="bg-green-50 dark:bg-green-950/30 border-green-200">
+                  <CardContent className="pt-4">
+                    <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
+                      <CheckCircle className="w-5 h-5" />
+                      <div>
+                        <p className="font-medium">Delivery Confirmed</p>
+                        <p className="text-sm">
+                          {new Date(data.order.deliveryConfirmedAt).toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              
+              {/* Raise Dispute Button */}
+              {data.isBuyer && 
+               data.order?.paymentStatus === 'PAID' && 
+               !data.order?.dispute && 
+               data.order?.escrowStatus === 'HELD' && (
+                <Link href={`/dashboard/orders/${orderId}/dispute`} className="block">
+                  <Button variant="destructive" className="w-full">
+                    <AlertTriangle className="w-4 h-4 mr-2" />
+                    Raise a Dispute
+                  </Button>
+                </Link>
+              )}
+              
               <Link href={`/track-order?order=${order.orderNumber}`} className="block">
                 <Button variant="outline" className="w-full">
                   <Truck className="w-4 h-4 mr-2" />
@@ -310,6 +408,63 @@ export default function OrderDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Confirm Delivery Dialog */}
+      <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle className="w-5 h-5 text-green-600" />
+              Confirm Delivery
+            </DialogTitle>
+            <DialogDescription>
+              By confirming delivery, you acknowledge that you have received your order in good condition. 
+              This will release the payment to the seller.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="bg-yellow-50 dark:bg-yellow-950/30 p-4 rounded-lg">
+              <div className="flex gap-2">
+                <AlertTriangle className="w-5 h-5 text-yellow-600 shrink-0 mt-0.5" />
+                <div className="text-sm">
+                  <p className="font-medium text-yellow-800 dark:text-yellow-200">Important</p>
+                  <p className="text-yellow-700 dark:text-yellow-300 mt-1">
+                    Only confirm if you have received and inspected your package. 
+                    This action cannot be undone.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <p className="text-sm font-medium mb-2">Order Summary</p>
+              <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
+                <p className="text-sm text-gray-600 dark:text-gray-400">Order #{order.orderNumber}</p>
+                <p className="font-bold mt-1">{order.currency} {order.total?.toLocaleString()}</p>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowConfirmDialog(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={() => confirmDeliveryMutation.mutate()}
+              disabled={confirmDeliveryMutation.isPending}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              {confirmDeliveryMutation.isPending ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <CheckCircle className="w-4 h-4 mr-2" />
+              )}
+              Yes, Confirm Delivery
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

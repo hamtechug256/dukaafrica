@@ -47,6 +47,7 @@ const sidebarLinks = [
   { href: '/admin/stores', icon: Store, label: 'Stores' },
   { href: '/admin/products', icon: Package, label: 'Products' },
   { href: '/admin/orders', icon: ShoppingCart, label: 'Orders' },
+  { href: '/admin/disputes', icon: AlertCircle, label: 'Disputes' },
   { href: '/admin/escrow', icon: Shield, label: 'Escrow & Verification' },
   { href: '/admin/settings', icon: Settings, label: 'Settings' },
 ]

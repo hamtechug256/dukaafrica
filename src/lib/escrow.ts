@@ -15,6 +15,35 @@ export type EscrowStatus = 'HELD' | 'RELEASED' | 'REFUNDED' | 'PARTIAL_REFUND' |
 export type ReleaseType = 'AUTO' | 'MANUAL' | 'BUYER_CONFIRMED' | 'DISPUTE_RESOLVED'
 
 /**
+ * Get or create platform reserve record
+ */
+async function getPlatformReserve(): Promise<{
+  reservePercent: number
+  record: any
+}> {
+  let reserve = await prisma.platformReserve.findFirst()
+  
+  if (!reserve) {
+    // Create default platform reserve record
+    reserve = await prisma.platformReserve.create({
+      data: {
+        totalReserve: 0,
+        availableReserve: 0,
+        pendingRefunds: 0,
+        reservePercent: 10,
+        minReserve: 500000,
+        currency: 'UGX'
+      }
+    })
+  }
+  
+  return {
+    reservePercent: reserve.reservePercent,
+    record: reserve
+  }
+}
+
+/**
  * Create escrow hold for an order
  * Called when payment is successful
  */
@@ -34,6 +63,7 @@ export async function createEscrowHold(params: {
   escrowId?: string
   sellerAmount?: number
   platformAmount?: number
+  reserveAmount?: number
   holdDays?: number
   releaseDate?: Date
   error?: string
@@ -45,25 +75,48 @@ export async function createEscrowHold(params: {
     
     // Calculate amounts
     const platformAmount = Math.round(params.grossAmount * (commissionRate / 100))
-    const sellerAmount = params.grossAmount - platformAmount
+    const initialSellerAmount = params.grossAmount - platformAmount
+    
+    // Get platform reserve percentage
+    const { reservePercent } = await getPlatformReserve()
+    
+    // Calculate reserve amount from seller's earnings
+    const reserveAmount = Math.round(initialSellerAmount * (reservePercent / 100))
+    
+    // Final seller amount after reserve deduction
+    const sellerAmount = initialSellerAmount - reserveAmount
     
     // Calculate release date
     const releaseDate = new Date()
     releaseDate.setDate(releaseDate.getDate() + holdDays)
     
-    // Create escrow transaction
-    const escrow = await prisma.escrowTransaction.create({
-      data: {
-        orderId: params.orderId,
-        storeId: params.storeId,
-        buyerId: params.buyerId,
-        grossAmount: params.grossAmount,
-        sellerAmount,
-        platformAmount,
-        currency: params.currency,
-        status: 'HELD',
-        heldAt: new Date(),
-      }
+    // Create escrow transaction and update reserves in a transaction
+    const escrow = await prisma.$transaction(async (tx) => {
+      // Create escrow transaction
+      const newEscrow = await tx.escrowTransaction.create({
+        data: {
+          orderId: params.orderId,
+          storeId: params.storeId,
+          buyerId: params.buyerId,
+          grossAmount: params.grossAmount,
+          sellerAmount,
+          platformAmount,
+          reserveAmount,
+          currency: params.currency,
+          status: 'HELD',
+          heldAt: new Date(),
+        }
+      })
+      
+      // Update platform reserve (increment both total and available)
+      await tx.platformReserve.updateMany({
+        data: {
+          totalReserve: { increment: reserveAmount },
+          availableReserve: { increment: reserveAmount }
+        }
+      })
+      
+      return newEscrow
     })
     
     // Update order with escrow info
@@ -77,7 +130,7 @@ export async function createEscrowHold(params: {
       }
     })
     
-    // Add to store's escrow balance
+    // Add to store's escrow balance (final seller amount after reserve)
     await prisma.store.update({
       where: { id: params.storeId },
       data: {
@@ -105,6 +158,7 @@ export async function createEscrowHold(params: {
       escrowId: escrow.id,
       sellerAmount,
       platformAmount,
+      reserveAmount,
       holdDays,
       releaseDate
     }
