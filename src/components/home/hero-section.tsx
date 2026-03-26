@@ -1,143 +1,308 @@
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { ArrowRight, Truck, Shield, Headphones } from "lucide-react";
+'use client'
+
+import { motion, useScroll, useTransform } from 'framer-motion'
+import { ArrowRight, Play, Sparkles, ShoppingBag, Truck, Shield, Star } from 'lucide-react'
+import Link from 'next/link'
+import { useEffect, useState, useRef } from 'react'
+
+const stats = [
+  { label: 'Products', value: '50K+', icon: ShoppingBag },
+  { label: 'Sellers', value: '2K+', icon: Star },
+  { label: 'Countries', value: '4', icon: Truck },
+  { label: 'Happy Customers', value: '100K+', icon: Shield },
+]
 
 export function HeroSection() {
-  return (
-    <section className="relative bg-gradient-to-br from-primary via-primary to-emerald-700 text-white overflow-hidden">
-      {/* Background Pattern */}
-      <div className="absolute inset-0 opacity-10">
-        <div className="absolute inset-0" style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-        }} />
-      </div>
+  const [currentSlide, setCurrentSlide] = useState(0)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const { scrollYProgress } = useScroll({
+    target: containerRef,
+    offset: ['start start', 'end start'],
+  })
 
-      <div className="container relative py-16 lg:py-24">
-        <div className="grid lg:grid-cols-2 gap-8 items-center">
+  const y = useTransform(scrollYProgress, [0, 1], [0, 200])
+  const opacity = useTransform(scrollYProgress, [0, 0.5], [1, 0])
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % 3)
+    }, 5000)
+    return () => clearInterval(interval)
+  }, [])
+
+  const slides = [
+    {
+      title: 'Shop Quality Products',
+      highlight: 'From Verified Sellers',
+      description: 'Discover electronics, fashion, home essentials & more. Quality guaranteed with buyer protection.',
+      image: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=1200&q=80',
+    },
+    {
+      title: 'Fast Delivery',
+      highlight: 'Across East Africa',
+      description: 'Lightning-fast shipping to Uganda, Kenya, Tanzania, and Rwanda. Track your orders in real-time.',
+      image: 'https://images.unsplash.com/photo-1566576912321-d58ddd7a6088?w=1200&q=80',
+    },
+    {
+      title: 'Support Local',
+      highlight: 'East African Businesses',
+      description: 'Empowering local entrepreneurs and artisans. Every purchase makes a difference.',
+      image: 'https://images.unsplash.com/photo-1553729459-efe14ef6055d?w=1200&q=80',
+    },
+  ]
+
+  return (
+    <section ref={containerRef} className="relative min-h-screen overflow-hidden">
+      {/* Animated Background */}
+      <motion.div style={{ y }} className="absolute inset-0">
+        <div className="absolute inset-0 bg-gradient-to-br from-[oklch(0.12_0.02_45)] via-[oklch(0.18_0.03_45)] to-[oklch(0.15_0.04_55)]" />
+        
+        {/* Animated Gradient Orbs */}
+        <motion.div
+          animate={{
+            scale: [1, 1.2, 1],
+            opacity: [0.3, 0.5, 0.3],
+          }}
+          transition={{ duration: 8, repeat: Infinity }}
+          className="absolute top-0 right-0 w-[600px] h-[600px] rounded-full blur-3xl"
+          style={{ background: 'radial-gradient(circle, oklch(0.6 0.2 35 / 40%) 0%, transparent 70%)' }}
+        />
+        <motion.div
+          animate={{
+            scale: [1.2, 1, 1.2],
+            opacity: [0.2, 0.4, 0.2],
+          }}
+          transition={{ duration: 10, repeat: Infinity }}
+          className="absolute bottom-0 left-0 w-[500px] h-[500px] rounded-full blur-3xl"
+          style={{ background: 'radial-gradient(circle, oklch(0.55 0.15 140 / 30%) 0%, transparent 70%)' }}
+        />
+        <motion.div
+          animate={{
+            scale: [1, 1.3, 1],
+            opacity: [0.2, 0.35, 0.2],
+          }}
+          transition={{ duration: 12, repeat: Infinity }}
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] rounded-full blur-3xl"
+          style={{ background: 'radial-gradient(circle, oklch(0.75 0.14 80 / 20%) 0%, transparent 70%)' }}
+        />
+
+        {/* African Pattern Overlay */}
+        <div className="absolute inset-0 african-pattern opacity-30" />
+      </motion.div>
+
+      {/* Main Content */}
+      <motion.div style={{ opacity }} className="relative z-10 container mx-auto px-4 pt-32 pb-20 lg:pt-40 lg:pb-32">
+        <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
           {/* Left Content */}
-          <div className="text-center lg:text-left">
-            <div className="inline-flex items-center gap-2 bg-white/10 rounded-full px-4 py-2 text-sm mb-6">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          <motion.div
+            initial={{ opacity: 0, x: -50 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.8 }}
+            className="text-center lg:text-left"
+          >
+            {/* Badge */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass border border-[oklch(1_0_0/20%)] mb-8"
+            >
+              <Sparkles className="w-4 h-4 text-[oklch(0.75_0.14_80)]" />
+              <span className="text-sm font-medium text-white/90">East Africa&apos;s #1 Marketplace</span>
+            </motion.div>
+
+            {/* Title */}
+            <motion.h1
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold text-white leading-tight mb-6"
+            >
+              {slides[currentSlide].title}{' '}
+              <span className="relative">
+                <span className="text-gradient">{slides[currentSlide].highlight}</span>
+                <motion.div
+                  className="absolute -bottom-2 left-0 right-0 h-1 rounded-full"
+                  style={{ background: 'linear-gradient(90deg, oklch(0.6 0.2 35), oklch(0.55 0.15 140))' }}
+                  initial={{ scaleX: 0 }}
+                  animate={{ scaleX: 1 }}
+                  transition={{ delay: 0.6, duration: 0.5 }}
+                />
               </span>
-              Trusted by 100,000+ customers across East Africa
-            </div>
-            
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-6">
-              Shop the Best of
-              <span className="block text-emerald-400">East Africa</span>
-            </h1>
-            
-            <p className="text-lg md:text-xl text-gray-200 mb-8 max-w-xl mx-auto lg:mx-0">
-              Discover millions of products from verified sellers. Quality electronics, fashion, home essentials & more at unbeatable prices.
-            </p>
-            
-            <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
+            </motion.h1>
+
+            {/* Description */}
+            <motion.p
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }}
+              className="text-lg md:text-xl text-white/70 mb-10 max-w-lg mx-auto lg:mx-0"
+            >
+              {slides[currentSlide].description}
+            </motion.p>
+
+            {/* CTA Buttons */}
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
+              className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start mb-12"
+            >
               <Link href="/products">
-                <Button size="lg" className="bg-white text-primary hover:bg-gray-100 text-lg px-8">
-                  Start Shopping
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="group relative inline-flex items-center justify-center gap-2 px-8 py-4 rounded-2xl font-semibold text-white overflow-hidden"
+                  style={{ background: 'linear-gradient(135deg, oklch(0.6 0.2 35), oklch(0.55 0.15 140))' }}
+                >
+                  <span className="relative z-10 flex items-center gap-2">
+                    Shop Now
+                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                  </span>
+                  <motion.div
+                    className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                    style={{ background: 'linear-gradient(135deg, oklch(0.55 0.15 140), oklch(0.6 0.2 35))' }}
+                  />
+                </motion.button>
               </Link>
               <Link href="/seller">
-                <Button size="lg" variant="outline" className="border-white text-white hover:bg-white/10 text-lg px-8">
-                  Sell on DuukaAfrica
-                </Button>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="group inline-flex items-center justify-center gap-2 px-8 py-4 rounded-2xl font-semibold text-white border border-white/30 glass hover:border-white/50 transition-colors"
+                >
+                  <Play className="w-5 h-5" />
+                  Become a Seller
+                </motion.button>
               </Link>
-            </div>
+            </motion.div>
 
             {/* Stats */}
-            <div className="grid grid-cols-3 gap-6 mt-12 pt-8 border-t border-white/20">
-              <div>
-                <div className="text-3xl font-bold">50K+</div>
-                <div className="text-sm text-gray-300">Products</div>
-              </div>
-              <div>
-                <div className="text-3xl font-bold">5K+</div>
-                <div className="text-sm text-gray-300">Verified Sellers</div>
-              </div>
-              <div>
-                <div className="text-3xl font-bold">6</div>
-                <div className="text-sm text-gray-300">Countries</div>
-              </div>
-            </div>
-          </div>
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6 }}
+              className="grid grid-cols-2 sm:grid-cols-4 gap-6"
+            >
+              {stats.map((stat, index) => (
+                <motion.div
+                  key={stat.label}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.7 + index * 0.1 }}
+                  className="text-center lg:text-left"
+                >
+                  <div className="text-2xl md:text-3xl font-bold text-white mb-1">{stat.value}</div>
+                  <div className="text-sm text-white/60">{stat.label}</div>
+                </motion.div>
+              ))}
+            </motion.div>
+          </motion.div>
 
-          {/* Right Content - Hero Image/Grid */}
-          <div className="hidden lg:block relative">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-4">
-                <div className="bg-white/10 backdrop-blur rounded-2xl p-4 transform hover:scale-105 transition-transform">
-                  <img 
-                    src="https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=300&h=300&fit=crop" 
-                    alt="Electronics" 
-                    className="rounded-xl w-full h-40 object-cover"
+          {/* Right Content - 3D Product Showcase */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.8, delay: 0.3 }}
+            className="relative hidden lg:block"
+          >
+            <div className="relative w-full aspect-square max-w-lg mx-auto">
+              {/* Rotating Ring */}
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
+                className="absolute inset-0 rounded-full border-2 border-dashed border-white/10"
+              />
+              <motion.div
+                animate={{ rotate: -360 }}
+                transition={{ duration: 30, repeat: Infinity, ease: 'linear' }}
+                className="absolute inset-4 rounded-full border border-white/10"
+              />
+
+              {/* Central Product Card */}
+              <motion.div
+                animate={{ y: [-10, 10, -10] }}
+                transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
+                className="absolute inset-16 glass rounded-3xl p-6 border border-white/20 shadow-2xl"
+              >
+                <div className="relative w-full h-full rounded-2xl overflow-hidden">
+                  <img
+                    src={slides[currentSlide].image}
+                    alt="Featured Product"
+                    className="w-full h-full object-cover"
                   />
-                  <p className="mt-2 font-medium">Electronics</p>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                  <div className="absolute bottom-4 left-4 right-4">
+                    <div className="text-white font-semibold mb-1">Trending Now</div>
+                    <div className="text-white/70 text-sm">Up to 40% off</div>
+                  </div>
                 </div>
-                <div className="bg-white/10 backdrop-blur rounded-2xl p-4 transform hover:scale-105 transition-transform">
-                  <img 
-                    src="https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=300&h=300&fit=crop" 
-                    alt="Fashion" 
-                    className="rounded-xl w-full h-32 object-cover"
-                  />
-                  <p className="mt-2 font-medium">Fashion</p>
+              </motion.div>
+
+              {/* Floating Feature Cards */}
+              <motion.div
+                animate={{ y: [-5, 5, -5], x: [-3, 3, -3] }}
+                transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+                className="absolute top-4 left-4 glass rounded-2xl p-4 border border-white/20"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, oklch(0.55 0.15 140), oklch(0.45 0.14 155))' }}>
+                    <Truck className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <div className="text-white font-semibold text-sm">Free Delivery</div>
+                    <div className="text-white/60 text-xs">Orders above UGX 500K</div>
+                  </div>
                 </div>
-              </div>
-              <div className="space-y-4 pt-8">
-                <div className="bg-white/10 backdrop-blur rounded-2xl p-4 transform hover:scale-105 transition-transform">
-                  <img 
-                    src="https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=300&h=300&fit=crop" 
-                    alt="Home" 
-                    className="rounded-xl w-full h-32 object-cover"
-                  />
-                  <p className="mt-2 font-medium">Home & Living</p>
+              </motion.div>
+
+              <motion.div
+                animate={{ y: [5, -5, 5], x: [3, -3, 3] }}
+                transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
+                className="absolute bottom-4 right-4 glass rounded-2xl p-4 border border-white/20"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, oklch(0.6 0.2 35), oklch(0.75 0.14 80))' }}>
+                    <Shield className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <div className="text-white font-semibold text-sm">Buyer Protection</div>
+                    <div className="text-white/60 text-xs">Secure payments</div>
+                  </div>
                 </div>
-                <div className="bg-white/10 backdrop-blur rounded-2xl p-4 transform hover:scale-105 transition-transform">
-                  <img 
-                    src="https://images.unsplash.com/photo-1606107557195-0e29a4b5b4aa?w=300&h=300&fit=crop" 
-                    alt="Sneakers" 
-                    className="rounded-xl w-full h-40 object-cover"
-                  />
-                  <p className="mt-2 font-medium">Footwear</p>
-                </div>
-              </div>
+              </motion.div>
             </div>
-          </div>
+          </motion.div>
         </div>
 
-        {/* Features Bar */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12 pt-8 border-t border-white/20">
-          <div className="flex items-center gap-4 justify-center md:justify-start">
-            <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center">
-              <Truck className="h-6 w-6" />
-            </div>
-            <div>
-              <div className="font-semibold">Free Delivery</div>
-              <div className="text-sm text-gray-300">On orders over USh 100,000</div>
-            </div>
-          </div>
-          <div className="flex items-center gap-4 justify-center">
-            <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center">
-              <Shield className="h-6 w-6" />
-            </div>
-            <div>
-              <div className="font-semibold">Buyer Protection</div>
-              <div className="text-sm text-gray-300">Secure payments guaranteed</div>
-            </div>
-          </div>
-          <div className="flex items-center gap-4 justify-center md:justify-end">
-            <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center">
-              <Headphones className="h-6 w-6" />
-            </div>
-            <div>
-              <div className="font-semibold">24/7 Support</div>
-              <div className="text-sm text-gray-300">Dedicated customer service</div>
-            </div>
-          </div>
-        </div>
+        {/* Slide Indicators */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.8 }}
+          className="flex justify-center gap-3 mt-12"
+        >
+          {slides.map((_, index) => (
+            <button
+              key={index}
+              onClick={() => setCurrentSlide(index)}
+              className={`h-2 rounded-full transition-all duration-300 ${
+                index === currentSlide ? 'w-12 bg-white' : 'w-2 bg-white/30 hover:bg-white/50'
+              }`}
+            />
+          ))}
+        </motion.div>
+      </motion.div>
+
+      {/* Bottom Wave */}
+      <div className="absolute bottom-0 left-0 right-0">
+        <svg viewBox="0 0 1440 120" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full">
+          <path
+            d="M0 120L60 105C120 90 240 60 360 52.5C480 45 600 60 720 67.5C840 75 960 75 1080 67.5C1200 60 1320 45 1380 37.5L1440 30V120H1380C1320 120 1200 120 1080 120C960 120 840 120 720 120C600 120 480 120 360 120C240 120 120 120 60 120H0Z"
+            className="fill-[oklch(0.99_0.005_85)] dark:fill-[oklch(0.12_0.02_45)]"
+          />
+        </svg>
       </div>
     </section>
-  );
+  )
 }
