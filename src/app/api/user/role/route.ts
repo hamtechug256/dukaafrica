@@ -14,6 +14,7 @@ const SUPER_ADMIN_EMAILS = (process.env.SUPER_ADMIN_EMAILS || '')
  * Returns the user's role from the DATABASE.
  * Auto-promotes users whose emails are in SUPER_ADMIN_EMAILS.
  * Creates user in database if they don't exist.
+ * Syncs user profile data from Clerk.
  */
 export async function GET() {
   try {
@@ -31,8 +32,12 @@ export async function GET() {
     const isSuperAdminEmail = SUPER_ADMIN_EMAILS.includes(email)
 
     console.log(`[ROLE CHECK] Email: ${email}, IsSuperAdminEmail: ${isSuperAdminEmail}`)
-    console.log(`[ROLE CHECK] SUPER_ADMIN_EMAILS env: "${process.env.SUPER_ADMIN_EMAILS || 'NOT SET'}"`)
-    console.log(`[ROLE CHECK] Parsed list:`, SUPER_ADMIN_EMAILS)
+
+    // Get Clerk user data
+    const clerkFirstName = clerkUser.firstName || null
+    const clerkLastName = clerkUser.lastName || null
+    const clerkName = [clerkFirstName, clerkLastName].filter(Boolean).join(' ') || null
+    const clerkAvatar = clerkUser.imageUrl
 
     // Find user in database
     let user = await prisma.user.findUnique({
@@ -44,6 +49,7 @@ export async function GET() {
         name: true,
         firstName: true,
         lastName: true,
+        avatar: true,
       }
     })
 
@@ -56,10 +62,10 @@ export async function GET() {
           id: `user_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
           clerkId: userId,
           email: email,
-          firstName: clerkUser.firstName,
-          lastName: clerkUser.lastName,
-          name: [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(' ') || null,
-          avatar: clerkUser.imageUrl,
+          firstName: clerkFirstName,
+          lastName: clerkLastName,
+          name: clerkName,
+          avatar: clerkAvatar,
           role: role,
           updatedAt: new Date(),
         },
@@ -70,27 +76,52 @@ export async function GET() {
           name: true,
           firstName: true,
           lastName: true,
+          avatar: true,
         }
       })
 
       console.log(`✅ [ROLE] Created user: ${email} with role: ${role}`)
-    }
-    // If user exists but should be super admin, promote them
-    else if (isSuperAdminEmail && user.role !== 'SUPER_ADMIN') {
-      user = await prisma.user.update({
-        where: { id: user.id },
-        data: { role: 'SUPER_ADMIN', updatedAt: new Date() },
-        select: {
-          id: true,
-          role: true,
-          email: true,
-          name: true,
-          firstName: true,
-          lastName: true,
-        }
-      })
+    } else {
+      // User exists - sync profile data from Clerk if needed
+      // This ensures names are updated if user updates their Clerk profile
+      const needsUpdate = 
+        (!user.name && clerkName) ||
+        (!user.firstName && clerkFirstName) ||
+        (!user.lastName && clerkLastName) ||
+        (!user.avatar && clerkAvatar) ||
+        (isSuperAdminEmail && user.role !== 'SUPER_ADMIN')
 
-      console.log(`✅ [ROLE] Auto-promoted to SUPER_ADMIN: ${email}`)
+      if (needsUpdate) {
+        const updateData: any = { updatedAt: new Date() }
+        
+        // Only update fields that are missing in DB but present in Clerk
+        if (!user.name && clerkName) updateData.name = clerkName
+        if (!user.firstName && clerkFirstName) updateData.firstName = clerkFirstName
+        if (!user.lastName && clerkLastName) updateData.lastName = clerkLastName
+        if (!user.avatar && clerkAvatar) updateData.avatar = clerkAvatar
+        
+        // Handle super admin promotion
+        if (isSuperAdminEmail && user.role !== 'SUPER_ADMIN') {
+          updateData.role = 'SUPER_ADMIN'
+          console.log(`✅ [ROLE] Auto-promoted to SUPER_ADMIN: ${email}`)
+        }
+
+        user = await prisma.user.update({
+          where: { id: user.id },
+          data: updateData,
+          select: {
+            id: true,
+            role: true,
+            email: true,
+            name: true,
+            firstName: true,
+            lastName: true,
+            avatar: true,
+          }
+        })
+
+        console.log(`✅ [ROLE] Synced profile data for: ${email}`)
+      }
     }
 
     const isAdmin = ['ADMIN', 'SUPER_ADMIN'].includes(user!.role)
@@ -106,9 +137,10 @@ export async function GET() {
         id: user!.id,
         role: user!.role,
         email: user!.email,
-        name: user!.name,
+        name: user!.name || [user!.firstName, user!.lastName].filter(Boolean).join(' ') || null,
         firstName: user!.firstName,
         lastName: user!.lastName,
+        avatar: user!.avatar,
         isAdmin,
         isSuperAdmin,
         isSeller,

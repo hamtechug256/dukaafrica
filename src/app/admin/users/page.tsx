@@ -251,12 +251,14 @@ export default function AdminUsersPage() {
                                 <img src={user.avatar} alt="" className="w-full h-full object-cover" />
                               ) : (
                                 <div className="w-full h-full flex items-center justify-center font-medium">
-                                  {user.name?.[0] || user.email?.[0]?.toUpperCase() || '?'}
+                                  {user.name?.[0] || user.firstName?.[0] || user.email?.[0]?.toUpperCase() || '?'}
                                 </div>
                               )}
                             </div>
                             <div>
-                              <p className="font-medium">{user.name || 'No name'}</p>
+                              <p className="font-medium">
+                                {user.name || [user.firstName, user.lastName].filter(Boolean).join(' ') || 'No name'}
+                              </p>
                               <p className="text-sm text-gray-500">{user.email}</p>
                             </div>
                           </div>

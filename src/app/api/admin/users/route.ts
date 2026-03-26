@@ -23,6 +23,8 @@ export async function GET() {
         id: true,
         email: true,
         name: true,
+        firstName: true,
+        lastName: true,
         avatar: true,
         role: true,
         isActive: true,
