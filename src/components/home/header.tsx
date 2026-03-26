@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
-import { SignInButton, UserButton, useAuth } from '@clerk/nextjs'
+import { useRouter } from 'next/navigation'
+import { SignInButton, UserButton, useAuth, useClerk } from '@clerk/nextjs'
 import {
   Search,
   Heart,
@@ -15,7 +16,14 @@ import {
   MapPin,
   Sun,
   Moon,
-  Sparkles
+  Sparkles,
+  Package,
+  Store,
+  Settings,
+  LayoutDashboard,
+  Shield,
+  LogOut,
+  LogIn
 } from 'lucide-react'
 
 const categories = [
@@ -36,13 +44,60 @@ const countries = [
   { name: 'Rwanda', flag: '🇷🇼', currency: 'RWF' },
 ]
 
+interface UserRole {
+  role: string
+  isAdmin: boolean
+  isSeller: boolean
+  isSuperAdmin: boolean
+}
+
 export function Header() {
   const { isSignedIn, isLoaded } = useAuth()
+  const { signOut } = useClerk()
+  const router = useRouter()
+  
+  const [userRole, setUserRole] = useState<UserRole | null>(null)
+  const [roleLoading, setRoleLoading] = useState(true)
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isSearchFocused, setIsSearchFocused] = useState(false)
   const [isDark, setIsDark] = useState(false)
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
   const [selectedCountry, setSelectedCountry] = useState(countries[0])
+
+  // Fetch user role when signed in
+  useEffect(() => {
+    async function fetchUserRole() {
+      if (isSignedIn) {
+        try {
+          setRoleLoading(true)
+          const res = await fetch('/api/user/role')
+          if (res.ok) {
+            const data = await res.json()
+            if (data.user) {
+              setUserRole({
+                role: data.user.role,
+                isAdmin: data.user.isAdmin,
+                isSeller: data.user.isSeller,
+                isSuperAdmin: data.user.isSuperAdmin,
+              })
+            }
+          }
+        } catch (error) {
+          console.error('Failed to fetch user role:', error)
+        } finally {
+          setRoleLoading(false)
+        }
+      } else {
+        setUserRole(null)
+        setRoleLoading(false)
+      }
+    }
+
+    if (isLoaded) {
+      fetchUserRole()
+    }
+  }, [isSignedIn, isLoaded])
 
   useEffect(() => {
     const handleScroll = () => {
@@ -59,6 +114,43 @@ export function Header() {
       document.documentElement.classList.remove('dark')
     }
   }, [isDark])
+
+  const handleSignOut = async () => {
+    await signOut()
+    router.push('/')
+  }
+
+  // Navigation items based on role
+  const getUserNavItems = () => {
+    const baseItems = [
+      { label: 'My Dashboard', href: '/dashboard', icon: User },
+      { label: 'My Orders', href: '/dashboard/orders', icon: Package },
+      { label: 'Wishlist', href: '/dashboard/wishlist', icon: Heart },
+      { label: 'Settings', href: '/dashboard/addresses', icon: Settings },
+    ]
+
+    const sellerItems = [
+      { label: 'Seller Dashboard', href: '/seller/dashboard', icon: Store },
+    ]
+
+    const adminItems = [
+      { label: 'Admin Panel', href: '/admin', icon: Shield },
+    ]
+
+    let items = [...baseItems]
+    
+    // Add seller dashboard for sellers
+    if (userRole?.isSeller) {
+      items = [...items.slice(0, 1), ...sellerItems, ...items.slice(1)]
+    }
+    
+    // Add admin panel for admins
+    if (userRole?.isAdmin) {
+      items = [...items.slice(0, 2), ...adminItems, ...items.slice(2)]
+    }
+
+    return items
+  }
 
   return (
     <>
@@ -194,25 +286,88 @@ export function Header() {
               </Link>
 
               {/* Auth Section */}
-              {!isLoaded ? (
+              {!isLoaded || roleLoading ? (
                 <div className="hidden md:flex w-10 h-10 items-center justify-center">
                   <div className="w-5 h-5 border-2 border-[oklch(0.6_0.2_35)] border-t-transparent rounded-full animate-spin" />
                 </div>
-              ) : isSignedIn ? (
-                <div className="hidden md:flex items-center">
-                  <UserButton />
-                </div>
-              ) : (
-                <Link href="/sign-in">
+              ) : !isSignedIn ? (
+                <SignInButton mode="modal">
                   <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     className="hidden md:flex items-center gap-2 px-4 py-2 rounded-xl hover:bg-[oklch(0.96_0.01_85)] dark:hover:bg-[oklch(0.22_0.02_45)] transition-colors"
                   >
-                    <User className="w-5 h-5 text-[oklch(0.45_0.02_45)] dark:text-white" />
+                    <LogIn className="w-5 h-5 text-[oklch(0.45_0.02_45)] dark:text-white" />
                     <span className="text-sm font-medium text-[oklch(0.25_0.02_45)] dark:text-white">Sign In</span>
                   </motion.button>
-                </Link>
+                </SignInButton>
+              ) : (
+                <div className="hidden md:block relative">
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-xl hover:bg-[oklch(0.96_0.01_85)] dark:hover:bg-[oklch(0.22_0.02_45)] transition-colors"
+                  >
+                    <UserButton />
+                    <ChevronDown className={`w-4 h-4 text-[oklch(0.45_0.02_45)] dark:text-white transition-transform ${isUserMenuOpen ? 'rotate-180' : ''}`} />
+                  </motion.button>
+
+                  {/* Dropdown Menu */}
+                  <AnimatePresence>
+                    {isUserMenuOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                        className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-[oklch(0.18_0.02_45)] rounded-2xl shadow-xl border border-[oklch(0.94_0.01_85)] dark:border-[oklch(0.28_0.02_45)] overflow-hidden z-50"
+                      >
+                        {/* Role Badge */}
+                        {userRole && (
+                          <div className="px-4 py-3 border-b border-[oklch(0.94_0.01_85)] dark:border-[oklch(0.28_0.02_45)]">
+                            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
+                              userRole.isSuperAdmin 
+                                ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' 
+                                : userRole.isAdmin 
+                                ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
+                                : userRole.isSeller
+                                ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                                : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                            }`}>
+                              {userRole.isSuperAdmin && <Shield className="w-3 h-3" />}
+                              {userRole.isSuperAdmin ? 'Super Admin' : userRole.isAdmin ? 'Admin' : userRole.isSeller ? 'Seller' : 'Buyer'}
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Navigation Items */}
+                        <div className="py-2">
+                          {getUserNavItems().map((item) => (
+                            <Link
+                              key={item.href}
+                              href={item.href}
+                              onClick={() => setIsUserMenuOpen(false)}
+                              className="flex items-center gap-3 px-4 py-2.5 hover:bg-[oklch(0.96_0.01_85)] dark:hover:bg-[oklch(0.22_0.02_45)] transition-colors"
+                            >
+                              <item.icon className="w-4 h-4 text-[oklch(0.55_0.15_140)]" />
+                              <span className="text-sm font-medium text-[oklch(0.25_0.02_45)] dark:text-white">{item.label}</span>
+                            </Link>
+                          ))}
+                        </div>
+
+                        {/* Sign Out */}
+                        <div className="border-t border-[oklch(0.94_0.01_85)] dark:border-[oklch(0.28_0.02_45)] py-2">
+                          <button
+                            onClick={handleSignOut}
+                            className="flex items-center gap-3 px-4 py-2.5 w-full hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-red-600 dark:text-red-400"
+                          >
+                            <LogOut className="w-4 h-4" />
+                            <span className="text-sm font-medium">Sign Out</span>
+                          </button>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               )}
 
               {/* Sell Button */}
@@ -293,11 +448,11 @@ export function Header() {
             exit={{ opacity: 0, y: -20 }}
             className="fixed inset-x-0 top-[140px] z-40 bg-white dark:bg-[oklch(0.12_0.02_45)] shadow-2xl rounded-b-3xl overflow-hidden md:hidden"
           >
-            <div className="p-6 space-y-4">
+            <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
               {/* Categories */}
               <div className="grid grid-cols-2 gap-3">
                 {categories.map((category) => (
-                  <Link key={category.name} href={category.href}>
+                  <Link key={category.name} href={category.href} onClick={() => setIsMobileMenuOpen(false)}>
                     <motion.div
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
@@ -310,18 +465,56 @@ export function Header() {
                 ))}
               </div>
 
-              {/* Actions */}
-              <div className="pt-4 border-t border-[oklch(0.94_0.01_85)] dark:border-[oklch(0.22_0.02_45)] space-y-3">
-                {!isLoaded ? (
-                  <div className="flex justify-center py-3">
-                    <div className="w-6 h-6 border-2 border-[oklch(0.6_0.2_35)] border-t-transparent rounded-full animate-spin" />
-                  </div>
-                ) : isSignedIn ? (
-                  <div className="flex justify-center">
-                    <UserButton />
-                  </div>
-                ) : (
-                  <Link href="/sign-in">
+              {/* User Actions */}
+              {isSignedIn && (
+                <div className="pt-4 border-t border-[oklch(0.94_0.01_85)] dark:border-[oklch(0.22_0.02_45)] space-y-2">
+                  {/* Role Badge */}
+                  {userRole && (
+                    <div className="px-2 py-2">
+                      <span className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium ${
+                        userRole.isSuperAdmin 
+                          ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' 
+                          : userRole.isAdmin 
+                          ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
+                          : userRole.isSeller
+                          ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                          : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                      }`}>
+                        {userRole.isSuperAdmin && <Shield className="w-3 h-3" />}
+                        {userRole.isSuperAdmin ? 'Super Admin' : userRole.isAdmin ? 'Admin' : userRole.isSeller ? 'Seller' : 'Buyer'}
+                      </span>
+                    </div>
+                  )}
+                  
+                  {getUserNavItems().map((item) => (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-[oklch(0.96_0.01_85)] dark:hover:bg-[oklch(0.22_0.02_45)] transition-colors"
+                    >
+                      <item.icon className="w-5 h-5 text-[oklch(0.55_0.15_140)]" />
+                      <span className="font-medium text-[oklch(0.25_0.02_45)] dark:text-white">{item.label}</span>
+                    </Link>
+                  ))}
+
+                  <button
+                    onClick={() => {
+                      setIsMobileMenuOpen(false)
+                      handleSignOut()
+                    }}
+                    className="flex items-center gap-3 px-4 py-3 w-full rounded-xl hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-red-600 dark:text-red-400"
+                  >
+                    <LogOut className="w-5 h-5" />
+                    <span className="font-medium">Sign Out</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Auth / Sell Buttons */}
+              {!isSignedIn && (
+                <div className="pt-4 border-t border-[oklch(0.94_0.01_85)] dark:border-[oklch(0.22_0.02_45)] space-y-3">
+                  <Link href="/sign-in" onClick={() => setIsMobileMenuOpen(false)}>
                     <motion.button
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
@@ -331,21 +524,30 @@ export function Header() {
                       Sign In
                     </motion.button>
                   </Link>
-                )}
-                <Link href="/seller/register">
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="w-full py-3 rounded-xl font-semibold border-2 border-[oklch(0.6_0.2_35)] text-[oklch(0.6_0.2_35)] dark:text-white"
-                  >
-                    Start Selling
-                  </motion.button>
-                </Link>
-              </div>
+                </div>
+              )}
+
+              <Link href="/seller/register" onClick={() => setIsMobileMenuOpen(false)}>
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="w-full py-3 rounded-xl font-semibold border-2 border-[oklch(0.6_0.2_35)] text-[oklch(0.6_0.2_35)] dark:text-white"
+                >
+                  Start Selling
+                </motion.button>
+              </Link>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Click outside to close dropdown */}
+      {isUserMenuOpen && (
+        <div 
+          className="fixed inset-0 z-40" 
+          onClick={() => setIsUserMenuOpen(false)}
+        />
+      )}
     </>
   )
 }

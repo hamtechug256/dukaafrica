@@ -1,6 +1,8 @@
 'use client';
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -22,10 +24,11 @@ import {
   Store,
   Package,
   Settings,
-  LayoutDashboard
+  LayoutDashboard,
+  Shield,
+  LogOut
 } from "lucide-react";
-import { useState } from "react";
-import { useAuth, SignInButton, UserButton } from "@clerk/nextjs";
+import { useAuth, SignInButton, useClerk } from "@clerk/nextjs";
 import { useCartStore } from "@/store/cart-store";
 
 const categories = [
@@ -39,11 +42,94 @@ const categories = [
   { name: "Jobs", href: "/categories/jobs", icon: "💼" },
 ];
 
+interface UserRole {
+  role: string;
+  isAdmin: boolean;
+  isSeller: boolean;
+  isSuperAdmin: boolean;
+}
+
 export function Header() {
   const [searchQuery, setSearchQuery] = useState("");
   const { isSignedIn, isLoaded } = useAuth();
+  const { signOut } = useClerk();
+  const router = useRouter();
   const { getItemCount } = useCartStore();
   const cartCount = getItemCount();
+  
+  const [userRole, setUserRole] = useState<UserRole | null>(null);
+  const [roleLoading, setRoleLoading] = useState(true);
+
+  // Fetch user role when signed in
+  useEffect(() => {
+    async function fetchUserRole() {
+      if (isSignedIn) {
+        try {
+          setRoleLoading(true);
+          const res = await fetch('/api/user/role');
+          if (res.ok) {
+            const data = await res.json();
+            if (data.user) {
+              setUserRole({
+                role: data.user.role,
+                isAdmin: data.user.isAdmin,
+                isSeller: data.user.isSeller,
+                isSuperAdmin: data.user.isSuperAdmin,
+              });
+            }
+          }
+        } catch (error) {
+          console.error('Failed to fetch user role:', error);
+        } finally {
+          setRoleLoading(false);
+        }
+      } else {
+        setUserRole(null);
+        setRoleLoading(false);
+      }
+    }
+
+    if (isLoaded) {
+      fetchUserRole();
+    }
+  }, [isSignedIn, isLoaded]);
+
+  const handleSignOut = async () => {
+    await signOut();
+    router.push('/');
+  };
+
+  // Navigation items based on role
+  const getUserNavItems = () => {
+    const baseItems = [
+      { label: 'My Dashboard', href: '/dashboard', icon: User },
+      { label: 'My Orders', href: '/dashboard/orders', icon: Package },
+      { label: 'Wishlist', href: '/dashboard/wishlist', icon: Heart },
+      { label: 'Settings', href: '/dashboard/addresses', icon: Settings },
+    ];
+
+    const sellerItems = [
+      { label: 'Seller Dashboard', href: '/seller/dashboard', icon: Store },
+    ];
+
+    const adminItems = [
+      { label: 'Admin Panel', href: '/admin', icon: Shield },
+    ];
+
+    let items = [...baseItems];
+    
+    // Add seller dashboard for sellers
+    if (userRole?.isSeller) {
+      items = [...items.slice(0, 1), ...sellerItems, ...items.slice(1)];
+    }
+    
+    // Add admin panel for admins
+    if (userRole?.isAdmin) {
+      items = [...items.slice(0, 2), ...adminItems, ...items.slice(2)];
+    }
+
+    return items;
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
@@ -135,7 +221,7 @@ export function Header() {
             </Link>
 
             {/* User Menu */}
-            {!isLoaded ? (
+            {!isLoaded || roleLoading ? (
               <div className="w-10 h-10 flex items-center justify-center">
                 <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
               </div>
@@ -150,49 +236,49 @@ export function Header() {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="flex items-center gap-2">
-                    <UserButton />
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                      <User className="h-4 w-4 text-primary" />
+                    </div>
                     <span className="hidden lg:inline text-sm">Account</span>
                     <ChevronDown className="h-4 w-4 hidden lg:inline" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuItem asChild>
-                    <Link href="/dashboard" className="cursor-pointer">
-                      <User className="mr-2 h-4 w-4" />
-                      My Account
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/dashboard/orders" className="cursor-pointer">
-                      <Package className="mr-2 h-4 w-4" />
-                      My Orders
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/dashboard/wishlist" className="cursor-pointer">
-                      <Heart className="mr-2 h-4 w-4" />
-                      Wishlist
-                    </Link>
-                  </DropdownMenuItem>
+                  {/* Role Badge */}
+                  {userRole && (
+                    <div className="px-2 py-2 border-b">
+                      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
+                        userRole.isSuperAdmin 
+                          ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' 
+                          : userRole.isAdmin 
+                          ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
+                          : userRole.isSeller
+                          ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                          : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                      }`}>
+                        {userRole.isSuperAdmin && <Shield className="w-3 h-3" />}
+                        {userRole.isSuperAdmin ? 'Super Admin' : userRole.isAdmin ? 'Admin' : userRole.isSeller ? 'Seller' : 'Buyer'}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Navigation Items - Role Based */}
+                  {getUserNavItems().map((item) => (
+                    <DropdownMenuItem key={item.href} asChild>
+                      <Link href={item.href} className="cursor-pointer">
+                        <item.icon className="mr-2 h-4 w-4" />
+                        {item.label}
+                      </Link>
+                    </DropdownMenuItem>
+                  ))}
+
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link href="/seller/dashboard" className="cursor-pointer">
-                      <Store className="mr-2 h-4 w-4" />
-                      Seller Dashboard
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/admin" className="cursor-pointer">
-                      <LayoutDashboard className="mr-2 h-4 w-4" />
-                      Admin Panel
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link href="/dashboard/addresses" className="cursor-pointer">
-                      <Settings className="mr-2 h-4 w-4" />
-                      Settings
-                    </Link>
+                  
+                  <DropdownMenuItem asChild className="text-red-600 focus:text-red-600">
+                    <button onClick={handleSignOut} className="cursor-pointer w-full flex items-center">
+                      <LogOut className="mr-2 h-4 w-4" />
+                      Sign Out
+                    </button>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
