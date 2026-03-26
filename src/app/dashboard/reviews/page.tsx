@@ -1,5 +1,8 @@
 'use client'
 
+// Force dynamic rendering to avoid Clerk prerender issues
+export const dynamic = 'force-dynamic'
+
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'

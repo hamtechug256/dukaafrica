@@ -1,5 +1,8 @@
 'use client'
 
+// Force dynamic rendering to avoid Clerk prerender issues
+export const dynamic = 'force-dynamic'
+
 import { useEffect } from 'react'
 import { useUser, useClerk, SignIn } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'

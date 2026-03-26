@@ -1,5 +1,8 @@
 'use client'
 
+// Force dynamic rendering to avoid Clerk prerender issues
+export const dynamic = 'force-dynamic'
+
 import { useUser } from '@clerk/nextjs'
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
