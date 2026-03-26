@@ -332,7 +332,7 @@ export function FlashSales() {
           transition={{ delay: 0.6 }}
           className="text-center mt-8"
         >
-          <Link href="/deals">
+          <Link href="/products">
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}

@@ -205,7 +205,7 @@ export function SellerShowcase() {
                 Top-rated sellers you can trust
               </p>
             </div>
-            <Link href="/sellers" className="hidden md:block">
+            <Link href="/stores" className="hidden md:block">
               <motion.button
                 whileHover={{ scale: 1.05, x: 5 }}
                 whileTap={{ scale: 0.95 }}
@@ -225,7 +225,7 @@ export function SellerShowcase() {
                 animate={isInView ? { opacity: 1, y: 0 } : {}}
                 transition={{ delay: 0.3 + index * 0.1 }}
               >
-                <Link href={`/sellers/${seller.id}`}>
+                <Link href={`/stores/${seller.id}`}>
                   <motion.div
                     whileHover={{ y: -8 }}
                     className="group bg-white dark:bg-[oklch(0.18_0.02_45)] rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 border border-[oklch(0.94_0.01_85)] dark:border-[oklch(0.25_0.02_45)]"
@@ -301,7 +301,7 @@ export function SellerShowcase() {
             transition={{ delay: 0.8 }}
             className="md:hidden mt-8 text-center"
           >
-            <Link href="/sellers">
+            <Link href="/stores">
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
