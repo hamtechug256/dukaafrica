@@ -1,0 +1,32 @@
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1e293b;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0f172a;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="grad2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#10b981;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#059669;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background Circle -->
+  <circle cx="256" cy="256" r="240" fill="url(#grad1)"/>
+  
+  <!-- Shopping Bag Shape -->
+  <path d="M160 180 L160 380 Q160 400 180 400 L332 400 Q352 400 352 380 L352 180 L160 180 Z" fill="#fff" opacity="0.95"/>
+  
+  <!-- Bag Handle -->
+  <path d="M200 180 L200 140 Q200 110 256 110 Q312 110 312 140 L312 180" fill="none" stroke="#fff" stroke-width="20" stroke-linecap="round"/>
+  
+  <!-- African Map Silhouette inside bag -->
+  <path d="M220 240 L240 220 L280 220 L300 240 L310 280 L300 320 L280 340 L240 340 L220 320 L210 280 Z" fill="url(#grad2)"/>
+  
+  <!-- Stylized D overlay -->
+  <path d="M240 260 Q240 300 270 310 L290 290 Q280 270 260 270 L260 290 Q270 290 280 300 L270 310 Q240 300 240 260 L260 250 Q290 250 300 280 L290 300 Q280 290 270 290" fill="url(#grad1)" opacity="0.9"/>
+  
+  <!-- Decorative dots -->
+  <circle cx="220" cy="360" r="8" fill="url(#grad2)"/>
+  <circle cx="340" cy="360" r="8" fill="url(#grad2)"/>
+  <circle cx="280" cy="200" r="6" fill="url(#grad2)"/>
+</svg>
