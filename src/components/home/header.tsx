@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
+import { SignInButton, SignedIn, SignedOut, UserButton } from '@clerk/nextjs'
 import {
   Search,
   Heart,
@@ -191,15 +192,28 @@ export function Header() {
                 </motion.div>
               </Link>
 
-              {/* Sign In */}
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="hidden md:flex items-center gap-2 px-4 py-2 rounded-xl hover:bg-[oklch(0.96_0.01_85)] dark:hover:bg-[oklch(0.22_0.02_45)] transition-colors"
-              >
-                <User className="w-5 h-5 text-[oklch(0.45_0.02_45)] dark:text-white" />
-                <span className="text-sm font-medium text-[oklch(0.25_0.02_45)] dark:text-white">Sign In</span>
-              </motion.button>
+              {/* Auth Section */}
+              <SignedOut>
+                <Link href="/sign-in">
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="hidden md:flex items-center gap-2 px-4 py-2 rounded-xl hover:bg-[oklch(0.96_0.01_85)] dark:hover:bg-[oklch(0.22_0.02_45)] transition-colors"
+                  >
+                    <User className="w-5 h-5 text-[oklch(0.45_0.02_45)] dark:text-white" />
+                    <span className="text-sm font-medium text-[oklch(0.25_0.02_45)] dark:text-white">Sign In</span>
+                  </motion.button>
+                </Link>
+              </SignedOut>
+              <SignedIn>
+                <div className="hidden md:flex items-center">
+                  <UserButton afterSignOutUrl="/" appearance={{
+                    elements: {
+                      userButtonTrigger: "focus:shadow-none"
+                    }
+                  }} />
+                </div>
+              </SignedIn>
 
               {/* Sell Button */}
               <Link href="/seller/register" className="hidden lg:block">
@@ -298,21 +312,32 @@ export function Header() {
 
               {/* Actions */}
               <div className="pt-4 border-t border-[oklch(0.94_0.01_85)] dark:border-[oklch(0.22_0.02_45)] space-y-3">
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  className="w-full py-3 rounded-xl font-semibold text-white"
-                  style={{ background: 'linear-gradient(135deg, oklch(0.6 0.2 35), oklch(0.55 0.18 40))' }}
-                >
-                  Sign In
-                </motion.button>
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  className="w-full py-3 rounded-xl font-semibold border-2 border-[oklch(0.6_0.2_35)] text-[oklch(0.6_0.2_35)] dark:text-white"
-                >
-                  Start Selling
-                </motion.button>
+                <SignedOut>
+                  <Link href="/sign-in">
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="w-full py-3 rounded-xl font-semibold text-white"
+                      style={{ background: 'linear-gradient(135deg, oklch(0.6 0.2 35), oklch(0.55 0.18 40))' }}
+                    >
+                      Sign In
+                    </motion.button>
+                  </Link>
+                </SignedOut>
+                <SignedIn>
+                  <div className="flex justify-center">
+                    <UserButton afterSignOutUrl="/" />
+                  </div>
+                </SignedIn>
+                <Link href="/seller/register">
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="w-full py-3 rounded-xl font-semibold border-2 border-[oklch(0.6_0.2_35)] text-[oklch(0.6_0.2_35)] dark:text-white"
+                  >
+                    Start Selling
+                  </motion.button>
+                </Link>
               </div>
             </div>
           </motion.div>
