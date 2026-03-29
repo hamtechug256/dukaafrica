@@ -56,7 +56,7 @@ export function Header() {
   const { isSignedIn, isLoaded } = useAuth()
   const { signOut } = useClerk()
   const router = useRouter()
-  const { getItemCount } = useCartStore()
+  const { getItemCount, openCart } = useCartStore()
   const cartCount = getItemCount()
   
   const [userRole, setUserRole] = useState<UserRole | null>(null)
@@ -269,26 +269,25 @@ export function Header() {
               </Link>
 
               {/* Cart */}
-              <Link href="/cart">
-                <motion.div
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
-                  className="relative flex flex-col items-center px-3 py-1.5 rounded-xl hover:bg-[oklch(0.96_0.01_85)] dark:hover:bg-[oklch(0.22_0.02_45)] cursor-pointer transition-colors"
-                >
-                  <ShoppingCart className="w-5 h-5 text-[oklch(0.45_0.02_45)] dark:text-white" />
-                  <span className="hidden lg:block text-xs text-[oklch(0.55_0.02_45)] dark:text-[oklch(0.65_0.01_85)] mt-0.5">Cart</span>
-                  {cartCount > 0 && (
-                    <motion.span
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold text-white"
-                      style={{ background: 'linear-gradient(135deg, oklch(0.55 0.15 140), oklch(0.45 0.14 155))' }}
-                    >
-                      {cartCount > 99 ? '99+' : cartCount}
-                    </motion.span>
-                  )}
-                </motion.div>
-              </Link>
+              <motion.button
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={openCart}
+                className="relative flex flex-col items-center px-3 py-1.5 rounded-xl hover:bg-[oklch(0.96_0.01_85)] dark:hover:bg-[oklch(0.22_0.02_45)] cursor-pointer transition-colors"
+              >
+                <ShoppingCart className="w-5 h-5 text-[oklch(0.45_0.02_45)] dark:text-white" />
+                <span className="hidden lg:block text-xs text-[oklch(0.55_0.02_45)] dark:text-[oklch(0.65_0.01_85)] mt-0.5">Cart</span>
+                {cartCount > 0 && (
+                  <motion.span
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold text-white"
+                    style={{ background: 'linear-gradient(135deg, oklch(0.55 0.15 140), oklch(0.45 0.14 155))' }}
+                  >
+                    {cartCount > 99 ? '99+' : cartCount}
+                  </motion.span>
+                )}
+              </motion.button>
 
               {/* Auth Section */}
               {!isLoaded || roleLoading ? (
