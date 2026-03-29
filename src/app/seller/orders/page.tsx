@@ -1,6 +1,6 @@
 'use client'
 
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -17,6 +17,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
@@ -26,9 +27,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { ShoppingBag, Search, MoreHorizontal, Eye, Truck, Package, CheckCircle, Clock, XCircle, DollarSign } from 'lucide-react'
+import { ShoppingBag, Search, MoreHorizontal, Eye, Truck, Package, CheckCircle, Clock, XCircle, DollarSign, Loader2 } from 'lucide-react'
 import { useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { useToast } from '@/hooks/use-toast'
 
 const statusColors: Record<string, string> = {
   PENDING: 'bg-yellow-100 text-yellow-700',
@@ -47,13 +50,48 @@ async function fetchSellerOrders() {
   return res.json()
 }
 
+async function updateOrderStatus(orderId: string, status: string) {
+  const res = await fetch('/api/seller/orders', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ orderId, status }),
+  })
+  if (!res.ok) {
+    const error = await res.json()
+    throw new Error(error.error || 'Failed to update order')
+  }
+  return res.json()
+}
+
 export default function SellerOrdersPage() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
+  const router = useRouter()
+  const { toast } = useToast()
+  const queryClient = useQueryClient()
 
   const { data, isLoading } = useQuery({
     queryKey: ['seller-orders'],
     queryFn: fetchSellerOrders,
+  })
+
+  const updateMutation = useMutation({
+    mutationFn: ({ orderId, status }: { orderId: string; status: string }) => 
+      updateOrderStatus(orderId, status),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['seller-orders'] })
+      toast({
+        title: 'Order Updated',
+        description: 'Order status has been updated successfully.',
+      })
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      })
+    },
   })
 
   const orders = data?.orders || []
@@ -220,18 +258,48 @@ export default function SellerOrdersPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem>
-                              <Eye className="w-4 h-4 mr-2" />
-                              View Details
+                            <DropdownMenuItem asChild>
+                              <Link href={`/seller/orders/${order.id}`}>
+                                <Eye className="w-4 h-4 mr-2" />
+                                View Details
+                              </Link>
                             </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              <Truck className="w-4 h-4 mr-2" />
-                              Update Status
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              <CheckCircle className="w-4 h-4 mr-2" />
-                              Mark as Shipped
-                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            {order.status === 'PENDING' && (
+                              <DropdownMenuItem 
+                                onClick={() => updateMutation.mutate({ orderId: order.id, status: 'CONFIRMED' })}
+                                disabled={updateMutation.isPending}
+                              >
+                                <CheckCircle className="w-4 h-4 mr-2" />
+                                Confirm Order
+                              </DropdownMenuItem>
+                            )}
+                            {(order.status === 'CONFIRMED' || order.status === 'PENDING') && (
+                              <DropdownMenuItem 
+                                onClick={() => updateMutation.mutate({ orderId: order.id, status: 'PROCESSING' })}
+                                disabled={updateMutation.isPending}
+                              >
+                                <Package className="w-4 h-4 mr-2" />
+                                Mark as Processing
+                              </DropdownMenuItem>
+                            )}
+                            {(order.status === 'CONFIRMED' || order.status === 'PROCESSING') && (
+                              <DropdownMenuItem 
+                                onClick={() => router.push(`/seller/orders/${order.id}`)}
+                              >
+                                <Truck className="w-4 h-4 mr-2" />
+                                Mark as Shipped
+                              </DropdownMenuItem>
+                            )}
+                            {order.status === 'SHIPPED' && (
+                              <DropdownMenuItem 
+                                onClick={() => updateMutation.mutate({ orderId: order.id, status: 'DELIVERED' })}
+                                disabled={updateMutation.isPending}
+                              >
+                                <CheckCircle className="w-4 h-4 mr-2" />
+                                Mark as Delivered
+                              </DropdownMenuItem>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>

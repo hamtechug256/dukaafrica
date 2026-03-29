@@ -66,7 +66,9 @@ export default async function StoresPage({
         name: true,
         description: true,
         logo: true,
+        banner: true,
         country: true,
+        city: true,
         createdAt: true,
         rating: true,
         reviewCount: true,
@@ -202,11 +204,19 @@ export default async function StoresPage({
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {storesWithRating.map((store) => (
               <Link key={store.id} href={`/stores/${store.slug}`}>
-                <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer group">
-                  <CardContent className="p-6">
-                    {/* Store Logo & Info */}
-                    <div className="flex items-start gap-4 mb-4">
-                      <div className="w-16 h-16 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center overflow-hidden flex-shrink-0">
+                <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer group overflow-hidden">
+                  {/* Store Banner */}
+                  <div className="relative h-24 bg-gradient-to-r from-orange-400 to-green-500">
+                    {store.banner ? (
+                      <img 
+                        src={store.banner} 
+                        alt={store.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : null}
+                    {/* Store Logo Overlay */}
+                    <div className="absolute -bottom-8 left-4">
+                      <div className="w-16 h-16 rounded-lg border-4 border-white dark:border-gray-800 bg-white dark:bg-gray-700 overflow-hidden shadow-lg">
                         {store.logo ? (
                           <img 
                             src={store.logo} 
@@ -214,23 +224,29 @@ export default async function StoresPage({
                             className="w-full h-full object-cover"
                           />
                         ) : (
-                          <Store className="w-8 h-8 text-gray-400" />
+                          <div className="w-full h-full flex items-center justify-center">
+                            <Store className="w-8 h-8 text-gray-400" />
+                          </div>
                         )}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-gray-900 dark:text-white truncate group-hover:text-primary transition-colors">
-                          {store.name}
-                        </h3>
-                        <div className="flex items-center gap-1 text-sm text-gray-500 mt-1">
-                          <MapPin className="w-3 h-3" />
-                          <span>{store.country}</span>
-                        </div>
+                    </div>
+                  </div>
+                  
+                  <CardContent className="p-4 pt-12">
+                    {/* Store Info */}
+                    <div className="mb-3">
+                      <h3 className="font-semibold text-gray-900 dark:text-white truncate group-hover:text-primary transition-colors">
+                        {store.name}
+                      </h3>
+                      <div className="flex items-center gap-1 text-sm text-gray-500 mt-1">
+                        <MapPin className="w-3 h-3" />
+                        <span>{store.city ? `${store.city}, ` : ''}{store.country}</span>
                       </div>
                     </div>
 
                     {/* Description */}
                     {store.description && (
-                      <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 mb-4">
+                      <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 mb-3">
                         {store.description}
                       </p>
                     )}

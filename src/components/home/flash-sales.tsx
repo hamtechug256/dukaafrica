@@ -3,112 +3,57 @@
 import { motion, useInView } from 'framer-motion'
 import { useRef, useState, useEffect } from 'react'
 import Link from 'next/link'
-import { ArrowRight, Clock, Flame, Star, ChevronLeft, ChevronRight } from 'lucide-react'
+import { ArrowRight, Clock, Flame, Star, ChevronLeft, ChevronRight, Zap } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
 
-const flashDeals = [
-  {
-    id: 1,
-    name: 'Wireless Bluetooth Earbuds Pro',
-    image: 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=400&q=80',
-    originalPrice: 150000,
-    salePrice: 89900,
-    discount: 40,
-    rating: 4.8,
-    reviews: 234,
-    sold: 156,
-    total: 200,
-    seller: 'TechHub Uganda',
-  },
-  {
-    id: 2,
-    name: 'African Print Maxi Dress',
-    image: 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=400&q=80',
-    originalPrice: 85000,
-    salePrice: 49900,
-    discount: 41,
-    rating: 4.9,
-    reviews: 189,
-    sold: 178,
-    total: 250,
-    seller: 'Fashion House KE',
-  },
-  {
-    id: 3,
-    name: 'Smart Watch Series 5',
-    image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&q=80',
-    originalPrice: 280000,
-    salePrice: 189000,
-    discount: 32,
-    rating: 4.7,
-    reviews: 456,
-    sold: 89,
-    total: 150,
-    seller: 'GadgetZone',
-  },
-  {
-    id: 4,
-    name: 'Organic Shea Butter Set',
-    image: 'https://images.unsplash.com/photo-1608248597279-f99d160bfcbc?w=400&q=80',
-    originalPrice: 45000,
-    salePrice: 29900,
-    discount: 33,
-    rating: 4.9,
-    reviews: 678,
-    sold: 312,
-    total: 400,
-    seller: 'Naturals Africa',
-  },
-  {
-    id: 5,
-    name: 'Premium Leather Backpack',
-    image: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=400&q=80',
-    originalPrice: 120000,
-    salePrice: 79900,
-    discount: 33,
-    rating: 4.6,
-    reviews: 123,
-    sold: 67,
-    total: 100,
-    seller: 'Leather Craft UG',
-  },
-  {
-    id: 6,
-    name: 'Fresh Coffee Beans 1kg',
-    image: 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=400&q=80',
-    originalPrice: 35000,
-    salePrice: 24900,
-    discount: 29,
-    rating: 4.8,
-    reviews: 892,
-    sold: 450,
-    total: 500,
-    seller: 'Mountains Coffee',
-  },
-]
+// Fetch real flash sales
+async function fetchFlashSales() {
+  const res = await fetch('/api/homepage/flash-sales')
+  if (!res.ok) throw new Error('Failed to fetch flash sales')
+  return res.json()
+}
 
 export function FlashSales() {
   const containerRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const isInView = useInView(containerRef, { once: true, margin: '-100px' })
-  const [timeLeft, setTimeLeft] = useState({ hours: 5, minutes: 32, seconds: 45 })
   const [canScrollLeft, setCanScrollLeft] = useState(false)
   const [canScrollRight, setCanScrollRight] = useState(true)
 
+  // Fetch real flash sales
+  const { data: flashData, isLoading } = useQuery({
+    queryKey: ['homepage-flash-sales'],
+    queryFn: fetchFlashSales,
+    staleTime: 1000 * 60 * 5,
+  })
+
+  const flashDeals = flashData?.products || []
+  const hasFlashSales = flashData?.shouldShowSection || false
+  const earliestEnd = flashData?.earliestEnd || null
+
+  // Countdown timer - use real end date from API
+  const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 })
+
   useEffect(() => {
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev.seconds > 0) {
-          return { ...prev, seconds: prev.seconds - 1 }
-        } else if (prev.minutes > 0) {
-          return { ...prev, minutes: prev.minutes - 1, seconds: 59 }
-        } else if (prev.hours > 0) {
-          return { hours: prev.hours - 1, minutes: 59, seconds: 59 }
-        }
-        return prev
-      })
-    }, 1000)
+    if (!earliestEnd) return
+    
+    const calculateTimeLeft = () => {
+      const difference = new Date(earliestEnd).getTime() - new Date().getTime()
+      
+      if (difference > 0) {
+        setTimeLeft({
+          days: Math.floor(difference / (1000 * 60 * 60 * 24)),
+          hours: Math.floor((difference / (1000 * 60 * 60)) % 24),
+          minutes: Math.floor((difference / 1000 / 60) % 60),
+          seconds: Math.floor((difference / 1000) % 60),
+        })
+      }
+    }
+
+    calculateTimeLeft()
+    const timer = setInterval(calculateTimeLeft, 1000)
     return () => clearInterval(timer)
-  }, [])
+  }, [earliestEnd])
 
   const checkScroll = () => {
     if (scrollRef.current) {
@@ -140,6 +85,45 @@ export function FlashSales() {
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-UG').format(price)
+  }
+
+  // If no active flash sales, show alternative section
+  if (!isLoading && !hasFlashSales) {
+    return (
+      <section ref={containerRef} className="py-16 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-[oklch(0.6_0.2_35/5%)] via-transparent to-[oklch(0.55_0.15_140/5%)]" />
+        
+        <div className="container mx-auto px-4 relative z-10">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={isInView ? { opacity: 1, y: 0 } : {}}
+            className="text-center py-12"
+          >
+            <div className="max-w-md mx-auto">
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[oklch(0.6_0.2_35)] to-[oklch(0.55_0.15_140)] flex items-center justify-center mx-auto mb-6">
+                <Zap className="w-10 h-10 text-white" />
+              </div>
+              <h3 className="text-2xl font-bold text-[oklch(0.15_0.02_45)] dark:text-white mb-3">
+                Flash Sales Coming Soon
+              </h3>
+              <p className="text-[oklch(0.45_0.02_45)] dark:text-[oklch(0.65_0.01_85)] mb-6">
+                Be the first to know about amazing deals! Subscribe to our newsletter for exclusive offers.
+              </p>
+              <Link href="/products">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="px-8 py-3 rounded-xl font-semibold text-white"
+                  style={{ background: 'linear-gradient(135deg, oklch(0.6 0.2 35), oklch(0.55 0.15 140))' }}
+                >
+                  Browse All Products
+                </motion.button>
+              </Link>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+    )
   }
 
   return (
@@ -174,40 +158,48 @@ export function FlashSales() {
           </div>
 
           {/* Countdown Timer */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={isInView ? { opacity: 1, scale: 1 } : {}}
-            transition={{ delay: 0.2 }}
-            className="flex items-center gap-4"
-          >
-            <div className="flex items-center gap-2 text-[oklch(0.45_0.02_45)] dark:text-[oklch(0.65_0.01_85)]">
-              <Clock className="w-5 h-5" />
-              <span className="font-medium">Ends in:</span>
-            </div>
-            <div className="flex items-center gap-2">
-              {[
-                { value: timeLeft.hours, label: 'HRS' },
-                { value: timeLeft.minutes, label: 'MIN' },
-                { value: timeLeft.seconds, label: 'SEC' },
-              ].map((item, index) => (
-                <div key={index} className="flex items-center gap-2">
-                  <motion.div
-                    key={item.label}
-                    animate={item.value < 10 ? { scale: [1, 1.05, 1] } : {}}
-                    transition={{ duration: 0.3 }}
-                    className="w-14 h-14 rounded-xl flex flex-col items-center justify-center"
-                    style={{ background: 'linear-gradient(135deg, oklch(0.6 0.2 35), oklch(0.55 0.18 40))' }}
-                  >
-                    <span className="text-xl font-bold text-white">
-                      {String(item.value).padStart(2, '0')}
-                    </span>
-                    <span className="text-[10px] text-white/70">{item.label}</span>
-                  </motion.div>
-                  {index < 2 && <span className="text-2xl font-bold text-[oklch(0.6_0.2_35)]">:</span>}
-                </div>
-              ))}
-            </div>
-          </motion.div>
+          {earliestEnd && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={isInView ? { opacity: 1, scale: 1 } : {}}
+              transition={{ delay: 0.2 }}
+              className="flex items-center gap-4"
+            >
+              <div className="flex items-center gap-2 text-[oklch(0.45_0.02_45)] dark:text-[oklch(0.65_0.01_85)]">
+                <Clock className="w-5 h-5" />
+                <span className="font-medium">Ends in:</span>
+              </div>
+              <div className="flex items-center gap-2">
+                {timeLeft.days > 0 && (
+                  <div className="w-14 h-14 rounded-xl flex flex-col items-center justify-center" style={{ background: 'linear-gradient(135deg, oklch(0.6 0.2 35), oklch(0.55 0.18 40))' }}>
+                    <span className="text-xl font-bold text-white">{timeLeft.days}</span>
+                    <span className="text-[10px] text-white/70">DAYS</span>
+                  </div>
+                )}
+                {[
+                  { value: timeLeft.hours, label: 'HRS' },
+                  { value: timeLeft.minutes, label: 'MIN' },
+                  { value: timeLeft.seconds, label: 'SEC' },
+                ].map((item, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <motion.div
+                      key={item.label}
+                      animate={item.value < 10 ? { scale: [1, 1.05, 1] } : {}}
+                      transition={{ duration: 0.3 }}
+                      className="w-14 h-14 rounded-xl flex flex-col items-center justify-center"
+                      style={{ background: 'linear-gradient(135deg, oklch(0.6 0.2 35), oklch(0.55 0.18 40))' }}
+                    >
+                      <span className="text-xl font-bold text-white">
+                        {String(item.value).padStart(2, '0')}
+                      </span>
+                      <span className="text-[10px] text-white/70">{item.label}</span>
+                    </motion.div>
+                    {index < 2 && <span className="text-2xl font-bold text-[oklch(0.6 0.2 35)]">:</span>}
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          )}
         </motion.div>
 
         {/* Navigation Arrows */}
@@ -223,7 +215,7 @@ export function FlashSales() {
                 : 'bg-gray-100 dark:bg-[oklch(0.22_0.02_45)] opacity-50 cursor-not-allowed'
             }`}
           >
-            <ChevronLeft className={`w-5 h-5 ${canScrollLeft ? 'text-[oklch(0.6_0.2_35)]' : 'text-gray-400'}`} />
+            <ChevronLeft className={`w-5 h-5 ${canScrollLeft ? 'text-[oklch(0.6 0.2 35)]' : 'text-gray-400'}`} />
           </motion.button>
           <motion.button
             whileHover={{ scale: 1.1 }}
@@ -236,7 +228,7 @@ export function FlashSales() {
                 : 'bg-gray-100 dark:bg-[oklch(0.22_0.02_45)] opacity-50 cursor-not-allowed'
             }`}
           >
-            <ChevronRight className={`w-5 h-5 ${canScrollRight ? 'text-[oklch(0.6_0.2_35)]' : 'text-gray-400'}`} />
+            <ChevronRight className={`w-5 h-5 ${canScrollRight ? 'text-[oklch(0.6 0.2 35)]' : 'text-gray-400'}`} />
           </motion.button>
         </div>
 
@@ -246,7 +238,7 @@ export function FlashSales() {
           className="flex gap-4 md:gap-6 overflow-x-auto pb-4 custom-scrollbar scroll-smooth"
           style={{ scrollSnapType: 'x mandatory' }}
         >
-          {flashDeals.map((product, index) => (
+          {flashDeals.map((product: any, index: number) => (
             <motion.div
               key={product.id}
               initial={{ opacity: 0, y: 30 }}
@@ -255,7 +247,7 @@ export function FlashSales() {
               className="flex-shrink-0 w-[280px] md:w-[300px]"
               style={{ scrollSnapAlign: 'start' }}
             >
-              <Link href={`/products/${product.id}`}>
+              <Link href={`/products/${product.slug || product.id}`}>
                 <motion.div
                   whileHover={{ y: -8 }}
                   className="group bg-white dark:bg-[oklch(0.18_0.02_45)] rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 border border-[oklch(0.94_0.01_85)] dark:border-[oklch(0.25_0.02_45)]"
@@ -268,15 +260,17 @@ export function FlashSales() {
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                     />
                     {/* Discount Badge */}
-                    <div className="absolute top-3 left-3 px-3 py-1 rounded-lg text-sm font-bold text-white" style={{ background: 'linear-gradient(135deg, oklch(0.55 0.22 25), oklch(0.6 0.2 35))' }}>
-                      -{product.discount}%
-                    </div>
+                    {product.discount > 0 && (
+                      <div className="absolute top-3 left-3 px-3 py-1 rounded-lg text-sm font-bold text-white" style={{ background: 'linear-gradient(135deg, oklch(0.55 0.22 25), oklch(0.6 0.2 35))' }}>
+                        -{product.discount}%
+                      </div>
+                    )}
                     {/* Stock Progress */}
                     <div className="absolute bottom-0 left-0 right-0 p-3">
                       <div className="bg-black/50 backdrop-blur-sm rounded-lg p-2">
                         <div className="flex items-center justify-between text-xs text-white mb-1">
                           <span>{product.sold} sold</span>
-                          <span>{product.total - product.sold} left</span>
+                          <span>{product.remaining} left</span>
                         </div>
                         <div className="h-1.5 bg-white/30 rounded-full overflow-hidden">
                           <motion.div
@@ -298,25 +292,29 @@ export function FlashSales() {
                     </h3>
                     
                     {/* Rating */}
-                    <div className="flex items-center gap-1 mb-3">
-                      <Star className="w-4 h-4 fill-[oklch(0.75_0.14_80)] text-[oklch(0.75_0.14_80)]" />
-                      <span className="text-sm font-medium text-[oklch(0.15_0.02_45)] dark:text-white">{product.rating}</span>
-                      <span className="text-xs text-[oklch(0.55_0.02_45)] dark:text-[oklch(0.65_0.01_85)]">({product.reviews})</span>
-                    </div>
+                    {product.rating > 0 && (
+                      <div className="flex items-center gap-1 mb-3">
+                        <Star className="w-4 h-4 fill-[oklch(0.75_0.14_80)] text-[oklch(0.75_0.14_80)]" />
+                        <span className="text-sm font-medium text-[oklch(0.15_0.02_45)] dark:text-white">{product.rating.toFixed(1)}</span>
+                        <span className="text-xs text-[oklch(0.55_0.02_45)] dark:text-[oklch(0.65_0.01_85)]">({product.reviews})</span>
+                      </div>
+                    )}
 
                     {/* Price */}
                     <div className="flex items-center gap-2 mb-2">
-                      <span className="text-lg font-bold text-[oklch(0.6_0.2_35)]">
+                      <span className="text-lg font-bold text-[oklch(0.6 0.2 35)]">
                         UGX {formatPrice(product.salePrice)}
                       </span>
-                      <span className="text-sm text-[oklch(0.55_0.02_45)] line-through">
-                        UGX {formatPrice(product.originalPrice)}
-                      </span>
+                      {product.originalPrice > product.salePrice && (
+                        <span className="text-sm text-[oklch(0.55_0.02_45)] line-through">
+                          UGX {formatPrice(product.originalPrice)}
+                        </span>
+                      )}
                     </div>
 
                     {/* Seller */}
                     <p className="text-xs text-[oklch(0.55_0.02_45)] dark:text-[oklch(0.65_0.01_85)]">
-                      by {product.seller}
+                      by {product.seller?.name || 'Verified Seller'}
                     </p>
                   </div>
                 </motion.div>
@@ -332,13 +330,13 @@ export function FlashSales() {
           transition={{ delay: 0.6 }}
           className="text-center mt-8"
         >
-          <Link href="/products">
+          <Link href="/flash-sales">
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-[oklch(0.6_0.2_35)] dark:text-[oklch(0.75_0.14_80)] border-2 border-[oklch(0.6_0.2_35)] dark:border-[oklch(0.75_0.14_80)] hover:bg-[oklch(0.6_0.2_35/5%)] transition-colors"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-[oklch(0.6 0.2 35)] dark:text-[oklch(0.75_0.14_80)] border-2 border-[oklch(0.6 0.2 35)] dark:border-[oklch(0.75_0.14_80)] hover:bg-[oklch(0.6_0.2_35/5%)] transition-colors"
             >
-              View All Deals
+              View All Flash Sales
               <ArrowRight className="w-4 h-4" />
             </motion.button>
           </Link>

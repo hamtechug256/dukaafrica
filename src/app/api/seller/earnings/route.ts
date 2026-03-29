@@ -36,20 +36,28 @@ export async function GET(request: NextRequest) {
 
     const store = user.Store
 
-    // Get completed orders for this store
-    const orders = await prisma.order.findMany({
+    // Get order items for this store (orders are linked via OrderItems)
+    const orderItems = await prisma.orderItem.findMany({
       where: {
-        storeId: store.id,
-        paymentStatus: 'PAID'
+        storeId: store.id
       },
       include: {
-        OrderItem: {
+        Order: {
           include: {
-            Product: true
+            OrderItem: true
           }
         }
       }
     })
+
+    // Extract unique orders from order items
+    const orderMap = new Map()
+    orderItems.forEach(item => {
+      if (!orderMap.has(item.orderId)) {
+        orderMap.set(item.orderId, item.Order)
+      }
+    })
+    const orders = Array.from(orderMap.values())
 
     // Calculate earnings breakdown
     let totalProductEarnings = 0

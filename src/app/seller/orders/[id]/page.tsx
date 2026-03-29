@@ -45,13 +45,13 @@ import { StatusBadge } from '@/components/orders/status-badge'
 import { OrderTimeline } from '@/components/orders/order-timeline'
 
 async function fetchOrder(id: string) {
-  const res = await fetch(`/api/orders/${id}`)
+  const res = await fetch(`/api/seller/orders/${id}`)
   if (!res.ok) throw new Error('Failed to fetch order')
   return res.json()
 }
 
 async function updateOrder(id: string, data: any) {
-  const res = await fetch(`/api/orders/${id}`, {
+  const res = await fetch(`/api/seller/orders/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),

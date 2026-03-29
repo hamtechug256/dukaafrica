@@ -1,16 +1,17 @@
 'use client'
 
 import { motion, useScroll, useTransform } from 'framer-motion'
-import { ArrowRight, Play, Sparkles, ShoppingBag, Truck, Shield, Star } from 'lucide-react'
+import { ArrowRight, Play, Sparkles, ShoppingBag, Truck, Shield, Star, Users, Store } from 'lucide-react'
 import Link from 'next/link'
 import { useEffect, useState, useRef } from 'react'
+import { useQuery } from '@tanstack/react-query'
 
-const stats = [
-  { label: 'Products', value: '50K+', icon: ShoppingBag },
-  { label: 'Sellers', value: '2K+', icon: Star },
-  { label: 'Countries', value: '4', icon: Truck },
-  { label: 'Happy Customers', value: '100K+', icon: Shield },
-]
+// Fetch real homepage stats
+async function fetchHomepageStats() {
+  const res = await fetch('/api/homepage/stats')
+  if (!res.ok) throw new Error('Failed to fetch stats')
+  return res.json()
+}
 
 export function HeroSection() {
   const [currentSlide, setCurrentSlide] = useState(0)
@@ -23,6 +24,16 @@ export function HeroSection() {
   const y = useTransform(scrollYProgress, [0, 1], [0, 200])
   const opacity = useTransform(scrollYProgress, [0, 0.5], [1, 0])
 
+  // Fetch real stats
+  const { data: statsData } = useQuery({
+    queryKey: ['homepage-stats'],
+    queryFn: fetchHomepageStats,
+    staleTime: 1000 * 60 * 5, // Cache for 5 minutes
+  })
+
+  const stats = statsData?.stats
+  const platform = statsData?.platform
+
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentSlide((prev) => (prev + 1) % 3)
@@ -33,14 +44,14 @@ export function HeroSection() {
   const slides = [
     {
       title: 'Shop Quality Products',
-      highlight: 'From Verified Sellers',
+      highlight: 'From Trusted Sellers',
       description: 'Discover electronics, fashion, home essentials & more. Quality guaranteed with buyer protection.',
       image: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=1200&q=80',
     },
     {
       title: 'Fast Delivery',
       highlight: 'Across East Africa',
-      description: 'Lightning-fast shipping to Uganda, Kenya, Tanzania, and Rwanda. Track your orders in real-time.',
+      description: 'Reliable shipping to Uganda, Kenya, Tanzania, and Rwanda. Track your orders in real-time.',
       image: 'https://images.unsplash.com/photo-1566576912321-d58ddd7a6088?w=1200&q=80',
     },
     {
@@ -50,6 +61,47 @@ export function HeroSection() {
       image: 'https://images.unsplash.com/photo-1553729459-efe14ef6055d?w=1200&q=80',
     },
   ]
+
+  // Build stats array based on real data
+  const displayStats: Array<{
+    label: string;
+    value: string;
+    icon: typeof ShoppingBag;
+  }> = []
+  
+  // Only show products if we have a milestone achieved
+  if (stats?.products?.milestone) {
+    displayStats.push({ 
+      label: 'Products', 
+      value: stats.products.milestone, 
+      icon: ShoppingBag 
+    })
+  }
+  
+  // Only show sellers if we have a milestone achieved
+  if (stats?.sellers?.milestone) {
+    displayStats.push({ 
+      label: 'Sellers', 
+      value: stats.sellers.milestone, 
+      icon: Star 
+    })
+  }
+  
+  // Always show countries - it's accurate
+  displayStats.push({ 
+    label: 'Countries', 
+    value: '4', 
+    icon: Truck 
+  })
+  
+  // Only show customers if we have a milestone achieved
+  if (stats?.customers?.milestone) {
+    displayStats.push({ 
+      label: 'Customers', 
+      value: stats.customers.milestone, 
+      icon: Users 
+    })
+  }
 
   return (
     <section ref={containerRef} className="relative min-h-screen overflow-hidden">
@@ -100,7 +152,7 @@ export function HeroSection() {
             transition={{ duration: 0.8 }}
             className="text-center lg:text-left"
           >
-            {/* Badge */}
+            {/* Badge - Honest messaging */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -108,7 +160,15 @@ export function HeroSection() {
               className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass border border-[oklch(1_0_0/20%)] mb-8"
             >
               <Sparkles className="w-4 h-4 text-[oklch(0.75_0.14_80)]" />
-              <span className="text-sm font-medium text-white/90">East Africa&apos;s #1 Marketplace</span>
+              <span className="text-sm font-medium text-white/90">
+                {platform?.phase === 'launch' 
+                  ? 'New Marketplace • Fresh Opportunities' 
+                  : platform?.phase === 'early'
+                  ? 'Growing Marketplace • Join the Movement'
+                  : platform?.phase === 'growing'
+                  ? 'Trusted Marketplace • Real Results'
+                  : 'East Africa\'s Trusted Marketplace'}
+              </span>
             </motion.div>
 
             {/* Title */}
@@ -177,26 +237,55 @@ export function HeroSection() {
               </Link>
             </motion.div>
 
-            {/* Stats */}
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.6 }}
-              className="grid grid-cols-2 sm:grid-cols-4 gap-6"
-            >
-              {stats.map((stat, index) => (
-                <motion.div
-                  key={stat.label}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.7 + index * 0.1 }}
-                  className="text-center lg:text-left"
-                >
-                  <div className="text-2xl md:text-3xl font-bold text-white mb-1">{stat.value}</div>
-                  <div className="text-sm text-white/60">{stat.label}</div>
-                </motion.div>
-              ))}
-            </motion.div>
+            {/* Stats - Only show real milestones */}
+            {displayStats.length > 1 && (
+              <motion.div
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.6 }}
+                className="grid grid-cols-2 sm:grid-cols-4 gap-6"
+              >
+                {displayStats.map((stat, index) => (
+                  <motion.div
+                    key={stat.label}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.7 + index * 0.1 }}
+                    className="text-center lg:text-left"
+                  >
+                    <div className="text-2xl md:text-3xl font-bold text-white mb-1">{stat.value}</div>
+                    <div className="text-sm text-white/60">{stat.label}</div>
+                  </motion.div>
+                ))}
+              </motion.div>
+            )}
+
+            {/* If no milestones yet, show value props instead */}
+            {displayStats.length <= 1 && (
+              <motion.div
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.6 }}
+                className="flex flex-wrap items-center justify-center lg:justify-start gap-6"
+              >
+                {[
+                  { icon: Shield, text: 'Buyer Protection' },
+                  { icon: Truck, text: 'East Africa Delivery' },
+                  { icon: Star, text: 'Quality Products' },
+                ].map((item, index) => (
+                  <motion.div
+                    key={item.text}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.7 + index * 0.1 }}
+                    className="flex items-center gap-2 text-white/80"
+                  >
+                    <item.icon className="w-5 h-5 text-[oklch(0.75_0.14_80)]" />
+                    <span className="text-sm font-medium">{item.text}</span>
+                  </motion.div>
+                ))}
+              </motion.div>
+            )}
           </motion.div>
 
           {/* Right Content - 3D Product Showcase */}
@@ -233,8 +322,8 @@ export function HeroSection() {
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
                   <div className="absolute bottom-4 left-4 right-4">
-                    <div className="text-white font-semibold mb-1">Trending Now</div>
-                    <div className="text-white/70 text-sm">Up to 40% off</div>
+                    <div className="text-white font-semibold mb-1">Start Shopping</div>
+                    <div className="text-white/70 text-sm">Quality products await</div>
                   </div>
                 </div>
               </motion.div>
@@ -250,8 +339,8 @@ export function HeroSection() {
                     <Truck className="w-5 h-5 text-white" />
                   </div>
                   <div>
-                    <div className="text-white font-semibold text-sm">Free Delivery</div>
-                    <div className="text-white/60 text-xs">Orders above UGX 500K</div>
+                    <div className="text-white font-semibold text-sm">Cross-Border Delivery</div>
+                    <div className="text-white/60 text-xs">4 East African countries</div>
                   </div>
                 </div>
               </motion.div>
@@ -266,8 +355,8 @@ export function HeroSection() {
                     <Shield className="w-5 h-5 text-white" />
                   </div>
                   <div>
-                    <div className="text-white font-semibold text-sm">Buyer Protection</div>
-                    <div className="text-white/60 text-xs">Secure payments</div>
+                    <div className="text-white font-semibold text-sm">Escrow Protection</div>
+                    <div className="text-white/60 text-xs">Secure payments always</div>
                   </div>
                 </div>
               </motion.div>

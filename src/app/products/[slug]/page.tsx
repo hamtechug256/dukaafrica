@@ -44,7 +44,19 @@ async function getProduct(slug: string) {
     },
   })
 
-  return product
+  if (!product) return null
+
+  // Transform to match component expected structure (lowercase store/category)
+  return {
+    ...product,
+    store: product.Store,
+    category: product.Category,
+    variants: product.ProductVariant,
+    reviews: product.Review.map(review => ({
+      ...review,
+      user: review.User,
+    })),
+  }
 }
 
 // Get related products
@@ -69,7 +81,43 @@ async function getRelatedProducts(productId: string, categoryId: string | null) 
     orderBy: { createdAt: 'desc' },
   })
 
-  return products
+  // Transform to match expected structure
+  return products.map(p => ({
+    ...p,
+    store: p.Store,
+  }))
+}
+
+// Check if product has active flash sale
+function checkFlashSale(product: any) {
+  if (!product.isFlashSale) return null
+  
+  const now = new Date()
+  const startDate = product.flashSaleStart ? new Date(product.flashSaleStart) : null
+  const endDate = product.flashSaleEnd ? new Date(product.flashSaleEnd) : null
+  
+  // Check if flash sale is currently active
+  const isActive = startDate && endDate && now >= startDate && now <= endDate
+  
+  if (!isActive) return null
+  
+  // Calculate flash sale price
+  const flashSalePrice = product.flashSaleDiscount 
+    ? product.price * (1 - product.flashSaleDiscount / 100)
+    : product.price
+  
+  return {
+    isActive: true,
+    discount: product.flashSaleDiscount || 0,
+    flashSalePrice,
+    originalPrice: product.price,
+    comparePrice: product.comparePrice,
+    startDate: startDate.toISOString(),
+    endDate: endDate.toISOString(),
+    stock: product.flashSaleStock || 0,
+    claimed: product.flashSaleClaimed || 0,
+    remaining: (product.flashSaleStock || 0) - (product.flashSaleClaimed || 0),
+  }
 }
 
 interface ProductPageProps {
@@ -87,13 +135,17 @@ export default async function ProductPage({ params }: ProductPageProps) {
   const relatedProducts = await getRelatedProducts(product.id, product.categoryId)
 
   // Parse images
-  const images = product.images ? JSON.parse(product.images) : []
+  const images = product.images ? JSON.parse(product.images as string) : []
+  
+  // Check for active flash sale
+  const flashSale = checkFlashSale(product)
 
   return (
     <ProductDetailClient 
       product={JSON.parse(JSON.stringify(product))} 
       images={images}
       relatedProducts={JSON.parse(JSON.stringify(relatedProducts))}
+      flashSale={flashSale}
     />
   )
 }
@@ -111,11 +163,11 @@ export async function generateMetadata({ params }: ProductPageProps) {
 
   return {
     title: `${product.name} - DuukaAfrica`,
-    description: product.description || product.shortDesc || `Buy ${product.name} at the best price from ${product.Store?.name}. Fast delivery across East Africa.`,
+    description: product.description || product.shortDesc || `Buy ${product.name} at the best price from ${product.store?.name}. Fast delivery across East Africa.`,
     openGraph: {
       title: product.name,
       description: product.description || undefined,
-      images: product.images ? JSON.parse(product.images).slice(0, 1) : [],
+      images: product.images ? JSON.parse(product.images as string).slice(0, 1) : [],
     },
   }
 }

@@ -28,6 +28,7 @@ import {
 import {
   Layers, Plus, MoreHorizontal, Pencil, Trash2, Eye, EyeOff, Star, ArrowUpDown, Loader2, Search, AlertCircle, Database
 } from 'lucide-react'
+import { ImageUploader } from '@/components/ui/image-uploader'
 
 const sidebarLinks = [
   { href: '/admin', icon: 'BarChart3', label: 'Dashboard' },
@@ -544,7 +545,7 @@ export default function AdminCategoriesPage() {
 
       {/* Create/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={closeDialog}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingCategory ? 'Edit Category' : 'Create New Category'}
@@ -557,29 +558,31 @@ export default function AdminCategoriesPage() {
           </DialogHeader>
           <form onSubmit={handleSubmit}>
             <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Category Name *</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => handleNameChange(e.target.value)}
-                  placeholder="e.g., Electronics"
-                  required
-                />
-              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Category Name *</Label>
+                  <Input
+                    id="name"
+                    value={formData.name}
+                    onChange={(e) => handleNameChange(e.target.value)}
+                    placeholder="e.g., Electronics"
+                    required
+                  />
+                </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="slug">Slug *</Label>
-                <Input
-                  id="slug"
-                  value={formData.slug}
-                  onChange={(e) => setFormData(prev => ({ ...prev, slug: e.target.value }))}
-                  placeholder="e.g., electronics"
-                  required
-                />
-                <p className="text-xs text-gray-500">
-                  URL-friendly identifier. Used in: /categories/{formData.slug || 'slug'}
-                </p>
+                <div className="space-y-2">
+                  <Label htmlFor="slug">Slug *</Label>
+                  <Input
+                    id="slug"
+                    value={formData.slug}
+                    onChange={(e) => setFormData(prev => ({ ...prev, slug: e.target.value }))}
+                    placeholder="e.g., electronics"
+                    required
+                  />
+                  <p className="text-xs text-gray-500">
+                    /categories/{formData.slug || 'slug'}
+                  </p>
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -589,7 +592,18 @@ export default function AdminCategoriesPage() {
                   value={formData.description}
                   onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                   placeholder="Brief description of this category"
-                  rows={3}
+                  rows={2}
+                />
+              </div>
+
+              {/* Enhanced Image Uploader */}
+              <div className="space-y-2">
+                <Label>Category Image</Label>
+                <ImageUploader
+                  value={formData.image}
+                  onChange={(url) => setFormData(prev => ({ ...prev, image: url }))}
+                  folder="dukaafrica/categories"
+                  aspectRatio="16/9"
                 />
               </div>
 
@@ -609,9 +623,33 @@ export default function AdminCategoriesPage() {
                     className="text-xs text-primary hover:underline flex items-center gap-1"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                    Click to browse Lucide icons (opens in new tab)
+                    Browse Lucide icons
                   </a>
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="parentId">Parent Category</Label>
+                  <Select
+                    value={formData.parentId}
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, parentId: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="None (Top-level)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">None (Top-level)</SelectItem>
+                      {parentCategories
+                        .filter(c => c.id !== editingCategory?.id)
+                        .map((cat) => (
+                          <SelectItem key={cat.id} value={cat.id}>
+                            {cat.name}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="order">Display Order</Label>
                   <Input
@@ -622,60 +660,24 @@ export default function AdminCategoriesPage() {
                     placeholder="0"
                   />
                 </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="image">Image URL</Label>
-                <Input
-                  id="image"
-                  value={formData.image}
-                  onChange={(e) => setFormData(prev => ({ ...prev, image: e.target.value }))}
-                  placeholder="https://example.com/image.jpg"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="parentId">Parent Category</Label>
-                <Select
-                  value={formData.parentId}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, parentId: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="None (Top-level category)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">None (Top-level category)</SelectItem>
-                    {parentCategories
-                      .filter(c => c.id !== editingCategory?.id)
-                      .map((cat) => (
-                        <SelectItem key={cat.id} value={cat.id}>
-                          {cat.name}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label>Active</Label>
-                  <p className="text-sm text-gray-500">Show this category on the site</p>
+                <div className="flex items-end gap-4 pb-2">
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      id="isActive"
+                      checked={formData.isActive}
+                      onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isActive: checked }))}
+                    />
+                    <Label htmlFor="isActive" className="cursor-pointer">Active</Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      id="isFeatured"
+                      checked={formData.isFeatured}
+                      onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isFeatured: checked }))}
+                    />
+                    <Label htmlFor="isFeatured" className="cursor-pointer">Featured</Label>
+                  </div>
                 </div>
-                <Switch
-                  checked={formData.isActive}
-                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isActive: checked }))}
-                />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label>Featured</Label>
-                  <p className="text-sm text-gray-500">Display on homepage</p>
-                </div>
-                <Switch
-                  checked={formData.isFeatured}
-                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isFeatured: checked }))}
-                />
               </div>
             </div>
             <DialogFooter>

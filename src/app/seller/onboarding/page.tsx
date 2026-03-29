@@ -31,12 +31,12 @@ const steps = [
 ]
 
 const countries = [
-  { code: 'UG', name: 'Uganda', currency: 'UGX', flag: '🇺🇬' },
-  { code: 'KE', name: 'Kenya', currency: 'KES', flag: '🇰🇪' },
-  { code: 'TZ', name: 'Tanzania', currency: 'TZS', flag: '🇹🇿' },
-  { code: 'RW', name: 'Rwanda', currency: 'RWF', flag: '🇷🇼' },
-  { code: 'SS', name: 'South Sudan', currency: 'SSP', flag: '🇸🇸' },
-  { code: 'BI', name: 'Burundi', currency: 'BIF', flag: '🇧🇮' },
+  { code: 'UGANDA', name: 'Uganda', currency: 'UGX', flag: '🇺🇬' },
+  { code: 'KENYA', name: 'Kenya', currency: 'KES', flag: '🇰🇪' },
+  { code: 'TANZANIA', name: 'Tanzania', currency: 'TZS', flag: '🇹🇿' },
+  { code: 'RWANDA', name: 'Rwanda', currency: 'RWF', flag: '🇷🇼' },
+  { code: 'SOUTH_SUDAN', name: 'South Sudan', currency: 'SSP', flag: '🇸🇸' },
+  { code: 'BURUNDI', name: 'Burundi', currency: 'BIF', flag: '🇧🇮' },
 ]
 
 const businessTypes = [
@@ -58,7 +58,7 @@ export default function SellerOnboardingPage() {
     storeName: '',
     storeDescription: '',
     storeCategory: '',
-    country: 'UG',
+    country: 'UGANDA',
     region: '',
     city: '',
     address: '',

@@ -100,6 +100,7 @@ export default function SellerAnalyticsPage() {
   const topProducts = data?.topProducts || []
   const orderStatusBreakdown = data?.orderStatusBreakdown || []
   const productStats = data?.productStats
+  const currency = data?.currency || 'UGX'
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -147,7 +148,7 @@ export default function SellerAnalyticsPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-gray-500">Total Revenue</p>
-                      <p className="text-2xl font-bold">UGX {(summary?.totalRevenue || 0).toLocaleString()}</p>
+                      <p className="text-2xl font-bold">{currency} {(summary?.totalRevenue || 0).toLocaleString()}</p>
                       <div className="flex items-center gap-1 mt-1">
                         {summary?.revenueGrowth >= 0 ? (
                           <ArrowUpRight className="w-4 h-4 text-green-500" />
@@ -199,7 +200,7 @@ export default function SellerAnalyticsPage() {
                       <p className="text-sm text-gray-500">Products Sold</p>
                       <p className="text-2xl font-bold">{summary?.totalProductsSold || 0}</p>
                       <p className="text-sm text-gray-500 mt-1">
-                        Avg. Order Value: UGX {Math.round(summary?.averageOrderValue || 0).toLocaleString()}
+                        Avg. Order Value: {currency} {Math.round(summary?.averageOrderValue || 0).toLocaleString()}
                       </p>
                     </div>
                     <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-full">
@@ -239,7 +240,7 @@ export default function SellerAnalyticsPage() {
                   <CardDescription>Daily revenue for the selected period</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <BarChart data={chartData} dataKey="revenue" title="Revenue (UGX)" color="#059669" />
+                  <BarChart data={chartData} dataKey="revenue" title={`Revenue (${currency})`} color="#059669" />
                 </CardContent>
               </Card>
 
@@ -284,7 +285,7 @@ export default function SellerAnalyticsPage() {
                             </div>
                           </div>
                           <p className="font-semibold">
-                            UGX {product.revenue?.toLocaleString()}
+                            {currency} {product.revenue?.toLocaleString()}
                           </p>
                         </div>
                       ))}

@@ -179,6 +179,15 @@ export async function GET(request: NextRequest) {
       ? ((totalOrders - previousOrdersCount) / previousOrdersCount) * 100
       : totalOrders > 0 ? 100 : 0
 
+    // Get currency based on store country
+    const currencyMap: Record<string, string> = {
+      'UGANDA': 'UGX',
+      'KENYA': 'KES',
+      'TANZANIA': 'TZS',
+      'RWANDA': 'RWF'
+    }
+    const currency = currencyMap[store.country] || 'UGX'
+
     return NextResponse.json({
       summary: {
         totalRevenue,
@@ -212,6 +221,7 @@ export async function GET(request: NextRequest) {
           : 0,
       },
       period,
+      currency,
     })
   } catch (error) {
     console.error('Error fetching analytics:', error)

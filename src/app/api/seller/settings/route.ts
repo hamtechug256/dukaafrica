@@ -253,6 +253,17 @@ export async function PUT(request: NextRequest) {
         })
         break
 
+      case 'images':
+        // Update store images (logo and banner)
+        await prisma.store.update({
+          where: { id: user.Store.id },
+          data: {
+            logo: data.logo || null,
+            banner: data.banner || null,
+          },
+        })
+        break
+
       default:
         return NextResponse.json({ error: 'Invalid section' }, { status: 400 })
     }

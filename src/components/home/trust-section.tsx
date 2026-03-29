@@ -2,45 +2,103 @@
 
 import { motion, useInView } from 'framer-motion'
 import { useRef } from 'react'
-import { Shield, Truck, CreditCard, Headphones, Award, Clock, Package, RefreshCw } from 'lucide-react'
+import { Shield, Truck, CreditCard, Headphones, Award, Clock, Package, RefreshCw, MapPin, Users } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+
+// Fetch real homepage stats
+async function fetchHomepageStats() {
+  const res = await fetch('/api/homepage/stats')
+  if (!res.ok) throw new Error('Failed to fetch stats')
+  return res.json()
+}
 
 const trustFeatures = [
   {
     icon: Shield,
     title: 'Buyer Protection',
-    description: 'Your purchases are protected with our money-back guarantee',
+    description: 'Your payments are held in escrow until you confirm delivery',
     color: 'from-teal-500 to-emerald-500',
   },
   {
     icon: Truck,
-    title: 'Fast Delivery',
-    description: 'Quick and reliable delivery across East Africa',
+    title: 'Cross-Border Delivery',
+    description: 'Reliable shipping across Uganda, Kenya, Tanzania & Rwanda',
     color: 'from-blue-500 to-cyan-500',
   },
   {
     icon: CreditCard,
     title: 'Secure Payment',
-    description: 'Multiple payment options with bank-grade security',
+    description: 'Mobile money, cards & bank transfer with bank-grade security',
     color: 'from-purple-500 to-violet-500',
   },
   {
     icon: Headphones,
-    title: '24/7 Support',
-    description: 'Our dedicated team is here to help anytime',
+    title: 'Dedicated Support',
+    description: 'Our team is here to help resolve any issues quickly',
     color: 'from-orange-500 to-amber-500',
   },
-]
-
-const achievements = [
-  { number: '100K+', label: 'Happy Customers', icon: Award },
-  { number: '2,500+', label: 'Verified Sellers', icon: Package },
-  { number: '50K+', label: 'Products Listed', icon: Shield },
-  { number: '4', label: 'Countries Served', icon: Truck },
 ]
 
 export function TrustSection() {
   const containerRef = useRef<HTMLDivElement>(null)
   const isInView = useInView(containerRef, { once: true, margin: '-100px' })
+
+  // Fetch real stats
+  const { data: statsData } = useQuery({
+    queryKey: ['homepage-stats'],
+    queryFn: fetchHomepageStats,
+    staleTime: 1000 * 60 * 5, // Cache for 5 minutes
+  })
+
+  const stats = statsData?.stats
+  const platform = statsData?.platform
+
+  // Build achievements array based on REAL data only
+  const achievements: Array<{
+    number: string;
+    label: string;
+    icon: typeof MapPin;
+    alwaysShow?: boolean;
+    milestone?: string;
+  }> = []
+  
+  // Countries - always show (it's accurate)
+  achievements.push({ 
+    number: '4', 
+    label: 'Countries Served', 
+    icon: MapPin,
+    alwaysShow: true,
+  })
+
+  // Products - only show if milestone reached
+  if (stats?.products?.milestone) {
+    achievements.push({ 
+      number: stats.products.milestone.replace('+', ''), 
+      label: 'Products Listed', 
+      icon: Package,
+      milestone: stats.products.milestone,
+    })
+  }
+
+  // Sellers - only show if milestone reached
+  if (stats?.sellers?.milestone) {
+    achievements.push({ 
+      number: stats.sellers.milestone.replace('+', '').replace('Trusted ', ''), 
+      label: 'Sellers', 
+      icon: Users,
+      milestone: stats.sellers.milestone,
+    })
+  }
+
+  // Customers - only show if milestone reached
+  if (stats?.customers?.milestone) {
+    achievements.push({ 
+      number: stats.customers.milestone.replace('+', '').replace(' Happy', ''), 
+      label: 'Happy Customers', 
+      icon: Award,
+      milestone: stats.customers.milestone,
+    })
+  }
 
   return (
     <section ref={containerRef} className="py-20 bg-white dark:bg-[oklch(0.15_0.02_45)]">
@@ -89,7 +147,7 @@ export function TrustSection() {
           ))}
         </motion.div>
 
-        {/* Stats Section */}
+        {/* Stats Section - Only show real achievements */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={isInView ? { opacity: 1, y: 0 } : {}}
@@ -120,7 +178,13 @@ export function TrustSection() {
                 transition={{ delay: 0.5 }}
                 className="text-2xl md:text-3xl font-bold text-white mb-3"
               >
-                Trusted Across East Africa
+                {platform?.phase === 'launch' 
+                  ? 'Building East Africa\'s Marketplace'
+                  : platform?.phase === 'early'
+                  ? 'Growing Together'
+                  : platform?.phase === 'growing'
+                  ? 'Trusted Across East Africa'
+                  : 'East Africa\'s Trusted Marketplace'}
               </motion.h2>
               <motion.p
                 initial={{ opacity: 0, y: 20 }}
@@ -128,11 +192,14 @@ export function TrustSection() {
                 transition={{ delay: 0.6 }}
                 className="text-white/80"
               >
-                Join thousands of satisfied customers and sellers
+                {platform?.phase === 'launch' 
+                  ? 'Join us from the beginning and be part of something great'
+                  : 'Real numbers from real business'}
               </motion.p>
             </div>
 
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
+            {/* Achievement Grid */}
+            <div className={`grid gap-8 ${achievements.length === 1 ? 'grid-cols-1 max-w-xs mx-auto' : achievements.length === 2 ? 'grid-cols-2 max-w-lg mx-auto' : achievements.length === 3 ? 'grid-cols-3' : 'grid-cols-2 lg:grid-cols-4'}`}>
               {achievements.map((achievement, index) => (
                 <motion.div
                   key={achievement.label}
@@ -168,9 +235,9 @@ export function TrustSection() {
               className="flex flex-wrap items-center justify-center gap-6 mt-10 pt-10 border-t border-white/20"
             >
               {[
-                { icon: Clock, text: 'Quick 48hr Dispatch' },
-                { icon: RefreshCw, text: 'Easy Returns' },
-                { icon: Shield, text: 'Secure Shopping' },
+                { icon: Clock, text: 'Quick Dispatch' },
+                { icon: RefreshCw, text: 'Fair Returns Policy' },
+                { icon: Shield, text: 'Escrow Protection' },
               ].map((item, index) => (
                 <motion.div
                   key={item.text}

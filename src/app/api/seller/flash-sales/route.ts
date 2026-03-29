@@ -43,6 +43,8 @@ export async function GET(request: NextRequest) {
       whereClause.isFlashSale = true
       whereClause.flashSaleStart = { lte: now }
       whereClause.flashSaleEnd = { gte: now }
+      // Also check that there's remaining stock
+      whereClause.flashSaleStock = { gt: 0 }
     } else if (filter === 'upcoming') {
       whereClause.isFlashSale = true
       whereClause.flashSaleStart = { gt: now }
@@ -71,6 +73,7 @@ export async function GET(request: NextRequest) {
         flashSaleStart: true,
         flashSaleEnd: true,
         flashSaleDiscount: true,
+        flashSaleStock: true,
         flashSaleClaimed: true,
         price: true,
       },
@@ -81,6 +84,7 @@ export async function GET(request: NextRequest) {
         p.isFlashSale && 
         p.flashSaleStart && 
         p.flashSaleEnd && 
+        (p.flashSaleStock ?? 0) > 0 &&  // Check remaining stock, default to 0 if null
         new Date(p.flashSaleStart) <= now && 
         new Date(p.flashSaleEnd) >= now
       ).length,
@@ -93,6 +97,14 @@ export async function GET(request: NextRequest) {
         p.isFlashSale && 
         p.flashSaleEnd && 
         new Date(p.flashSaleEnd) < now
+      ).length,
+      outOfStock: allProducts.filter(p =>
+        p.isFlashSale &&
+        p.flashSaleStart &&
+        p.flashSaleEnd &&
+        new Date(p.flashSaleStart) <= now &&
+        new Date(p.flashSaleEnd) >= now &&
+        (!p.flashSaleStock || p.flashSaleStock <= 0)
       ).length,
       totalSaved: allProducts.reduce((sum, p) => {
         if (p.flashSaleDiscount && p.flashSaleClaimed) {

@@ -142,8 +142,33 @@ export default function SellerSettingsPage() {
     bankCode: '',
     bankAccount: '',
   })
+  const [imagesForm, setImagesForm] = useState({
+    logo: '',
+    banner: '',
+  })
+  const [uploadingLogo, setUploadingLogo] = useState(false)
+  const [uploadingBanner, setUploadingBanner] = useState(false)
+  const [logoInputMode, setLogoInputMode] = useState<'upload' | 'url'>('upload')
+  const [bannerInputMode, setBannerInputMode] = useState<'upload' | 'url'>('upload')
   const [banks, setBanks] = useState<Bank[]>([])
   const [loadingBanks, setLoadingBanks] = useState(false)
+
+  // Read URL params to set active tab (e.g., ?payout=true)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const tabParam = params.get('tab')
+    const payoutParam = params.get('payout')
+    
+    if (tabParam === 'payout' || payoutParam === 'true') {
+      setActiveTab('payout')
+    } else if (tabParam === 'shipping') {
+      setActiveTab('shipping')
+    } else if (tabParam === 'images') {
+      setActiveTab('images')
+    } else if (tabParam === 'store') {
+      setActiveTab('store')
+    }
+  }, [])
 
   // Fetch banks when payout method changes to bank transfer
   useEffect(() => {
@@ -188,6 +213,10 @@ export default function SellerSettingsPage() {
           bankName: data.settings.payout.bankName || '',
           bankCode: data.settings.payout.bankCode || '',
           bankAccount: data.settings.payout.bankAccount || '',
+        })
+        setImagesForm({
+          logo: data.settings.store.logo || '',
+          banner: data.settings.store.banner || '',
         })
         
         // Fetch banks if bank transfer method is selected
@@ -303,10 +332,14 @@ export default function SellerSettingsPage() {
 
       <div className="max-w-7xl mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-3 mb-6">
+          <TabsList className="grid w-full grid-cols-4 mb-6">
             <TabsTrigger value="store" className="flex items-center gap-2">
               <Store className="w-4 h-4" />
               Store Profile
+            </TabsTrigger>
+            <TabsTrigger value="images" className="flex items-center gap-2">
+              <Image className="w-4 h-4" />
+              Store Images
             </TabsTrigger>
             <TabsTrigger value="shipping" className="flex items-center gap-2">
               <Truck className="w-4 h-4" />
@@ -438,6 +471,214 @@ export default function SellerSettingsPage() {
                   <Button onClick={() => saveSection('store', storeForm)} disabled={isSaving}>
                     {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
                     Save Store Profile
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Store Images */}
+          <TabsContent value="images">
+            <Card>
+              <CardHeader>
+                <CardTitle>Store Images</CardTitle>
+                <CardDescription>
+                  Upload your store logo and banner image. These will be displayed on your store page and in search results.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-8">
+                {/* Logo Section */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="text-base">Store Logo</Label>
+                      <p className="text-sm text-gray-500">A square image representing your store (recommended: 200x200px)</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant={logoInputMode === 'upload' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setLogoInputMode('upload')}
+                      >
+                        Upload File
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={logoInputMode === 'url' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setLogoInputMode('url')}
+                      >
+                        Enter URL
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  {/* Logo Preview */}
+                  {imagesForm.logo && (
+                    <div className="w-24 h-24 rounded-lg border overflow-hidden bg-gray-100 dark:bg-gray-800">
+                      <img 
+                        src={imagesForm.logo} 
+                        alt="Logo preview" 
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  )}
+                  
+                  {logoInputMode === 'upload' ? (
+                    <div className="space-y-2">
+                      <Input
+                        type="file"
+                        accept="image/*"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0]
+                          if (!file) return
+                          setUploadingLogo(true)
+                          try {
+                            const formData = new FormData()
+                            formData.append('file', file)
+                            formData.append('folder', 'store-logos')
+                            const res = await fetch('/api/upload', {
+                              method: 'POST',
+                              body: formData,
+                            })
+                            if (res.ok) {
+                              const data = await res.json()
+                              setImagesForm({ ...imagesForm, logo: data.url })
+                            }
+                          } catch (error) {
+                            console.error('Upload error:', error)
+                          } finally {
+                            setUploadingLogo(false)
+                          }
+                        }}
+                        disabled={uploadingLogo}
+                      />
+                      {uploadingLogo && <p className="text-sm text-gray-500">Uploading...</p>}
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <Input
+                        type="url"
+                        placeholder="https://example.com/logo.png"
+                        value={imagesForm.logo}
+                        onChange={(e) => setImagesForm({ ...imagesForm, logo: e.target.value })}
+                      />
+                      <p className="text-xs text-gray-500">Enter the full URL of your logo image</p>
+                    </div>
+                  )}
+                </div>
+
+                <Separator />
+
+                {/* Banner Section */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="text-base">Store Banner</Label>
+                      <p className="text-sm text-gray-500">A wide banner image for your store page (recommended: 1200x300px)</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant={bannerInputMode === 'upload' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setBannerInputMode('upload')}
+                      >
+                        Upload File
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={bannerInputMode === 'url' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setBannerInputMode('url')}
+                      >
+                        Enter URL
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  {/* Banner Preview */}
+                  {imagesForm.banner && (
+                    <div className="w-full h-32 rounded-lg border overflow-hidden bg-gray-100 dark:bg-gray-800">
+                      <img 
+                        src={imagesForm.banner} 
+                        alt="Banner preview" 
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  )}
+                  
+                  {bannerInputMode === 'upload' ? (
+                    <div className="space-y-2">
+                      <Input
+                        type="file"
+                        accept="image/*"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0]
+                          if (!file) return
+                          setUploadingBanner(true)
+                          try {
+                            const formData = new FormData()
+                            formData.append('file', file)
+                            formData.append('folder', 'store-banners')
+                            const res = await fetch('/api/upload', {
+                              method: 'POST',
+                              body: formData,
+                            })
+                            if (res.ok) {
+                              const data = await res.json()
+                              setImagesForm({ ...imagesForm, banner: data.url })
+                            }
+                          } catch (error) {
+                            console.error('Upload error:', error)
+                          } finally {
+                            setUploadingBanner(false)
+                          }
+                        }}
+                        disabled={uploadingBanner}
+                      />
+                      {uploadingBanner && <p className="text-sm text-gray-500">Uploading...</p>}
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <Input
+                        type="url"
+                        placeholder="https://example.com/banner.png"
+                        value={imagesForm.banner}
+                        onChange={(e) => setImagesForm({ ...imagesForm, banner: e.target.value })}
+                      />
+                      <p className="text-xs text-gray-500">Enter the full URL of your banner image</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-end">
+                  <Button 
+                    onClick={async () => {
+                      setIsSaving(true)
+                      try {
+                        const res = await fetch('/api/seller/settings', {
+                          method: 'PUT',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ section: 'images', data: imagesForm }),
+                        })
+                        if (res.ok) {
+                          toast({ title: 'Images Saved', description: 'Store images have been updated successfully.' })
+                          fetchSettings()
+                        } else {
+                          throw new Error('Failed to save')
+                        }
+                      } catch (error) {
+                        toast({ title: 'Error', description: 'Failed to save images.', variant: 'destructive' })
+                      } finally {
+                        setIsSaving(false)
+                      }
+                    }} 
+                    disabled={isSaving}
+                  >
+                    {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                    Save Store Images
                   </Button>
                 </div>
               </CardContent>
@@ -612,7 +853,7 @@ export default function SellerSettingsPage() {
                             <SelectValue placeholder="Select provider" />
                           </SelectTrigger>
                           <SelectContent>
-                            {MOBILE_MONEY_PROVIDERS[settings?.store.country || 'UGANDA'].map((provider) => (
+                            {(MOBILE_MONEY_PROVIDERS[settings?.store.country || 'UGANDA'] || MOBILE_MONEY_PROVIDERS['UGANDA']).map((provider) => (
                               <SelectItem key={provider.id} value={provider.id}>
                                 {provider.name}
                               </SelectItem>
@@ -623,10 +864,11 @@ export default function SellerSettingsPage() {
                       <div className="space-y-2">
                         <Label>Mobile Money Number</Label>
                         <Input
-                          placeholder="+256 700 123 456"
+                          placeholder={settings?.store.country === 'KENYA' ? "+254 7XX XXX XXX" : settings?.store.country === 'TANZANIA' ? "+255 7XX XXX XXX" : settings?.store.country === 'RWANDA' ? "+250 7XX XXX XXX" : "+256 7XX XXX XXX"}
                           value={payoutForm.phone}
                           onChange={(e) => setPayoutForm({ ...payoutForm, phone: e.target.value })}
                         />
+                        <p className="text-xs text-gray-500">Enter the number registered with your mobile money account</p>
                       </div>
                     </div>
                   )}

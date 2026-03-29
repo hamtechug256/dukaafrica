@@ -1,213 +1,290 @@
-import Link from "next/link";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Star, Heart, ShoppingCart, ArrowRight } from "lucide-react";
+'use client'
 
-const featuredProducts = [
-  {
-    id: 1,
-    name: "iPhone 15 Pro Max 256GB - Natural Titanium",
-    price: 4500000,
-    originalPrice: 5000000,
-    rating: 4.8,
-    reviews: 256,
-    image: "https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=400&h=400&fit=crop",
-    store: "Apple Store Uganda",
-    isVerified: true,
-    inStock: true,
-  },
-  {
-    id: 2,
-    name: "Samsung 65\" Crystal UHD 4K Smart TV",
-    price: 2800000,
-    originalPrice: 3200000,
-    rating: 4.6,
-    reviews: 189,
-    image: "https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?w=400&h=400&fit=crop",
-    store: "Samsung Brand Store",
-    isVerified: true,
-    inStock: true,
-  },
-  {
-    id: 3,
-    name: "Nike Air Force 1 '07 - White",
-    price: 380000,
-    originalPrice: 450000,
-    rating: 4.9,
-    reviews: 423,
-    image: "https://images.unsplash.com/photo-1600269452121-4f2416e55c28?w=400&h=400&fit=crop",
-    store: "Sneaker Hub",
-    isVerified: true,
-    inStock: true,
-  },
-  {
-    id: 4,
-    name: "PlayStation 5 Console + 2 Controllers",
-    price: 2200000,
-    originalPrice: 2500000,
-    rating: 4.7,
-    reviews: 312,
-    image: "https://images.unsplash.com/photo-1606813907291-d86efa9b94db?w=400&h=400&fit=crop",
-    store: "Game Zone",
-    isVerified: true,
-    inStock: true,
-  },
-  {
-    id: 5,
-    name: "Dell XPS 15 Laptop - Intel i7, 16GB RAM",
-    price: 4200000,
-    originalPrice: 4800000,
-    rating: 4.5,
-    reviews: 98,
-    image: "https://images.unsplash.com/photo-1593642632559-0c6d3fc62b89?w=400&h=400&fit=crop",
-    store: "Tech World",
-    isVerified: true,
-    inStock: true,
-  },
-  {
-    id: 6,
-    name: "JBL PartyBox 710 - Portable Speaker",
-    price: 1800000,
-    originalPrice: 2100000,
-    rating: 4.8,
-    reviews: 167,
-    image: "https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?w=400&h=400&fit=crop",
-    store: "Sound Masters",
-    isVerified: true,
-    inStock: true,
-  },
-  {
-    id: 7,
-    name: "Adidas Originals Superstar - Black/White",
-    price: 320000,
-    originalPrice: 380000,
-    rating: 4.7,
-    reviews: 289,
-    image: "https://images.unsplash.com/photo-1549298916-b41d501d3772?w=400&h=400&fit=crop",
-    store: "Sneaker Hub",
-    isVerified: true,
-    inStock: true,
-  },
-  {
-    id: 8,
-    name: "Canon EOS R50 Mirrorless Camera Kit",
-    price: 3500000,
-    originalPrice: 4000000,
-    rating: 4.9,
-    reviews: 56,
-    image: "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=400&h=400&fit=crop",
-    store: "Camera World",
-    isVerified: true,
-    inStock: true,
-  },
-];
+import { motion, useInView } from 'framer-motion'
+import { useRef, useState } from 'react'
+import Link from 'next/link'
+import { Star, Heart, ArrowRight, CheckCircle, Truck, ShoppingBag, ChevronLeft, ChevronRight } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+
+// Fetch real featured products
+async function fetchFeaturedProducts() {
+  const res = await fetch('/api/homepage/featured')
+  if (!res.ok) throw new Error('Failed to fetch featured products')
+  return res.json()
+}
 
 export function FeaturedProducts() {
-  return (
-    <section className="py-12 bg-gray-50">
-      <div className="container">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h2 className="text-2xl md:text-3xl font-bold">Featured Products</h2>
-            <p className="text-gray-500 mt-1">Top picks from verified sellers</p>
-          </div>
-          <Link 
-            href="/products/featured" 
-            className="text-primary font-medium flex items-center hover:underline"
+  const containerRef = useRef<HTMLDivElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const isInView = useInView(containerRef, { once: true, margin: '-100px' })
+  const [canScrollLeft, setCanScrollLeft] = useState(false)
+  const [canScrollRight, setCanScrollRight] = useState(true)
+
+  // Fetch real featured products
+  const { data: featuredData, isLoading } = useQuery({
+    queryKey: ['homepage-featured'],
+    queryFn: fetchFeaturedProducts,
+    staleTime: 1000 * 60 * 5,
+  })
+
+  const products = featuredData?.products || []
+  const hasProducts = featuredData?.shouldShowSection || false
+  const total = featuredData?.total || 0
+
+  const checkScroll = () => {
+    if (scrollRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current
+      setCanScrollLeft(scrollLeft > 0)
+      setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 10)
+    }
+  }
+
+  const scroll = (direction: 'left' | 'right') => {
+    if (scrollRef.current) {
+      const scrollAmount = 320
+      scrollRef.current.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth',
+      })
+      setTimeout(checkScroll, 300)
+    }
+  }
+
+  // If no featured products, show placeholder section
+  if (!isLoading && !hasProducts) {
+    return (
+      <section ref={containerRef} className="py-16 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-[oklch(0.6_0.2_35/5%)] via-transparent to-[oklch(0.55_0.15_140/5%)]" />
+        
+        <div className="container mx-auto px-4 relative z-10">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={isInView ? { opacity: 1, y: 0 } : {}}
+            className="text-center py-12"
           >
-            View All <ArrowRight className="ml-1 h-4 w-4" />
-          </Link>
+            <div className="max-w-md mx-auto">
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[oklch(0.6_0.2_35)] to-[oklch(0.55_0.15_140)] flex items-center justify-center mx-auto mb-6">
+                <ShoppingBag className="w-10 h-10 text-white" />
+              </div>
+              <h3 className="text-2xl font-bold text-[oklch(0.15_0.02_45)] dark:text-white mb-3">
+                Featured Products Coming Soon
+              </h3>
+              <p className="text-[oklch(0.45_0.02_45)] dark:text-[oklch(0.65_0.01_85)] mb-6">
+                We&apos;re curating the best products from our verified sellers. Check back soon!
+              </p>
+              <Link href="/products">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="px-8 py-3 rounded-xl font-semibold text-white"
+                  style={{ background: 'linear-gradient(135deg, oklch(0.6 0.2 35), oklch(0.55 0.15 140))' }}
+                >
+                  Browse All Products
+                </motion.button>
+              </Link>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+    )
+  }
+
+  return (
+    <section ref={containerRef} className="py-16 relative overflow-hidden">
+      {/* Background */}
+      <div className="absolute inset-0 bg-gradient-to-br from-[oklch(0.6_0.2_35/5%)] via-transparent to-[oklch(0.55_0.15_140/5%)]" />
+      
+      <div className="container mx-auto px-4 relative z-10">
+        {/* Section Header */}
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          animate={isInView ? { opacity: 1, y: 0 } : {}}
+          className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-10"
+        >
+          <div className="flex items-center gap-4 mb-4 lg:mb-0">
+            <motion.div
+              animate={{ rotate: [0, 10, -10, 0] }}
+              transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
+              className="w-14 h-14 rounded-2xl flex items-center justify-center"
+              style={{ background: 'linear-gradient(135deg, oklch(0.6 0.2 35), oklch(0.55 0.15 140))' }}
+            >
+              <Star className="w-7 h-7 text-white fill-white" />
+            </motion.div>
+            <div>
+              <h2 className="text-2xl md:text-3xl font-bold text-[oklch(0.15_0.02_45)] dark:text-white">
+                Featured Products
+              </h2>
+              <p className="text-[oklch(0.45_0.02_45)] dark:text-[oklch(0.65_0.01_85)]">
+                Top picks from verified sellers
+              </p>
+            </div>
+          </div>
+
+          {/* View All CTA */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={isInView ? { opacity: 1, scale: 1 } : {}}
+            transition={{ delay: 0.2 }}
+          >
+            <Link href="/products/featured">
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-white"
+                style={{ background: 'linear-gradient(135deg, oklch(0.6 0.2 35), oklch(0.55 0.15 140))' }}
+              >
+                View All Featured
+                <ArrowRight className="w-4 h-4" />
+              </motion.button>
+            </Link>
+          </motion.div>
+        </motion.div>
+
+        {/* Navigation Arrows */}
+        <div className="hidden lg:flex items-center gap-2 mb-6 justify-end">
+          <motion.button
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={() => scroll('left')}
+            disabled={!canScrollLeft}
+            className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
+              canScrollLeft
+                ? 'bg-white dark:bg-[oklch(0.18_0.02_45)] shadow-lg hover:shadow-xl'
+                : 'bg-gray-100 dark:bg-[oklch(0.22_0.02_45)] opacity-50 cursor-not-allowed'
+            }`}
+          >
+            <ChevronLeft className={`w-5 h-5 ${canScrollLeft ? 'text-[oklch(0.6 0.2 35)]' : 'text-gray-400'}`} />
+          </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={() => scroll('right')}
+            disabled={!canScrollRight}
+            className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
+              canScrollRight
+                ? 'bg-white dark:bg-[oklch(0.18_0.02_45)] shadow-lg hover:shadow-xl'
+                : 'bg-gray-100 dark:bg-[oklch(0.22_0.02_45)] opacity-50 cursor-not-allowed'
+            }`}
+          >
+            <ChevronRight className={`w-5 h-5 ${canScrollRight ? 'text-[oklch(0.6 0.2 35)]' : 'text-gray-400'}`} />
+          </motion.button>
         </div>
 
-        {/* Products Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-          {featuredProducts.map((product) => (
-            <Link key={product.id} href={`/products/${product.id}`}>
-              <Card className="h-full overflow-hidden group hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
-                <div className="relative overflow-hidden">
-                  <img 
-                    src={product.image} 
-                    alt={product.name}
-                    className="w-full aspect-square object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
-                  {/* Discount Badge */}
-                  {product.originalPrice > product.price && (
-                    <Badge className="absolute top-2 left-2 bg-red-500">
-                      -{Math.round((1 - product.price / product.originalPrice) * 100)}%
-                    </Badge>
-                  )}
-                  {/* Quick Actions */}
-                  <div className="absolute top-2 right-2 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button size="icon" variant="secondary" className="h-8 w-8 rounded-full">
-                      <Heart className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-                <CardContent className="p-3 md:p-4">
-                  {/* Store */}
-                  <div className="flex items-center gap-1 text-xs text-gray-500 mb-1">
-                    <span>{product.store}</span>
-                    {product.isVerified && (
-                      <Badge variant="secondary" className="h-4 px-1 text-[10px]">✓ Verified</Badge>
-                    )}
-                  </div>
-                  
-                  {/* Product Name */}
-                  <h3 className="font-medium text-sm line-clamp-2 mb-2 group-hover:text-primary transition-colors">
-                    {product.name}
-                  </h3>
-                  
-                  {/* Rating */}
-                  <div className="flex items-center gap-1 mb-2">
-                    <div className="flex items-center">
-                      {[...Array(5)].map((_, i) => (
-                        <Star
-                          key={i}
-                          className={`h-3 w-3 ${
-                            i < Math.floor(product.rating)
-                              ? "text-yellow-400 fill-yellow-400"
-                              : "text-gray-300"
-                          }`}
-                        />
-                      ))}
+        {/* Products Scroll Container */}
+        <div
+          ref={scrollRef}
+          className="flex gap-4 md:gap-6 overflow-x-auto pb-4 custom-scrollbar scroll-smooth"
+          style={{ scrollSnapType: 'x mandatory' }}
+        >
+          {products.map((product: any, index: number) => (
+            <motion.div
+              key={product.id}
+              initial={{ opacity: 0, y: 30 }}
+              animate={isInView ? { opacity: 1, y: 0 } : {}}
+              transition={{ delay: index * 0.1 }}
+              className="flex-shrink-0 w-[280px] md:w-[300px]"
+              style={{ scrollSnapAlign: 'start' }}
+            >
+              <Link href={`/products/${product.slug}`}>
+                <motion.div
+                  whileHover={{ y: -8 }}
+                  className="group bg-white dark:bg-[oklch(0.18_0.02_45)] rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 border border-[oklch(0.94_0.01_85)] dark:border-[oklch(0.25_0.02_45)]"
+                >
+                  {/* Product Image */}
+                  <div className="relative h-[200px] md:h-[220px] overflow-hidden">
+                    <img
+                      src={product.image}
+                      alt={product.name}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                    />
+                    
+                    {/* Featured Badge */}
+                    <div className="absolute top-3 left-3 px-3 py-1 rounded-lg text-sm font-bold text-white flex items-center gap-1" style={{ background: 'linear-gradient(135deg, oklch(0.6 0.2 35), oklch(0.55 0.15 140))' }}>
+                      <Star className="w-3.5 h-3.5 fill-white" />
+                      Featured
                     </div>
-                    <span className="text-xs text-gray-500">
-                      ({product.reviews})
-                    </span>
-                  </div>
-                  
-                  {/* Price */}
-                  <div className="flex items-baseline gap-2 flex-wrap">
-                    <span className="text-lg font-bold text-primary">
-                      USh {product.price.toLocaleString()}
-                    </span>
-                    {product.originalPrice > product.price && (
-                      <span className="text-xs text-gray-400 line-through">
-                        USh {product.originalPrice.toLocaleString()}
-                      </span>
+                    
+                    {/* Discount Badge */}
+                    {product.discount > 0 && (
+                      <div className="absolute top-3 right-3 px-2 py-1 rounded-lg text-xs font-bold text-white bg-red-500">
+                        -{product.discount}%
+                      </div>
+                    )}
+
+                    {/* Free Shipping */}
+                    {product.freeShipping && (
+                      <div className="absolute bottom-3 right-3 px-2 py-1 rounded-lg text-xs font-medium text-white bg-green-500 flex items-center gap-1">
+                        <Truck className="w-3 h-3" />
+                        Free
+                      </div>
                     )}
                   </div>
-                  
-                  {/* Add to Cart */}
-                  <Button 
-                    size="sm" 
-                    className="w-full mt-3 bg-primary hover:bg-primary/90"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      // Add to cart logic
-                    }}
-                  >
-                    <ShoppingCart className="h-4 w-4 mr-2" />
-                    Add to Cart
-                  </Button>
-                </CardContent>
-              </Card>
-            </Link>
+
+                  {/* Product Info */}
+                  <div className="p-4">
+                    {/* Seller */}
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <span className="text-xs text-[oklch(0.55_0.02_45)] dark:text-[oklch(0.65_0.01_85)]">
+                        {product.seller?.name || 'Verified Seller'}
+                      </span>
+                      {product.seller?.isVerified && (
+                        <CheckCircle className="w-3.5 h-3.5 text-blue-500" />
+                      )}
+                    </div>
+
+                    <h3 className="font-semibold text-[oklch(0.15_0.02_45)] dark:text-white mb-2 line-clamp-2 group-hover:text-[oklch(0.6_0.2_35)] dark:group-hover:text-[oklch(0.75_0.14_80)] transition-colors">
+                      {product.name}
+                    </h3>
+                    
+                    {/* Rating */}
+                    {product.rating > 0 && (
+                      <div className="flex items-center gap-1 mb-3">
+                        <Star className="w-4 h-4 fill-[oklch(0.75_0.14_80)] text-[oklch(0.75_0.14_80)]" />
+                        <span className="text-sm font-medium text-[oklch(0.15_0.02_45)] dark:text-white">{product.rating.toFixed(1)}</span>
+                        <span className="text-xs text-[oklch(0.55_0.02_45)] dark:text-[oklch(0.65_0.01_85)]">({product.reviewCount})</span>
+                      </div>
+                    )}
+
+                    {/* Price */}
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-lg font-bold text-[oklch(0.6 0.2 35)]">
+                        UGX {product.price?.toLocaleString()}
+                      </span>
+                      {product.comparePrice && product.comparePrice > product.price && (
+                        <span className="text-sm text-[oklch(0.55_0.02_45)] line-through">
+                          UGX {product.comparePrice.toLocaleString()}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+              </Link>
+            </motion.div>
           ))}
         </div>
+
+        {/* View All Link */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={isInView ? { opacity: 1, y: 0 } : {}}
+          transition={{ delay: 0.6 }}
+          className="text-center mt-8"
+        >
+          <p className="text-[oklch(0.55_0.02_45)] dark:text-[oklch(0.65_0.01_85)] mb-4">
+            Showing {products.length} of {total} featured products
+          </p>
+          <Link href="/products/featured">
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-[oklch(0.6 0.2 35)] dark:text-[oklch(0.75_0.14_80)] border-2 border-[oklch(0.6 0.2 35)] dark:border-[oklch(0.75_0.14_80)] hover:bg-[oklch(0.6_0.2_35/5%)] transition-colors"
+            >
+              View All Featured Products
+              <ArrowRight className="w-4 h-4" />
+            </motion.button>
+          </Link>
+        </motion.div>
       </div>
     </section>
-  );
+  )
 }
