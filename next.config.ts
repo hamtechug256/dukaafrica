@@ -4,7 +4,7 @@ const nextConfig: NextConfig = {
   output: "standalone",
   reactStrictMode: true,
   
-  // Content Security Policy headers for Clerk
+  // Content Security Policy headers for Clerk and Cloudinary
   async headers() {
     return [
       {
@@ -15,10 +15,10 @@ const nextConfig: NextConfig = {
             value: [
               "default-src 'self';",
               "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://clerk.accounts.dev https://*.clerk.accounts.dev https://cdn.clerk.io https://challenges.cloudflare.com;",
-              "connect-src 'self' https://clerk.accounts.dev https://*.clerk.accounts.dev https://api.clerk.io https://cdn.clerk.io https://fonts.googleapis.com https://fonts.gstatic.com;",
+              "connect-src 'self' https://clerk.accounts.dev https://*.clerk.accounts.dev https://api.clerk.io https://cdn.clerk.io https://fonts.googleapis.com https://fonts.gstatic.com https://api.cloudinary.com https://res.cloudinary.com;",
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;",
               "font-src 'self' https://fonts.gstatic.com;",
-              "img-src 'self' data: blob: https: http:;",
+              "img-src 'self' data: blob: https: http: https://res.cloudinary.com;",
               "frame-src 'self' https://challenges.cloudflare.com https://clerk.accounts.dev https://*.clerk.accounts.dev;",
               "worker-src 'self' blob:;",
             ].join(' '),
