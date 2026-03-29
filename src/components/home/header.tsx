@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -23,9 +23,11 @@ import {
   LayoutDashboard,
   Shield,
   LogOut,
-  LogIn
+  LogIn,
+  Loader2
 } from 'lucide-react'
 import { useCartStore } from '@/store/cart-store'
+import Image from 'next/image'
 
 const categories = [
   { name: 'Electronics', icon: '📱', href: '/categories/electronics' },
@@ -44,6 +46,32 @@ const countries = [
   { name: 'Tanzania', flag: '🇹🇿', currency: 'TZS' },
   { name: 'Rwanda', flag: '🇷🇼', currency: 'RWF' },
 ]
+
+// Search result types
+interface SearchResult {
+  products: Array<{
+    id: string
+    name: string
+    slug: string
+    price: number
+    currency: string
+    image: string | null
+    storeName: string
+  }>
+  categories: Array<{
+    id: string
+    name: string
+    slug: string
+    icon: string | null
+  }>
+  stores: Array<{
+    id: string
+    name: string
+    slug: string
+    logo: string | null
+  }>
+  suggestions: string[]
+}
 
 interface UserRole {
   role: string
@@ -67,6 +95,67 @@ export function Header() {
   const [isDark, setIsDark] = useState(false)
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
   const [selectedCountry, setSelectedCountry] = useState(countries[0])
+  
+  // Search states
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<SearchResult | null>(null)
+  const [isSearching, setIsSearching] = useState(false)
+  const [showSearchResults, setShowSearchResults] = useState(false)
+  const searchRef = useRef<HTMLDivElement>(null)
+  const searchInputRef = useRef<HTMLInputElement>(null)
+
+  // Debounced search function
+  const performSearch = useCallback(async (query: string) => {
+    if (query.trim().length < 2) {
+      setSearchResults(null)
+      setShowSearchResults(false)
+      return
+    }
+
+    setIsSearching(true)
+    try {
+      const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`)
+      if (res.ok) {
+        const data = await res.json()
+        setSearchResults(data)
+        setShowSearchResults(true)
+      }
+    } catch (error) {
+      console.error('Search error:', error)
+    } finally {
+      setIsSearching(false)
+    }
+  }, [])
+
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      performSearch(searchQuery)
+    }, 300)
+
+    return () => clearTimeout(timer)
+  }, [searchQuery, performSearch])
+
+  // Close search results when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+        setShowSearchResults(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  // Handle search form submit
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (searchQuery.trim()) {
+      router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`)
+      setShowSearchResults(false)
+    }
+  }
 
   // Fetch user role when signed in
   useEffect(() => {
@@ -216,32 +305,170 @@ export function Header() {
             </div>
 
             {/* Search Bar */}
-            <div className="flex-1 max-w-2xl">
-              <motion.div
-                animate={{ scale: isSearchFocused ? 1.02 : 1 }}
-                className={`relative rounded-2xl transition-all duration-300 ${
-                  isSearchFocused
-                    ? 'shadow-lg ring-2 ring-[oklch(0.6_0.2_35)]/30'
-                    : 'shadow-sm'
-                }`}
-              >
-                <input
-                  type="search"
-                  placeholder="Search for products, brands, categories..."
-                  onFocus={() => setIsSearchFocused(true)}
-                  onBlur={() => setIsSearchFocused(false)}
-                  className="w-full h-12 pl-12 pr-14 rounded-2xl border border-[oklch(0.9_0.02_85)] dark:border-[oklch(0.28_0.02_45)] bg-[oklch(0.98_0.005_85)] dark:bg-[oklch(0.18_0.02_45)] text-[oklch(0.15_0.02_45)] dark:text-white placeholder:text-[oklch(0.55_0.02_45)] focus:outline-none focus:border-[oklch(0.6_0.2_35)] transition-colors"
-                />
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[oklch(0.55_0.02_45)]" />
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-xl flex items-center justify-center text-white"
-                  style={{ background: 'linear-gradient(135deg, oklch(0.6 0.2 35), oklch(0.55 0.18 40))' }}
+            <div className="flex-1 max-w-2xl" ref={searchRef}>
+              <form onSubmit={handleSearchSubmit}>
+                <motion.div
+                  animate={{ scale: isSearchFocused ? 1.02 : 1 }}
+                  className={`relative rounded-2xl transition-all duration-300 ${
+                    isSearchFocused
+                      ? 'shadow-lg ring-2 ring-[oklch(0.6_0.2_35)]/30'
+                      : 'shadow-sm'
+                  }`}
                 >
-                  <Search className="w-4 h-4" />
-                </motion.button>
-              </motion.div>
+                  <input
+                    ref={searchInputRef}
+                    type="search"
+                    placeholder="Search for products, brands, categories..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onFocus={() => {
+                      setIsSearchFocused(true)
+                      if (searchQuery.trim().length >= 2 && searchResults) {
+                        setShowSearchResults(true)
+                      }
+                    }}
+                    className="w-full h-12 pl-12 pr-14 rounded-2xl border border-[oklch(0.9_0.02_85)] dark:border-[oklch(0.28_0.02_45)] bg-[oklch(0.98_0.005_85)] dark:bg-[oklch(0.18_0.02_45)] text-[oklch(0.15_0.02_45)] dark:text-white placeholder:text-[oklch(0.55_0.02_45)] focus:outline-none focus:border-[oklch(0.6_0.2_35)] transition-colors"
+                  />
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[oklch(0.55_0.02_45)]" />
+                  <motion.button
+                    type="submit"
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-xl flex items-center justify-center text-white"
+                    style={{ background: 'linear-gradient(135deg, oklch(0.6 0.2 35), oklch(0.55 0.18 40))' }}
+                    disabled={isSearching}
+                  >
+                    {isSearching ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Search className="w-4 h-4" />
+                    )}
+                  </motion.button>
+
+                  {/* Search Results Dropdown */}
+                  <AnimatePresence>
+                    {showSearchResults && searchResults && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-[oklch(0.15_0.02_45)] rounded-2xl shadow-2xl border border-[oklch(0.9_0.02_85)] dark:border-[oklch(0.25_0.02_45)] max-h-[70vh] overflow-y-auto z-50"
+                      >
+                        {/* Products */}
+                        {searchResults.products.length > 0 && (
+                          <div className="p-4">
+                            <h3 className="text-xs font-semibold text-[oklch(0.55_0.02_45)] uppercase tracking-wider mb-3">Products</h3>
+                            <div className="space-y-2">
+                              {searchResults.products.slice(0, 4).map((product) => (
+                                <Link
+                                  key={product.id}
+                                  href={`/products/${product.slug}`}
+                                  onClick={() => {
+                                    setShowSearchResults(false)
+                                    setSearchQuery('')
+                                  }}
+                                  className="flex items-center gap-3 p-2 rounded-xl hover:bg-[oklch(0.96_0.01_85)] dark:hover:bg-[oklch(0.22_0.02_45)] transition-colors"
+                                >
+                                  <div className="w-12 h-12 rounded-lg bg-gray-100 dark:bg-gray-800 overflow-hidden flex-shrink-0">
+                                    {product.image ? (
+                                      <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
+                                    ) : (
+                                      <div className="w-full h-full flex items-center justify-center">
+                                        <Package className="w-5 h-5 text-gray-400" />
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="font-medium text-[oklch(0.15_0.02_45)] dark:text-white truncate">{product.name}</p>
+                                    <p className="text-sm text-[oklch(0.55_0.02_45)]">
+                                      UGX {product.price?.toLocaleString()} · {product.storeName}
+                                    </p>
+                                  </div>
+                                </Link>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Categories */}
+                        {searchResults.categories.length > 0 && (
+                          <div className="p-4 border-t border-[oklch(0.94_0.01_85)] dark:border-[oklch(0.22_0.02_45)]">
+                            <h3 className="text-xs font-semibold text-[oklch(0.55_0.02_45)] uppercase tracking-wider mb-3">Categories</h3>
+                            <div className="flex flex-wrap gap-2">
+                              {searchResults.categories.map((category) => (
+                                <Link
+                                  key={category.id}
+                                  href={`/categories/${category.slug}`}
+                                  onClick={() => {
+                                    setShowSearchResults(false)
+                                    setSearchQuery('')
+                                  }}
+                                  className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[oklch(0.96_0.01_85)] dark:bg-[oklch(0.22_0.02_45)] hover:bg-[oklch(0.92_0.02_85)] dark:hover:bg-[oklch(0.28_0.02_45)] transition-colors"
+                                >
+                                  {category.icon && <span>{category.icon}</span>}
+                                  <span className="text-sm font-medium text-[oklch(0.25_0.02_45)] dark:text-white">{category.name}</span>
+                                </Link>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Stores */}
+                        {searchResults.stores.length > 0 && (
+                          <div className="p-4 border-t border-[oklch(0.94_0.01_85)] dark:border-[oklch(0.22_0.02_45)]">
+                            <h3 className="text-xs font-semibold text-[oklch(0.55_0.02_45)] uppercase tracking-wider mb-3">Stores</h3>
+                            <div className="space-y-2">
+                              {searchResults.stores.slice(0, 3).map((store) => (
+                                <Link
+                                  key={store.id}
+                                  href={`/stores/${store.slug}`}
+                                  onClick={() => {
+                                    setShowSearchResults(false)
+                                    setSearchQuery('')
+                                  }}
+                                  className="flex items-center gap-3 p-2 rounded-xl hover:bg-[oklch(0.96_0.01_85)] dark:hover:bg-[oklch(0.22_0.02_45)] transition-colors"
+                                >
+                                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[oklch(0.6_0.2_35)] to-[oklch(0.55_0.15_140)] flex items-center justify-center text-white font-bold">
+                                    {store.logo ? (
+                                      <img src={store.logo} alt={store.name} className="w-full h-full rounded-full object-cover" />
+                                    ) : (
+                                      store.name[0].toUpperCase()
+                                    )}
+                                  </div>
+                                  <span className="font-medium text-[oklch(0.15_0.02_45)] dark:text-white">{store.name}</span>
+                                </Link>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* No results */}
+                        {searchResults.products.length === 0 && 
+                         searchResults.categories.length === 0 && 
+                         searchResults.stores.length === 0 && (
+                          <div className="p-8 text-center">
+                            <Search className="w-12 h-12 mx-auto text-gray-300 mb-3" />
+                            <p className="text-gray-500">No results found for &quot;{searchQuery}&quot;</p>
+                            <p className="text-sm text-gray-400 mt-1">Try a different search term</p>
+                          </div>
+                        )}
+
+                        {/* View all results */}
+                        {(searchResults.products.length > 0 || searchResults.categories.length > 0 || searchResults.stores.length > 0) && (
+                          <div className="p-4 border-t border-[oklch(0.94_0.01_85)] dark:border-[oklch(0.22_0.02_45)]">
+                            <button
+                              type="submit"
+                              className="w-full py-2 text-center text-sm font-medium text-[oklch(0.6_0.2_35)] hover:text-[oklch(0.55_0.15_140)] transition-colors"
+                            >
+                              View all results for &quot;{searchQuery}&quot; →
+                            </button>
+                          </div>
+                        )}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </motion.div>
+              </form>
             </div>
 
             {/* Right Actions */}
