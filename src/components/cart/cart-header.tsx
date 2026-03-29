@@ -4,7 +4,6 @@ import { ShoppingCart } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useCartStore } from '@/store/cart-store'
-import Link from 'next/link'
 
 export function CartHeader() {
   const { getItemCount, openCart } = useCartStore()
@@ -16,18 +15,15 @@ export function CartHeader() {
       size="icon"
       className="relative"
       onClick={openCart}
-      asChild
     >
-      <Link href="/cart">
-        <ShoppingCart className="w-5 h-5" />
-        {itemCount > 0 && (
-          <Badge
-            className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
-          >
-            {itemCount > 99 ? '99+' : itemCount}
-          </Badge>
-        )}
-      </Link>
+      <ShoppingCart className="w-5 h-5" />
+      {itemCount > 0 && (
+        <Badge
+          className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
+        >
+          {itemCount > 99 ? '99+' : itemCount}
+        </Badge>
+      )}
     </Button>
   )
 }

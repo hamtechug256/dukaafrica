@@ -172,6 +172,7 @@ export function ProductDetailClient({ product, images, relatedProducts, flashSal
   const [isZoomed, setIsZoomed] = useState(false)
   const [showLightbox, setShowLightbox] = useState(false)
   const [shareSuccess, setShareSuccess] = useState(false)
+  const [addedToCart, setAddedToCart] = useState(false)
 
   // Calculate discount based on whether flash sale is active
   const displayPrice = flashSale ? flashSale.flashSalePrice : product.price
@@ -212,6 +213,10 @@ export function ProductDetailClient({ product, images, relatedProducts, flashSal
       sellerCountry: product.store.country,
       weight: product.weight ?? undefined,
     })
+    
+    // Show success feedback
+    setAddedToCart(true)
+    setTimeout(() => setAddedToCart(false), 2000)
   }
 
   // Handle Share
@@ -567,16 +572,27 @@ export function ProductDetailClient({ product, images, relatedProducts, flashSal
             <div className="flex gap-3 pt-2">
               <Button 
                 size="lg" 
-                className={`flex-1 h-14 text-lg font-semibold shadow-lg ${
-                  flashSale 
-                    ? 'bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600' 
-                    : 'bg-gradient-to-r from-orange-500 to-green-500 hover:from-orange-600 hover:to-green-600'
+                className={`flex-1 h-14 text-lg font-semibold shadow-lg transition-all duration-300 ${
+                  addedToCart 
+                    ? 'bg-green-500 hover:bg-green-500' 
+                    : flashSale 
+                      ? 'bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600' 
+                      : 'bg-gradient-to-r from-orange-500 to-green-500 hover:from-orange-600 hover:to-green-600'
                 }`}
                 disabled={availableStock === 0}
                 onClick={handleAddToCart}
               >
-                <ShoppingCart className="w-6 h-6 mr-2" />
-                Add to Cart
+                {addedToCart ? (
+                  <>
+                    <Check className="w-6 h-6 mr-2" />
+                    Added!
+                  </>
+                ) : (
+                  <>
+                    <ShoppingCart className="w-6 h-6 mr-2" />
+                    Add to Cart
+                  </>
+                )}
               </Button>
               <WishlistButton 
                 productId={product.id} 
@@ -820,15 +836,27 @@ export function ProductDetailClient({ product, images, relatedProducts, flashSal
           </div>
           <Button 
             size="lg" 
-            className={flashSale 
-              ? 'bg-gradient-to-r from-red-500 to-orange-500' 
-              : 'bg-gradient-to-r from-orange-500 to-green-500'
-            }
+            className={`transition-all duration-300 ${
+              addedToCart 
+                ? 'bg-green-500' 
+                : flashSale 
+                  ? 'bg-gradient-to-r from-red-500 to-orange-500' 
+                  : 'bg-gradient-to-r from-orange-500 to-green-500'
+            }`}
             disabled={availableStock === 0}
             onClick={handleAddToCart}
           >
-            <ShoppingCart className="w-5 h-5 mr-2" />
-            Add to Cart
+            {addedToCart ? (
+              <>
+                <Check className="w-5 h-5 mr-2" />
+                Added!
+              </>
+            ) : (
+              <>
+                <ShoppingCart className="w-5 h-5 mr-2" />
+                Add to Cart
+              </>
+            )}
           </Button>
         </div>
       </div>
