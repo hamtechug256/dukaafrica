@@ -4,11 +4,13 @@
  * Provides rate limiting, IP blocking, and brute force protection
  * for the admin dashboard and login endpoints.
  * 
- * Uses database-backed storage for persistence across server restarts.
+ * Uses Redis when configured (UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN),
+ * falls back to database-backed storage for persistence across server restarts.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { redisRateLimiter, isRedisConfigured } from '@/lib/redis'
 
 // Configuration
 export const SECURITY_CONFIG = {
@@ -48,9 +50,24 @@ export function getClientIP(request: NextRequest): string {
 }
 
 /**
- * Check if an IP is currently blocked (database-backed)
+ * Check if an IP is currently blocked
+ * Uses Redis when configured, falls back to database
  */
 export async function isIPBlocked(ip: string): Promise<{ blocked: boolean; reason?: string; remainingTime?: number }> {
+  // Try Redis first if configured
+  if (isRedisConfigured) {
+    const result = await redisRateLimiter.isBlocked(`admin:${ip}`)
+    if (result.blocked) {
+      return {
+        blocked: true,
+        reason: 'Too many failed login attempts',
+        remainingTime: result.remainingTime
+      }
+    }
+    return { blocked: false }
+  }
+
+  // Fall back to database
   try {
     const entry = await prisma.rateLimitEntry.findUnique({
       where: {
@@ -89,7 +106,8 @@ export async function isIPBlocked(ip: string): Promise<{ blocked: boolean; reaso
 }
 
 /**
- * Record a failed login attempt (database-backed)
+ * Record a failed login attempt
+ * Uses Redis when configured, falls back to database
  */
 export async function recordFailedAttempt(ip: string): Promise<{
   attempts: number
@@ -100,6 +118,44 @@ export async function recordFailedAttempt(ip: string): Promise<{
   const now = new Date()
   const windowStart = new Date(now.getTime() - SECURITY_CONFIG.ATTEMPT_WINDOW_MS)
   
+  // Try Redis first if configured
+  if (isRedisConfigured) {
+    const result = await redisRateLimiter.recordFailedAttempt(
+      `admin:${ip}`,
+      SECURITY_CONFIG.MAX_ATTEMPTS,
+      Math.ceil(SECURITY_CONFIG.BLOCK_DURATION_MS / 1000)
+    )
+    
+    const delay = Math.min(
+      SECURITY_CONFIG.PROGRESSIVE_DELAY_BASE * result.attempts,
+      SECURITY_CONFIG.MAX_DELAY
+    )
+    
+    await logSecurityEvent({
+      type: 'LOGIN_ATTEMPT',
+      ip,
+      details: `Failed login attempt #${result.attempts} (Redis)`
+    })
+    
+    if (result.blocked) {
+      return {
+        attempts: result.attempts,
+        blocked: true,
+        delay: 0,
+        message: `Account temporarily locked due to suspicious activity. Try again in ${Math.ceil(SECURITY_CONFIG.BLOCK_DURATION_MS / 1000 / 60)} minutes.`
+      }
+    }
+    
+    const remaining = SECURITY_CONFIG.MAX_ATTEMPTS - result.attempts
+    return {
+      attempts: result.attempts,
+      blocked: false,
+      delay,
+      message: `Invalid credentials. ${remaining} attempt${remaining === 1 ? '' : 's'} remaining before temporary lockout.`
+    }
+  }
+  
+  // Fall back to database
   try {
     // Get or create rate limit entry
     let entry = await prisma.rateLimitEntry.findUnique({
@@ -184,9 +240,16 @@ export async function recordFailedAttempt(ip: string): Promise<{
 }
 
 /**
- * Clear failed attempts after successful login (database-backed)
+ * Clear failed attempts after successful login
+ * Uses Redis when configured, falls back to database
  */
 export async function clearFailedAttempts(ip: string): Promise<void> {
+  // Clear from Redis if configured
+  if (isRedisConfigured) {
+    await redisRateLimiter.clearAttempts(`admin:${ip}`)
+  }
+  
+  // Also clear from database (for sync)
   try {
     await prisma.rateLimitEntry.deleteMany({
       where: {
