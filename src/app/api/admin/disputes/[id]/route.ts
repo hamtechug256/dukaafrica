@@ -177,8 +177,8 @@ export async function GET(
       },
     })
 
-    // Get escrow transaction
-    const escrow = await prisma.escrowTransaction.findUnique({
+    // Get escrow transaction (use findFirst for multi-vendor support)
+    const escrow = await prisma.escrowTransaction.findFirst({
       where: { orderId: dispute.orderId },
     })
 

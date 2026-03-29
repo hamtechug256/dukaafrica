@@ -113,8 +113,8 @@ export async function POST(
         }, { status: 400 })
       }
 
-      // Get escrow to check max refund amount
-      const escrow = await prisma.escrowTransaction.findUnique({
+      // Get escrow to check max refund amount (use findFirst for multi-vendor support)
+      const escrow = await prisma.escrowTransaction.findFirst({
         where: { orderId: dispute.orderId },
       })
 
