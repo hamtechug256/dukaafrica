@@ -145,11 +145,32 @@ export default function AdminEscrowPage() {
     hasAnalytics: false,
   })
 
+  // Escrow settings state
+  const [escrowSettings, setEscrowSettings] = useState({
+    reservePercent: 10,
+    minReserve: 500000,
+    defaultEscrowDays: 7,
+    starterEscrowDays: 7,
+    verifiedEscrowDays: 5,
+    premiumEscrowDays: 3,
+    starterCommissionRate: 15,
+    verifiedCommissionRate: 10,
+    premiumCommissionRate: 8,
+    autoReleaseEnabled: true,
+    disputeResolutionDays: 7,
+    minWithdrawalAmount: 50000,
+    totalReserve: 0,
+    availableReserve: 0,
+    pendingRefunds: 0,
+    currency: 'UGX',
+  })
+
   // Fetch all data
   useEffect(() => {
     fetchEscrowSummary()
     fetchTierConfigs()
     fetchPendingVerifications()
+    fetchEscrowSettings()
   }, [])
 
   const fetchEscrowSummary = async () => {
@@ -185,6 +206,60 @@ export default function AdminEscrowPage() {
       }
     } catch (error) {
       console.error('Error fetching verifications:', error)
+    }
+  }
+
+  const fetchEscrowSettings = async () => {
+    try {
+      const res = await fetch('/api/admin/escrow/settings')
+      if (res.ok) {
+        const data = await res.json()
+        if (data.settings) {
+          setEscrowSettings(prev => ({
+            ...prev,
+            ...data.settings,
+            ...(data.reserve || {}),
+          }))
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching escrow settings:', error)
+    }
+  }
+
+  const handleSaveEscrowSettings = async () => {
+    setIsLoading(true)
+    try {
+      const res = await fetch('/api/admin/escrow/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reservePercent: escrowSettings.reservePercent,
+          minReserve: escrowSettings.minReserve,
+          defaultEscrowDays: escrowSettings.defaultEscrowDays,
+          starterEscrowDays: escrowSettings.starterEscrowDays,
+          verifiedEscrowDays: escrowSettings.verifiedEscrowDays,
+          premiumEscrowDays: escrowSettings.premiumEscrowDays,
+          starterCommissionRate: escrowSettings.starterCommissionRate,
+          verifiedCommissionRate: escrowSettings.verifiedCommissionRate,
+          premiumCommissionRate: escrowSettings.premiumCommissionRate,
+          autoReleaseEnabled: escrowSettings.autoReleaseEnabled,
+          disputeResolutionDays: escrowSettings.disputeResolutionDays,
+          minWithdrawalAmount: escrowSettings.minWithdrawalAmount,
+        })
+      })
+
+      if (res.ok) {
+        toast({ title: 'Success', description: 'Escrow settings saved successfully' })
+        fetchEscrowSettings()
+      } else {
+        const errorData = await res.json()
+        toast({ variant: 'destructive', title: 'Error', description: errorData.error || 'Failed to save settings' })
+      }
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to save escrow settings' })
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -646,44 +721,242 @@ export default function AdminEscrowPage() {
 
           {/* Escrow Settings Tab */}
           <TabsContent value="escrow">
-            <Card>
-              <CardHeader>
-                <CardTitle>Escrow Settings</CardTitle>
-                <CardDescription>
-                  Configure platform-wide escrow and reserve settings
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <Label>Reserve Percentage</Label>
-                    <Input type="number" defaultValue={10} />
-                    <p className="text-sm text-[oklch(0.45_0.02_45)]">
-                      Percentage of each transaction held in reserve for refunds
-                    </p>
+            <div className="space-y-6">
+              {/* Reserve Settings */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Platform Reserve</CardTitle>
+                  <CardDescription>
+                    Manage the platform reserve fund used for refunds and disputes
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="grid md:grid-cols-3 gap-6">
+                    <div className="p-4 bg-[oklch(0.98_0.02_85)] dark:bg-[oklch(0.18_0.02_45)] rounded-lg">
+                      <p className="text-sm text-[oklch(0.45_0.02_45)]">Total Reserve</p>
+                      <p className="text-2xl font-bold">{escrowSettings.currency} {escrowSettings.totalReserve.toLocaleString()}</p>
+                    </div>
+                    <div className="p-4 bg-[oklch(0.98_0.02_85)] dark:bg-[oklch(0.18_0.02_45)] rounded-lg">
+                      <p className="text-sm text-[oklch(0.45_0.02_45)]">Available</p>
+                      <p className="text-2xl font-bold text-[oklch(0.55_0.15_140)]">{escrowSettings.currency} {escrowSettings.availableReserve.toLocaleString()}</p>
+                    </div>
+                    <div className="p-4 bg-[oklch(0.98_0.02_85)] dark:bg-[oklch(0.18_0.02_45)] rounded-lg">
+                      <p className="text-sm text-[oklch(0.45_0.02_45)]">Pending Refunds</p>
+                      <p className="text-2xl font-bold text-[oklch(0.6_0.2_35)]">{escrowSettings.currency} {escrowSettings.pendingRefunds.toLocaleString()}</p>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Minimum Reserve</Label>
-                    <Input type="number" defaultValue={500000} />
-                    <p className="text-sm text-[oklch(0.45_0.02_45)]">
-                      Minimum amount to keep in reserve (UGX)
-                    </p>
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label>Reserve Percentage (%)</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        max="50"
+                        value={escrowSettings.reservePercent}
+                        onChange={(e) => setEscrowSettings({...escrowSettings, reservePercent: parseFloat(e.target.value) || 0})}
+                      />
+                      <p className="text-sm text-[oklch(0.45_0.02_45)]">
+                        Percentage of each transaction held in reserve for refunds
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Minimum Reserve ({escrowSettings.currency})</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        value={escrowSettings.minReserve}
+                        onChange={(e) => setEscrowSettings({...escrowSettings, minReserve: parseInt(e.target.value) || 0})}
+                      />
+                      <p className="text-sm text-[oklch(0.45_0.02_45)]">
+                        Minimum amount to keep in reserve
+                      </p>
+                    </div>
                   </div>
-                </div>
+                </CardContent>
+              </Card>
 
-                <div className="space-y-2">
-                  <Label>Default Escrow Hold Days</Label>
-                  <Input type="number" defaultValue={7} />
-                  <p className="text-sm text-[oklch(0.45_0.02_45)]">
-                    Days to hold funds before auto-release for unverified sellers
-                  </p>
-                </div>
+              {/* Escrow Hold Periods */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Escrow Hold Periods</CardTitle>
+                  <CardDescription>
+                    Configure how long funds are held before release based on seller tier
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label>Default Escrow Hold (Days)</Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        max="30"
+                        value={escrowSettings.defaultEscrowDays}
+                        onChange={(e) => setEscrowSettings({...escrowSettings, defaultEscrowDays: parseInt(e.target.value) || 7})}
+                      />
+                      <p className="text-sm text-[oklch(0.45_0.02_45)]">
+                        Default hold period for new/unverified sellers
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Dispute Resolution Period (Days)</Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        max="30"
+                        value={escrowSettings.disputeResolutionDays}
+                        onChange={(e) => setEscrowSettings({...escrowSettings, disputeResolutionDays: parseInt(e.target.value) || 7})}
+                      />
+                      <p className="text-sm text-[oklch(0.45_0.02_45)]">
+                        Time allowed for dispute resolution
+                      </p>
+                    </div>
+                  </div>
 
-                <Button className="bg-[oklch(0.55_0.15_140)] text-white hover:bg-[oklch(0.5_0.14_140)]">
-                  Save Settings
+                  <div className="border-t pt-6">
+                    <h4 className="font-medium mb-4">Tier-Based Hold Periods</h4>
+                    <div className="grid md:grid-cols-3 gap-6">
+                      <div className="space-y-2">
+                        <Label className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-full bg-gray-400" />
+                          Starter Tier
+                        </Label>
+                        <Input
+                          type="number"
+                          min="1"
+                          max="30"
+                          value={escrowSettings.starterEscrowDays}
+                          onChange={(e) => setEscrowSettings({...escrowSettings, starterEscrowDays: parseInt(e.target.value) || 7})}
+                        />
+                        <p className="text-xs text-[oklch(0.55_0.02_45)]">{escrowSettings.starterCommissionRate}% commission</p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-full bg-blue-500" />
+                          Verified Tier
+                        </Label>
+                        <Input
+                          type="number"
+                          min="1"
+                          max="30"
+                          value={escrowSettings.verifiedEscrowDays}
+                          onChange={(e) => setEscrowSettings({...escrowSettings, verifiedEscrowDays: parseInt(e.target.value) || 5})}
+                        />
+                        <p className="text-xs text-[oklch(0.55_0.02_45)]">{escrowSettings.verifiedCommissionRate}% commission</p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-full bg-amber-500" />
+                          Premium Tier
+                        </Label>
+                        <Input
+                          type="number"
+                          min="1"
+                          max="30"
+                          value={escrowSettings.premiumEscrowDays}
+                          onChange={(e) => setEscrowSettings({...escrowSettings, premiumEscrowDays: parseInt(e.target.value) || 3})}
+                        />
+                        <p className="text-xs text-[oklch(0.55_0.02_45)]">{escrowSettings.premiumCommissionRate}% commission</p>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Commission Rates */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Commission Rates by Tier</CardTitle>
+                  <CardDescription>
+                    Set the platform commission percentage for each seller tier
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid md:grid-cols-3 gap-6">
+                    <div className="space-y-2">
+                      <Label>Starter Tier Commission (%)</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        max="50"
+                        value={escrowSettings.starterCommissionRate}
+                        onChange={(e) => setEscrowSettings({...escrowSettings, starterCommissionRate: parseFloat(e.target.value) || 15})}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Verified Tier Commission (%)</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        max="50"
+                        value={escrowSettings.verifiedCommissionRate}
+                        onChange={(e) => setEscrowSettings({...escrowSettings, verifiedCommissionRate: parseFloat(e.target.value) || 10})}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Premium Tier Commission (%)</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        max="50"
+                        value={escrowSettings.premiumCommissionRate}
+                        onChange={(e) => setEscrowSettings({...escrowSettings, premiumCommissionRate: parseFloat(e.target.value) || 8})}
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Payout Settings */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Payout Settings</CardTitle>
+                  <CardDescription>
+                    Configure minimum withdrawal amounts and auto-release options
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label>Minimum Withdrawal Amount ({escrowSettings.currency})</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        value={escrowSettings.minWithdrawalAmount}
+                        onChange={(e) => setEscrowSettings({...escrowSettings, minWithdrawalAmount: parseInt(e.target.value) || 50000})}
+                      />
+                      <p className="text-sm text-[oklch(0.45_0.02_45)]">
+                        Sellers must reach this balance before requesting payout
+                      </p>
+                    </div>
+                    <div className="flex items-center justify-between p-4 bg-[oklch(0.98_0.02_85)] dark:bg-[oklch(0.18_0.02_45)] rounded-lg">
+                      <div>
+                        <p className="font-medium">Auto-Release Enabled</p>
+                        <p className="text-sm text-[oklch(0.45_0.02_45)]">
+                          Automatically release funds after hold period
+                        </p>
+                      </div>
+                      <Switch
+                        checked={escrowSettings.autoReleaseEnabled}
+                        onCheckedChange={(checked) => setEscrowSettings({...escrowSettings, autoReleaseEnabled: checked})}
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Save Button */}
+              <div className="flex justify-end">
+                <Button
+                  onClick={handleSaveEscrowSettings}
+                  disabled={isLoading}
+                  className="bg-[oklch(0.55_0.15_140)] text-white hover:bg-[oklch(0.5_0.14_140)]"
+                >
+                  {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  Save All Escrow Settings
                 </Button>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </TabsContent>
         </Tabs>
       </main>
