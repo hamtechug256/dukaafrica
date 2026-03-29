@@ -37,6 +37,7 @@ import {
 import { ProductGrid } from '../product-grid'
 import { WishlistButton } from '@/components/wishlist/wishlist-button'
 import { ReviewsSection } from '@/components/reviews/reviews-section'
+import { useCartStore } from '@/store/cart-store'
 
 interface Product {
   id: string
@@ -164,11 +165,13 @@ function FlashSaleCountdown({ endDate }: { endDate: string }) {
 
 export function ProductDetailClient({ product, images, relatedProducts, flashSale }: ProductDetailClientProps) {
   const { user } = useUser()
+  const { addItem, openCart } = useCartStore()
   const [selectedImage, setSelectedImage] = useState(0)
   const [quantity, setQuantity] = useState(1)
   const [selectedVariant, setSelectedVariant] = useState<string | null>(null)
   const [isZoomed, setIsZoomed] = useState(false)
   const [showLightbox, setShowLightbox] = useState(false)
+  const [shareSuccess, setShareSuccess] = useState(false)
 
   // Calculate discount based on whether flash sale is active
   const displayPrice = flashSale ? flashSale.flashSalePrice : product.price
@@ -186,6 +189,61 @@ export function ProductDetailClient({ product, images, relatedProducts, flashSal
     : availableStock <= 5 
       ? `Only ${availableStock} left!` 
       : 'In Stock'
+
+  // Handle Add to Cart
+  const handleAddToCart = () => {
+    const variant = selectedVariant 
+      ? product.variants.find(v => v.id === selectedVariant)
+      : null
+
+    addItem({
+      productId: product.id,
+      name: product.name,
+      slug: product.slug,
+      price: variant?.price ?? displayPrice,
+      comparePrice: variant?.comparePrice ?? displayComparePrice,
+      quantity: quantity,
+      image: images[0] || null,
+      storeId: product.store.id,
+      storeName: product.store.name,
+      variantId: variant?.id,
+      variantName: variant?.name,
+      maxQuantity: variant?.quantity ?? availableStock,
+      sellerCountry: product.store.country,
+      weight: product.weight ?? undefined,
+    })
+  }
+
+  // Handle Share
+  const handleShare = async () => {
+    const shareUrl = window.location.href
+    const shareTitle = product.name
+    const shareText = `Check out ${product.name} on DuukaAfrica - UGX ${displayPrice.toLocaleString()}`
+
+    // Try native share API first (mobile)
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: shareTitle,
+          text: shareText,
+          url: shareUrl,
+        })
+        setShareSuccess(true)
+        setTimeout(() => setShareSuccess(false), 2000)
+      } catch (err) {
+        // User cancelled or error
+      }
+    } else {
+      // Fallback to clipboard
+      try {
+        await navigator.clipboard.writeText(shareUrl)
+        setShareSuccess(true)
+        setTimeout(() => setShareSuccess(false), 2000)
+      } catch (err) {
+        console.error('Failed to copy')
+      }
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -515,6 +573,7 @@ export function ProductDetailClient({ product, images, relatedProducts, flashSal
                     : 'bg-gradient-to-r from-orange-500 to-green-500 hover:from-orange-600 hover:to-green-600'
                 }`}
                 disabled={availableStock === 0}
+                onClick={handleAddToCart}
               >
                 <ShoppingCart className="w-6 h-6 mr-2" />
                 Add to Cart
@@ -526,8 +585,17 @@ export function ProductDetailClient({ product, images, relatedProducts, flashSal
                 showText={false}
                 className="h-14 w-14"
               />
-              <Button size="lg" variant="outline" className="h-14 w-14">
-                <Share2 className="w-5 h-5" />
+              <Button 
+                size="lg" 
+                variant="outline" 
+                className="h-14 w-14 relative"
+                onClick={handleShare}
+              >
+                {shareSuccess ? (
+                  <Check className="w-5 h-5 text-green-500" />
+                ) : (
+                  <Share2 className="w-5 h-5" />
+                )}
               </Button>
             </div>
 
@@ -757,6 +825,7 @@ export function ProductDetailClient({ product, images, relatedProducts, flashSal
               : 'bg-gradient-to-r from-orange-500 to-green-500'
             }
             disabled={availableStock === 0}
+            onClick={handleAddToCart}
           >
             <ShoppingCart className="w-5 h-5 mr-2" />
             Add to Cart
