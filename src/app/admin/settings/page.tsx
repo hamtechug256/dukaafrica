@@ -129,6 +129,7 @@ export default function AdminSettingsPage() {
   })
   const [shippingRates, setShippingRates] = useState<any[]>([])
   const [exchangeRates, setExchangeRates] = useState<any>({})
+  const [testingConnection, setTestingConnection] = useState(false)
 
   // Check role from database
   const { data: roleData, isLoading: roleLoading } = useQuery({
@@ -540,32 +541,69 @@ export default function AdminSettingsPage() {
                     <Button 
                       variant="outline" 
                       size="sm"
+                      disabled={testingConnection}
                       onClick={async () => {
+                        setTestingConnection(true)
                         try {
                           const res = await fetch('/api/admin/flutterwave/verify')
                           const data = await res.json()
-                          if (data.success && data.status?.isFullyConfigured) {
+                          
+                          if (!res.ok) {
                             toast({
-                              title: '✅ Flutterwave Connected',
-                              description: `API working. Balance: ${data.tests?.apiConnection?.balance?.availableBalance || 'N/A'} ${data.tests?.apiConnection?.balance?.currency || ''}`,
+                              title: '❌ Test Failed',
+                              description: data.error || 'Could not connect to verification service',
+                              variant: 'destructive',
+                            })
+                            return
+                          }
+                          
+                          // Check configuration status
+                          if (!data.configuration?.hasSecretKey) {
+                            toast({
+                              title: '⚠️ No Keys Configured',
+                              description: 'Please add your Flutterwave keys and save settings first',
+                              variant: 'destructive',
+                            })
+                            return
+                          }
+                          
+                          // Check API connection
+                          if (data.tests?.apiConnection?.success) {
+                            toast({
+                              title: '✅ Flutterwave Connected!',
+                              description: `API working! Balance: ${data.tests.apiConnection.balance?.availableBalance || 'N/A'} ${data.tests.apiConnection.balance?.currency || 'UGX'}`,
+                            })
+                          } else if (data.tests?.banksApi?.success) {
+                            toast({
+                              title: '✅ Flutterwave API Working!',
+                              description: `Connected! Found ${data.tests.banksApi.bankCount} banks. ${data.tests.apiConnection?.error || ''}`,
                             })
                           } else {
                             toast({
-                              title: '⚠️ Configuration Issues',
-                              description: data.recommendations?.[0] || 'Check your keys and try again',
+                              title: '⚠️ Connection Issues',
+                              description: data.tests?.apiConnection?.error || data.tests?.banksApi?.error || 'API connection failed. Check your keys.',
                               variant: 'destructive',
                             })
                           }
-                        } catch {
+                        } catch (err: any) {
                           toast({
-                            title: 'Test Failed',
-                            description: 'Could not verify Flutterwave connection',
+                            title: '❌ Test Failed',
+                            description: err.message || 'Could not verify Flutterwave connection',
                             variant: 'destructive',
                           })
+                        } finally {
+                          setTestingConnection(false)
                         }
                       }}
                     >
-                      Test Connection
+                      {testingConnection ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Testing...
+                        </>
+                      ) : (
+                        'Test Connection'
+                      )}
                     </Button>
                   </div>
 

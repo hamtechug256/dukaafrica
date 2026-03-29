@@ -1,7 +1,7 @@
 /**
  * API: Test Flutterwave Configuration
  * 
- * GET /api/admin/flutterwave/test
+ * GET /api/admin/flutterwave/verify
  * 
  * Tests the Flutterwave API connection and returns configuration status.
  * Helps admins verify their payment setup is working correctly.
@@ -56,10 +56,12 @@ export async function GET() {
       usingEnvConfig: !platformSettings?.flutterwaveSecretKey && !!process.env.FLUTTERWAVE_SECRET_KEY,
     }
 
-    // Test API connection
+    // Test API connection - try balance first, then banks as fallback
     let apiTest = { success: false, error: null as string | null, balance: null as any }
+    let banksTest = { success: false, error: null as string | null, bankCount: 0 }
     
     if (config.secretKey) {
+      // Try balance API first
       try {
         const balanceResponse = await flutterwaveClient.getBalance('UGX')
         if (balanceResponse.status === 'success') {
@@ -69,56 +71,76 @@ export async function GET() {
             availableBalance: balanceResponse.data.available_balance,
             ledgerBalance: balanceResponse.data.ledger_balance,
           }
+        } else {
+          apiTest.error = balanceResponse.message || 'Balance check failed'
         }
       } catch (error: any) {
-        apiTest.error = error.message || 'API connection failed'
+        // Extract meaningful error message
+        const errorMsg = error.message || 'API connection failed'
+        if (errorMsg.includes('fetch')) {
+          apiTest.error = 'Network error - check internet connection'
+        } else if (errorMsg.includes('401') || errorMsg.includes('Unauthorized')) {
+          apiTest.error = 'Invalid API key - check your secret key'
+        } else if (errorMsg.includes('balance')) {
+          apiTest.error = 'No UGX balance wallet found - this is normal for new accounts'
+        } else {
+          apiTest.error = errorMsg.substring(0, 100)
+        }
       }
-    } else {
-      apiTest.error = 'No secret key configured'
-    }
 
-    // Test banks API (lighter test)
-    let banksTest = { success: false, error: null as string | null, bankCount: 0 }
-    
-    if (config.secretKey) {
+      // Try banks API as secondary test (works even without balance)
       try {
         const banksResponse = await flutterwaveClient.getBanks('UG')
         if (banksResponse.status === 'success') {
           banksTest.success = true
           banksTest.bankCount = banksResponse.data.length
+        } else {
+          banksTest.error = banksResponse.message || 'Failed to fetch banks'
         }
       } catch (error: any) {
-        banksTest.error = error.message || 'Failed to fetch banks'
+        const errorMsg = error.message || 'Failed to fetch banks'
+        if (errorMsg.includes('401') || errorMsg.includes('Unauthorized')) {
+          banksTest.error = 'Invalid API key - check your secret key'
+        } else {
+          banksTest.error = errorMsg.substring(0, 100)
+        }
       }
+    } else {
+      apiTest.error = 'No secret key configured'
+      banksTest.error = 'No secret key configured'
     }
 
-    // Overall status
+    // Overall status - success if either API works
+    const isApiWorking = apiTest.success || banksTest.success
     const isFullyConfigured = 
       configStatus.hasPublicKey && 
       configStatus.hasSecretKey && 
       configStatus.hasEncryptionKey &&
-      apiTest.success
+      isApiWorking
 
     // Recommendations
     const recommendations: string[] = []
     
     if (!configStatus.hasPublicKey) {
-      recommendations.push('Add Flutterwave Public Key (NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY)')
+      recommendations.push('Add Flutterwave Public Key')
     }
     if (!configStatus.hasSecretKey) {
-      recommendations.push('Add Flutterwave Secret Key (FLUTTERWAVE_SECRET_KEY)')
+      recommendations.push('Add Flutterwave Secret Key')
     }
     if (!configStatus.hasEncryptionKey) {
-      recommendations.push('Add Flutterwave Encryption Key (FLUTTERWAVE_ENCRYPTION_KEY)')
+      recommendations.push('Add Flutterwave Encryption Key')
     }
     if (!configStatus.hasWebhookHash) {
       recommendations.push('Add Flutterwave Webhook Hash for payment confirmation')
     }
     if (configStatus.isTest) {
-      recommendations.push('Switch to production keys when ready to go live')
+      recommendations.push('Currently using TEST keys - switch to PRODUCTION keys to go live')
     }
-    if (apiTest.success && !platformSettings?.flutterwaveSecretKey) {
-      recommendations.push('Consider saving keys in Admin Settings for easier management')
+    if (isApiWorking && !platformSettings?.flutterwaveSecretKey) {
+      recommendations.push('Keys loaded from .env - save in Admin Settings for easier management')
+    }
+    if (!apiTest.success && banksTest.success) {
+      recommendations.push('Balance check failed (normal for new accounts) - API connection is working')
     }
 
     return NextResponse.json({
@@ -134,16 +156,16 @@ export async function GET() {
       },
       status: {
         isFullyConfigured,
-        canAcceptPayments: isFullyConfigured && apiTest.success,
+        canAcceptPayments: isFullyConfigured && isApiWorking,
         canProcessPayouts: isFullyConfigured && apiTest.success && (apiTest.balance?.availableBalance > 0),
       },
       recommendations,
     })
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Flutterwave test error:', error)
     return NextResponse.json(
-      { error: 'Failed to test Flutterwave configuration' },
+      { error: error.message || 'Failed to test Flutterwave configuration' },
       { status: 500 }
     )
   }
