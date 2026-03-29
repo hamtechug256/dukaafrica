@@ -6,18 +6,99 @@
  * - Subaccount management for sellers
  * - Mobile money payments across East Africa
  * - Webhook handling for payment confirmation
+ * 
+ * Configuration: Reads from database (PlatformSettings) first, falls back to env vars
  */
+
+import { prisma } from '@/lib/db'
 
 // ============================================
 // FLUTTERWAVE CONFIGURATION
 // ============================================
 
-export const FLUTTERWAVE_CONFIG = {
+// Environment variable fallbacks
+const ENV_CONFIG = {
   baseUrl: process.env.FLUTTERWAVE_BASE_URL || 'https://api.flutterwave.com/v3',
   publicKey: process.env.NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY || '',
   secretKey: process.env.FLUTTERWAVE_SECRET_KEY || '',
   encryptionKey: process.env.FLUTTERWAVE_ENCRYPTION_KEY || '',
   webhookHash: process.env.FLUTTERWAVE_WEBHOOK_HASH || '',
+}
+
+// Cached config from database
+let cachedConfig: {
+  publicKey: string
+  secretKey: string
+  encryptionKey: string
+  webhookHash: string
+  lastFetched: number
+} | null = null
+
+const CONFIG_CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+
+/**
+ * Get Flutterwave configuration
+ * Priority: Database (PlatformSettings) > Environment Variables
+ */
+export async function getFlutterwaveConfig(): Promise<{
+  baseUrl: string
+  publicKey: string
+  secretKey: string
+  encryptionKey: string
+  webhookHash: string
+}> {
+  // Check cache first
+  if (cachedConfig && Date.now() - cachedConfig.lastFetched < CONFIG_CACHE_TTL) {
+    return {
+      baseUrl: ENV_CONFIG.baseUrl,
+      ...cachedConfig,
+    }
+  }
+
+  try {
+    // Try to get from database
+    const platformSettings = await prisma.platformSettings.findFirst()
+    
+    if (platformSettings) {
+      cachedConfig = {
+        publicKey: platformSettings.flutterwavePublicKey || ENV_CONFIG.publicKey,
+        secretKey: platformSettings.flutterwaveSecretKey || ENV_CONFIG.secretKey,
+        encryptionKey: platformSettings.flutterwaveEncryptionKey || ENV_CONFIG.encryptionKey,
+        webhookHash: platformSettings.flutterwaveWebhookSecret || ENV_CONFIG.webhookHash,
+        lastFetched: Date.now(),
+      }
+      
+      return {
+        baseUrl: ENV_CONFIG.baseUrl,
+        ...cachedConfig,
+      }
+    }
+  } catch (error) {
+    console.warn('Could not fetch Flutterwave config from database, using env vars:', error)
+  }
+
+  // Fall back to environment variables
+  return ENV_CONFIG
+}
+
+/**
+ * Get public config (for client-side use)
+ * This only returns the public key, never the secret
+ */
+export function getPublicFlutterwaveConfig(): { publicKey: string; baseUrl: string } {
+  return {
+    publicKey: ENV_CONFIG.publicKey,
+    baseUrl: ENV_CONFIG.baseUrl,
+  }
+}
+
+// Legacy sync config for backward compatibility (uses env vars only)
+export const FLUTTERWAVE_CONFIG = {
+  get baseUrl() { return ENV_CONFIG.baseUrl },
+  get publicKey() { return ENV_CONFIG.publicKey },
+  get secretKey() { return ENV_CONFIG.secretKey },
+  get encryptionKey() { return ENV_CONFIG.encryptionKey },
+  get webhookHash() { return ENV_CONFIG.webhookHash },
 }
 
 // ============================================
@@ -140,12 +221,22 @@ export interface FlutterwaveWebhookPayload {
 // ============================================
 
 class FlutterwaveClient {
-  private baseUrl: string
-  private secretKey: string
+  private getBaseUrl: () => string
+  private getSecretKey: () => string
 
   constructor() {
-    this.baseUrl = FLUTTERWAVE_CONFIG.baseUrl
-    this.secretKey = FLUTTERWAVE_CONFIG.secretKey
+    // Use getters for dynamic config access
+    this.getBaseUrl = () => FLUTTERWAVE_CONFIG.baseUrl
+    this.getSecretKey = () => FLUTTERWAVE_CONFIG.secretKey
+  }
+
+  /**
+   * Initialize client with database config (call before operations)
+   */
+  async initialize(): Promise<void> {
+    const config = await getFlutterwaveConfig()
+    this.getBaseUrl = () => config.baseUrl
+    this.getSecretKey = () => config.secretKey
   }
 
   private async request<T>(
@@ -153,11 +244,13 @@ class FlutterwaveClient {
     method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'GET',
     data?: unknown
   ): Promise<T> {
-    const url = `${this.baseUrl}${endpoint}`
+    // Ensure we have latest config from database
+    const config = await getFlutterwaveConfig()
+    const url = `${config.baseUrl}${endpoint}`
     
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${this.secretKey}`
+      'Authorization': `Bearer ${config.secretKey}`
     }
 
     const options: RequestInit = {

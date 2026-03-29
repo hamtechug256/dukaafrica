@@ -8,7 +8,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { FLUTTERWAVE_CONFIG } from '@/lib/flutterwave/client'
+import { getFlutterwaveConfig } from '@/lib/flutterwave/client'
 import { createEscrowHold } from '@/lib/escrow'
 import crypto from 'crypto'
 
@@ -32,9 +32,12 @@ function safeCompare(a: string, b: string): boolean {
 
 export async function POST(request: NextRequest) {
   try {
+    // Get config from database (priority) or env vars
+    const config = await getFlutterwaveConfig()
+    
     // Verify webhook signature with timing-safe comparison
     const signature = request.headers.get('verif-hash')
-    const expectedSignature = FLUTTERWAVE_CONFIG.webhookHash
+    const expectedSignature = config.webhookHash
 
     if (!signature || !expectedSignature || !safeCompare(signature, expectedSignature)) {
       console.error('Invalid Flutterwave webhook signature')
