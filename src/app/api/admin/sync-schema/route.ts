@@ -234,10 +234,10 @@ export async function POST(request: NextRequest) {
             CONSTRAINT "EscrowTransaction_pkey" PRIMARY KEY ("id")
           );
         `)
-        // Add unique constraint for orderId
+        // Add composite unique constraint for orderId + storeId (multi-vendor support)
         try {
           await prisma.$executeRawUnsafe(`
-            CREATE UNIQUE INDEX IF NOT EXISTS "EscrowTransaction_orderId_key" ON "EscrowTransaction"("orderId");
+            CREATE UNIQUE INDEX IF NOT EXISTS "EscrowTransaction_orderId_storeId_key" ON "EscrowTransaction"("orderId", "storeId");
           `)
         } catch (e) {}
         // Add indexes

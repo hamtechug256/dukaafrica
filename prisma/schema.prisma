@@ -155,88 +155,88 @@ model Notification {
 }
 
 model Order {
-  id                        String      @id @default(uuid())
-  orderNumber               String      @unique
-  userId                    String
-  storeId                   String?
-  buyerCountry              String      @default("UGANDA")
-  sellerCountry             String      @default("UGANDA")
-  
+  id            String  @id @default(uuid())
+  orderNumber   String  @unique
+  userId        String
+  storeId       String?
+  buyerCountry  String  @default("UGANDA")
+  sellerCountry String  @default("UGANDA")
+
   // Shipping Details
-  shippingName              String
-  shippingPhone             String
-  shippingCountry           String
-  shippingRegion            String
-  shippingCity              String
-  shippingAddress           String
-  shippingPostal            String?
-  
+  shippingName    String
+  shippingPhone   String
+  shippingCountry String
+  shippingRegion  String
+  shippingCity    String
+  shippingAddress String
+  shippingPostal  String?
+
   // Pricing
-  subtotal                  Float
-  shippingFee               Float       @default(0)
-  tax                       Float       @default(0)
-  discount                  Float       @default(0)
-  total                     Float
-  currency                  String      @default("UGX")
-  
+  subtotal    Float
+  shippingFee Float  @default(0)
+  tax         Float  @default(0)
+  discount    Float  @default(0)
+  total       Float
+  currency    String @default("UGX")
+
   // Commission Split
-  platformProductCommission Float       @default(0)
-  platformShippingMarkup    Float       @default(0)
-  sellerProductEarnings     Float       @default(0)
-  sellerShippingAmount      Float       @default(0)
-  
+  platformProductCommission Float @default(0)
+  platformShippingMarkup    Float @default(0)
+  sellerProductEarnings     Float @default(0)
+  sellerShippingAmount      Float @default(0)
+
   // Shipping & Delivery
-  shippingZoneType          String?
-  deliveryMethod            String      @default("BUS")
-  estimatedDelivery         DateTime?
-  deliveredAt               DateTime?
-  busCompany                String?
-  busNumberPlate            String?
-  conductorPhone            String?
-  pickupLocation            String?
-  
+  shippingZoneType  String?
+  deliveryMethod    String    @default("BUS")
+  estimatedDelivery DateTime?
+  deliveredAt       DateTime?
+  busCompany        String?
+  busNumberPlate    String?
+  conductorPhone    String?
+  pickupLocation    String?
+
   // Shipment Proof
-  shipmentProofUrl          String?     // Photo of package
-  waybillPhotoUrl           String?     // Photo of bus receipt
-  trackingNumber            String?     // Tracking/waybill number
-  shippedAt                 DateTime?   // When seller shipped
-  
+  shipmentProofUrl String? // Photo of package
+  waybillPhotoUrl  String? // Photo of bus receipt
+  trackingNumber   String? // Tracking/waybill number
+  shippedAt        DateTime? // When seller shipped
+
   // Delivery Confirmation
-  deliveryPhotoUrl          String?     // Photo buyer took on receipt
-  deliveryConfirmedAt       DateTime?   // When buyer confirmed
-  deliveryConfirmedBy       String?     // Buyer ID who confirmed
-  autoReleasedAt            DateTime?   // If auto-released after hold period
-  
+  deliveryPhotoUrl    String? // Photo buyer took on receipt
+  deliveryConfirmedAt DateTime? // When buyer confirmed
+  deliveryConfirmedBy String? // Buyer ID who confirmed
+  autoReleasedAt      DateTime? // If auto-released after hold period
+
   // Escrow
-  escrowStatus              String      @default("HELD") // HELD, RELEASED, REFUNDED, DISPUTED
-  escrowReleasedAt          DateTime?
-  escrowRefundedAt          DateTime?
-  escrowHoldDays            Int         @default(7)   // Days to hold (based on seller tier)
-  
+  escrowStatus     String    @default("HELD") // HELD, RELEASED, REFUNDED, DISPUTED
+  escrowReleasedAt DateTime?
+  escrowRefundedAt DateTime?
+  escrowHoldDays   Int       @default(7) // Days to hold (based on seller tier)
+
   // Coupon
-  couponId                  String?
-  couponCode                String?
-  couponDiscount            Float       @default(0)
-  
+  couponId       String?
+  couponCode     String?
+  couponDiscount Float   @default(0)
+
   // Status
-  status                    String      @default("PENDING")
-  paymentStatus             String      @default("PENDING")
-  paymentMethod             String?
-  paymentRef                String?
-  notes                     String?
-  cancellationReason        String?
-  cancelledAt               DateTime?
-  cancelledBy               String?
-  
-  createdAt                 DateTime    @default(now())
-  updatedAt                 DateTime    @updatedAt
-  
-  Dispute                   Dispute?
-  EscrowTransaction         EscrowTransaction?
-  OrderItem                 OrderItem[]
-  Payment                   Payment?
-  Store                     Store?      @relation(fields: [storeId], references: [id])
-  User                      User        @relation(fields: [userId], references: [id])
+  status             String    @default("PENDING")
+  paymentStatus      String    @default("PENDING")
+  paymentMethod      String?
+  paymentRef         String?
+  notes              String?
+  cancellationReason String?
+  cancelledAt        DateTime?
+  cancelledBy        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  Dispute           Dispute?
+  EscrowTransaction EscrowTransaction[]
+  OrderItem         OrderItem[]
+  Payment           Payment?
+  Store             Store?              @relation(fields: [storeId], references: [id])
+  User              User                @relation(fields: [userId], references: [id])
 
   @@index([sellerCountry])
   @@index([buyerCountry])
@@ -527,83 +527,83 @@ model ShippingZoneMatrix {
 }
 
 model Store {
-  id                      String         @id @default(uuid())
-  userId                  String         @unique
-  name                    String
-  slug                    String         @unique
-  description             String?
-  logo                    String?
-  banner                  String?
-  phone                   String?
-  email                   String?
-  address                 String?
-  city                    String?
-  region                  String?
-  country                 String         @default("UGANDA")
-  
+  id          String  @id @default(uuid())
+  userId      String  @unique
+  name        String
+  slug        String  @unique
+  description String?
+  logo        String?
+  banner      String?
+  phone       String?
+  email       String?
+  address     String?
+  city        String?
+  region      String?
+  country     String  @default("UGANDA")
+
   // Verification & Tier System
-  verificationStatus      String         @default("UNVERIFIED") // UNVERIFIED, PENDING, VERIFIED, REJECTED
-  verificationTier        String         @default("STARTER")    // STARTER, VERIFIED, PREMIUM
-  idType                  String?        // NATIONAL_ID, PASSPORT, DRIVING_LICENSE
-  idNumber                String?        // ID document number
-  idDocumentUrl           String?        // Photo of ID document
-  idDocumentBackUrl       String?        // Back of ID (if applicable)
-  selfieWithIdUrl         String?        // Selfie holding ID
-  businessDocUrl          String?        // Business registration document
-  taxDocUrl               String?        // Tax registration document
-  physicalLocationUrl     String?        // Photo of physical shop/location
-  verifiedAt              DateTime?
-  verifiedBy              String?        // Admin who verified
-  verificationNotes       String?        // Admin notes on verification
+  verificationStatus         String    @default("UNVERIFIED") // UNVERIFIED, PENDING, VERIFIED, REJECTED
+  verificationTier           String    @default("STARTER") // STARTER, VERIFIED, PREMIUM
+  idType                     String? // NATIONAL_ID, PASSPORT, DRIVING_LICENSE
+  idNumber                   String? // ID document number
+  idDocumentUrl              String? // Photo of ID document
+  idDocumentBackUrl          String? // Back of ID (if applicable)
+  selfieWithIdUrl            String? // Selfie holding ID
+  businessDocUrl             String? // Business registration document
+  taxDocUrl                  String? // Tax registration document
+  physicalLocationUrl        String? // Photo of physical shop/location
+  verifiedAt                 DateTime?
+  verifiedBy                 String? // Admin who verified
+  verificationNotes          String? // Admin notes on verification
   verificationRejectedReason String?
-  
+
   // Performance Metrics
-  totalOrders             Int            @default(0)
-  successfulDeliveries    Int            @default(0)
-  disputedOrders          Int            @default(0)
-  deliverySuccessRate     Float          @default(0)
-  
+  totalOrders          Int   @default(0)
+  successfulDeliveries Int   @default(0)
+  disputedOrders       Int   @default(0)
+  deliverySuccessRate  Float @default(0)
+
   // Legacy fields (keep for backward compatibility)
-  isVerified              Boolean        @default(false)
-  verificationDocs        String?
-  businessName            String?
-  businessType            String?
-  taxId                   String?
-  
+  isVerified       Boolean @default(false)
+  verificationDocs String?
+  businessName     String?
+  businessType     String?
+  taxId            String?
+
   // Payment & Payouts
   flutterwaveSubaccountId String?
-  payoutMethod            String?        // MOBILE_MONEY, BANK_TRANSFER
-  payoutPhone             String?        // Mobile money number
-  payoutMobileProvider    String?        // MTN, AIRTEL, MPESA, TIGO_PESA, etc.
-  payoutBankName          String?        // Bank display name (e.g., "Equity Bank")
-  payoutBankCode          String?        // Flutterwave bank code (e.g., "EQB")
-  payoutBankAccount       String?        // Bank account number
-  
+  payoutMethod            String? // MOBILE_MONEY, BANK_TRANSFER
+  payoutPhone             String? // Mobile money number
+  payoutMobileProvider    String? // MTN, AIRTEL, MPESA, TIGO_PESA, etc.
+  payoutBankName          String? // Bank display name (e.g., "Equity Bank")
+  payoutBankCode          String? // Flutterwave bank code (e.g., "EQB")
+  payoutBankAccount       String? // Bank account number
+
   // Financials
-  totalSales              Float          @default(0)
-  availableBalance        Float          @default(0)
-  pendingBalance          Float          @default(0)
-  escrowBalance           Float          @default(0)  // Funds held in escrow
-  commissionRate          Float          @default(10)
-  
+  totalSales       Float @default(0)
+  availableBalance Float @default(0)
+  pendingBalance   Float @default(0)
+  escrowBalance    Float @default(0) // Funds held in escrow
+  commissionRate   Float @default(10)
+
   // Shipping
-  shipsToCountries        String?
-  
+  shipsToCountries String?
+
   // Status
-  isActive                Boolean        @default(true)
-  isFeatured              Boolean        @default(false)
-  rating                  Float          @default(0)
-  reviewCount             Int            @default(0)
-  
-  createdAt               DateTime       @default(now())
-  updatedAt               DateTime       @updatedAt
-  
-  Dispute                 Dispute[]
-  Order                   Order[]
-  Product                 Product[]
-  SellerPayout            SellerPayout[]
-  EscrowTransaction       EscrowTransaction[]
-  User                    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  isActive    Boolean @default(true)
+  isFeatured  Boolean @default(false)
+  rating      Float   @default(0)
+  reviewCount Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  Dispute           Dispute[]
+  Order             Order[]
+  Product           Product[]
+  SellerPayout      SellerPayout[]
+  EscrowTransaction EscrowTransaction[]
+  User              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([country])
   @@index([isActive])
@@ -645,32 +645,32 @@ model TicketReply {
 }
 
 model User {
-  id              String            @id @default(uuid())
-  clerkId         String            @unique
-  email           String            @unique
-  phone           String?
-  name            String?
-  firstName       String?
-  lastName        String?
-  avatar          String?
-  role            String            @default("BUYER")
-  country         String            @default("UGANDA")
-  currency        String            @default("UGX")
-  emailVerified   DateTime?
-  phoneVerified   DateTime?
-  isActive        Boolean           @default(true)
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-  Address         Address[]
-  ChatParticipant ChatParticipant[]
-  DisputeMessage  DisputeMessage[]
+  id                String              @id @default(uuid())
+  clerkId           String              @unique
+  email             String              @unique
+  phone             String?
+  name              String?
+  firstName         String?
+  lastName          String?
+  avatar            String?
+  role              String              @default("BUYER")
+  country           String              @default("UGANDA")
+  currency          String              @default("UGX")
+  emailVerified     DateTime?
+  phoneVerified     DateTime?
+  isActive          Boolean             @default(true)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  Address           Address[]
+  ChatParticipant   ChatParticipant[]
+  DisputeMessage    DisputeMessage[]
   EscrowTransaction EscrowTransaction[]
-  Message         Message[]
-  Notification    Notification[]
-  Order           Order[]
-  Review          Review[]
-  Store           Store?
-  Wishlist        Wishlist[]
+  Message           Message[]
+  Notification      Notification[]
+  Order             Order[]
+  Review            Review[]
+  Store             Store?
+  Wishlist          Wishlist[]
 
   @@index([country])
   @@index([email])
@@ -702,13 +702,13 @@ model NewsletterSubscriber {
 }
 
 model RateLimitEntry {
-  id           String   @id @default(uuid())
-  identifier   String   // IP address or user ID
-  action       String   // e.g., "login", "api_call", "password_reset"
-  attempts     Int      @default(1)
+  id           String    @id @default(uuid())
+  identifier   String // IP address or user ID
+  action       String // e.g., "login", "api_call", "password_reset"
+  attempts     Int       @default(1)
   blockedUntil DateTime?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   @@unique([identifier, action])
   @@index([identifier])
@@ -716,13 +716,13 @@ model RateLimitEntry {
 }
 
 model SecurityLog {
-  id           String   @id @default(uuid())
-  type         String   // LOGIN_ATTEMPT, BLOCKED_ACCESS, SUSPICIOUS_ACTIVITY
-  identifier   String   // IP address or user ID
-  details      String
-  userAgent    String?
-  path         String?
-  createdAt    DateTime @default(now())
+  id         String   @id @default(uuid())
+  type       String // LOGIN_ATTEMPT, BLOCKED_ACCESS, SUSPICIOUS_ACTIVITY
+  identifier String // IP address or user ID
+  details    String
+  userAgent  String?
+  path       String?
+  createdAt  DateTime @default(now())
 
   @@index([type])
   @@index([identifier])
@@ -734,41 +734,41 @@ model SecurityLog {
 // ============================================
 
 model Dispute {
-  id                  String      @id @default(uuid())
-  orderId             String      @unique
-  storeId             String
-  buyerId             String
-  sellerId            String
-  
+  id       String @id @default(uuid())
+  orderId  String @unique
+  storeId  String
+  buyerId  String
+  sellerId String
+
   // Dispute Details
-  reason              String      // NON_DELIVERY, ITEM_NOT_AS_DESCRIBED, DAMAGED, WRONG_ITEM, OTHER
-  description         String
-  buyerEvidence       String?     // JSON array of image URLs from buyer
-  sellerEvidence      String?     // JSON array of image URLs from seller
-  
+  reason         String // NON_DELIVERY, ITEM_NOT_AS_DESCRIBED, DAMAGED, WRONG_ITEM, OTHER
+  description    String
+  buyerEvidence  String? // JSON array of image URLs from buyer
+  sellerEvidence String? // JSON array of image URLs from seller
+
   // Resolution
-  status              String      @default("OPEN") // OPEN, UNDER_REVIEW, RESOLVED, ESCALATED
-  resolution          String?     // REFUND_BUYER, RELEASE_TO_SELLER, PARTIAL_REFUND
-  resolutionNotes     String?
-  refundAmount        Float?
-  resolvedAt          DateTime?
-  resolvedBy          String?     // Admin who resolved
-  
+  status          String    @default("OPEN") // OPEN, UNDER_REVIEW, RESOLVED, ESCALATED
+  resolution      String? // REFUND_BUYER, RELEASE_TO_SELLER, PARTIAL_REFUND
+  resolutionNotes String?
+  refundAmount    Float?
+  resolvedAt      DateTime?
+  resolvedBy      String? // Admin who resolved
+
   // Timeline
-  buyerRespondedAt    DateTime?
-  sellerRespondedAt   DateTime?
-  escalatedAt         DateTime?
-  
+  buyerRespondedAt  DateTime?
+  sellerRespondedAt DateTime?
+  escalatedAt       DateTime?
+
   // Deadlines
   sellerResponseDeadline DateTime? // Seller has X days to respond
-  autoResolveAt       DateTime?   // Auto-resolve if no response
-  
-  createdAt           DateTime    @default(now())
-  updatedAt           DateTime    @updatedAt
-  
-  Order               Order       @relation(fields: [orderId], references: [id])
-  Store               Store       @relation(fields: [storeId], references: [id])
-  DisputeMessage      DisputeMessage[]
+  autoResolveAt          DateTime? // Auto-resolve if no response
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  Order          Order            @relation(fields: [orderId], references: [id])
+  Store          Store            @relation(fields: [storeId], references: [id])
+  DisputeMessage DisputeMessage[]
 
   @@index([status])
   @@index([storeId])
@@ -784,13 +784,13 @@ model DisputeMessage {
   disputeId   String
   userId      String
   message     String
-  attachments String?  // JSON array of image URLs
+  attachments String? // JSON array of image URLs
   isAdmin     Boolean  @default(false)
   isInternal  Boolean  @default(false) // Only visible to admins
   createdAt   DateTime @default(now())
-  
-  Dispute     Dispute  @relation(fields: [disputeId], references: [id], onDelete: Cascade)
-  User        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  Dispute Dispute @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+  User    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([disputeId])
   @@index([userId])
@@ -801,46 +801,46 @@ model DisputeMessage {
 // ============================================
 
 model SellerTierConfig {
-  id                      String    @id @default(uuid())
-  tierName                String    @unique // STARTER, VERIFIED, PREMIUM
-  displayName             String    // "Starter Seller", "Verified Seller", "Premium Seller"
-  description             String?   // Description of tier benefits
-  
+  id          String  @id @default(uuid())
+  tierName    String  @unique // STARTER, VERIFIED, PREMIUM
+  displayName String // "Starter Seller", "Verified Seller", "Premium Seller"
+  description String? // Description of tier benefits
+
   // Requirements to achieve this tier
-  requiresIdVerification  Boolean   @default(false)
-  requiresSelfie          Boolean   @default(false)
-  requiresBusinessDoc     Boolean   @default(false)
-  requiresTaxDoc          Boolean   @default(false)
-  requiresPhysicalLocation Boolean  @default(false)
-  requiresMinOrders       Int       @default(0)
-  requiresMinRating       Float     @default(0)
-  
+  requiresIdVerification   Boolean @default(false)
+  requiresSelfie           Boolean @default(false)
+  requiresBusinessDoc      Boolean @default(false)
+  requiresTaxDoc           Boolean @default(false)
+  requiresPhysicalLocation Boolean @default(false)
+  requiresMinOrders        Int     @default(0)
+  requiresMinRating        Float   @default(0)
+
   // Limits
-  maxProducts             Int       @default(10)
-  maxTransactionAmount    Float     @default(500000)
-  maxDailyOrders          Int       @default(50)
-  
+  maxProducts          Int   @default(10)
+  maxTransactionAmount Float @default(500000)
+  maxDailyOrders       Int   @default(50)
+
   // Fees & Rates
-  commissionRate          Float     @default(15)
-  escrowHoldDays          Int       @default(7)
-  
+  commissionRate Float @default(15)
+  escrowHoldDays Int   @default(7)
+
   // Features
-  canFeatureProducts      Boolean   @default(false)
-  canCreateFlashSales     Boolean   @default(false)
-  canBulkUpload           Boolean   @default(false)
-  hasPrioritySupport      Boolean   @default(false)
-  hasAnalytics            Boolean   @default(false)
-  
+  canFeatureProducts  Boolean @default(false)
+  canCreateFlashSales Boolean @default(false)
+  canBulkUpload       Boolean @default(false)
+  hasPrioritySupport  Boolean @default(false)
+  hasAnalytics        Boolean @default(false)
+
   // Badge
-  badgeText               String?   // "✓ Verified", "⭐ Premium"
-  badgeColor              String?   // OKLCH color for badge
-  
+  badgeText  String? // "✓ Verified", "⭐ Premium"
+  badgeColor String? // OKLCH color for badge
+
   // Status
-  isActive                Boolean   @default(true)
-  order                   Int       @default(0)
-  
-  createdAt               DateTime  @default(now())
-  updatedAt               DateTime  @updatedAt
+  isActive Boolean @default(true)
+  order    Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([isActive])
   @@index([order])
@@ -851,47 +851,47 @@ model SellerTierConfig {
 // ============================================
 
 model EscrowTransaction {
-  id              String    @id @default(uuid())
-  orderId         String    
-  storeId         String
-  buyerId         String
-  
+  id      String @id @default(uuid())
+  orderId String
+  storeId String
+  buyerId String
+
   // Amounts (supporting both naming conventions)
-  amount          Float?    // Alternative name for grossAmount
-  grossAmount     Float?    // Total order amount
-  sellerAmount    Float     // Amount seller will receive
-  platformFee     Float?    // Alternative name for platformAmount
-  platformAmount  Float?    // Platform commission
-  currency        String    @default("UGX")
-  
+  amount         Float? // Alternative name for grossAmount
+  grossAmount    Float? // Total order amount
+  sellerAmount   Float // Amount seller will receive
+  platformFee    Float? // Alternative name for platformAmount
+  platformAmount Float? // Platform commission
+  currency       String @default("UGX")
+
   // Status
-  status          String    @default("HELD") // HELD, RELEASED, REFUNDED, PARTIAL_REFUND, DISPUTED
-  
+  status String @default("HELD") // HELD, RELEASED, REFUNDED, PARTIAL_REFUND, DISPUTED
+
   // Release
-  releaseAt       DateTime? // When funds should be released
-  releaseType     String?   // AUTO, MANUAL, DISPUTE_RESOLVED, BUYER_CONFIRMED
-  releasedAt      DateTime? // When funds were actually released
-  autoReleased    Boolean   @default(false)
-  releasedBy      String?   // Admin ID if manual
-  
+  releaseAt    DateTime? // When funds should be released
+  releaseType  String? // AUTO, MANUAL, DISPUTE_RESOLVED, BUYER_CONFIRMED
+  releasedAt   DateTime? // When funds were actually released
+  autoReleased Boolean   @default(false)
+  releasedBy   String? // Admin ID if manual
+
   // Platform Reserve
-  reserveAmount   Float     @default(0)  // Amount held in platform reserve
-  
+  reserveAmount Float @default(0) // Amount held in platform reserve
+
   // Refund
-  refundAmount    Float?
-  refundReason    String?
-  refundedAt      DateTime?
-  refundedBy      String?
-  
+  refundAmount Float?
+  refundReason String?
+  refundedAt   DateTime?
+  refundedBy   String?
+
   // Timeline
-  heldAt          DateTime  @default(now())
-  
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  
-  Order           Order     @relation(fields: [orderId], references: [id])
-  Store           Store?    @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  User            User?     @relation(fields: [buyerId], references: [id])
+  heldAt DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  Order Order  @relation(fields: [orderId], references: [id])
+  Store Store? @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  User  User?  @relation(fields: [buyerId], references: [id])
 
   @@unique([orderId, storeId]) // One escrow per store per order (multi-vendor support)
   @@index([status])
@@ -908,21 +908,21 @@ model EscrowTransaction {
 // ============================================
 
 model EscrowSettings {
-  id                        String   @id @default(uuid())
-  defaultEscrowDays         Int      @default(7)
-  starterEscrowDays         Int      @default(7)
-  verifiedEscrowDays        Int      @default(5)
-  premiumEscrowDays         Int      @default(3)
-  starterCommissionRate     Float    @default(15)
-  verifiedCommissionRate    Float    @default(10)
-  premiumCommissionRate     Float    @default(8)
-  autoReleaseEnabled        Boolean  @default(true)
-  autoReleaseCronSecret     String?
-  autoReleaseHour           Int      @default(0)
-  disputeResolutionDays     Int      @default(7)
-  minWithdrawalAmount       Float    @default(50000)
-  createdAt                 DateTime @default(now())
-  updatedAt                 DateTime @updatedAt
+  id                     String   @id @default(uuid())
+  defaultEscrowDays      Int      @default(7)
+  starterEscrowDays      Int      @default(7)
+  verifiedEscrowDays     Int      @default(5)
+  premiumEscrowDays      Int      @default(3)
+  starterCommissionRate  Float    @default(15)
+  verifiedCommissionRate Float    @default(10)
+  premiumCommissionRate  Float    @default(8)
+  autoReleaseEnabled     Boolean  @default(true)
+  autoReleaseCronSecret  String?
+  autoReleaseHour        Int      @default(0)
+  disputeResolutionDays  Int      @default(7)
+  minWithdrawalAmount    Float    @default(50000)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
 }
 
 // ============================================
@@ -930,17 +930,17 @@ model EscrowSettings {
 // ============================================
 
 model PlatformReserve {
-  id              String    @id @default(uuid())
-  totalReserve    Float     @default(0)
-  availableReserve Float   @default(0)
-  pendingRefunds  Float     @default(0)
-  currency        String    @default("UGX")
-  
+  id               String @id @default(uuid())
+  totalReserve     Float  @default(0)
+  availableReserve Float  @default(0)
+  pendingRefunds   Float  @default(0)
+  currency         String @default("UGX")
+
   // Reserve Settings
-  reservePercent  Float     @default(10)  // % of each transaction to hold
-  minReserve      Float     @default(500000)
-  
-  updatedAt       DateTime  @updatedAt
+  reservePercent Float @default(10) // % of each transaction to hold
+  minReserve     Float @default(500000)
+
+  updatedAt DateTime @updatedAt
 }
 
 // ============================================
@@ -948,28 +948,28 @@ model PlatformReserve {
 // ============================================
 
 model BuyerProtectionClaim {
-  id              String    @id @default(uuid())
-  orderId         String
-  buyerId         String
-  storeId         String
-  
-  claimType       String    // NON_DELIVERY, SIGNIFICANTLY_NOT_AS_DESCRIBED, DAMAGED
-  status          String    @default("PENDING") // PENDING, APPROVED, REJECTED
-  
-  claimAmount     Float
-  approvedAmount  Float?
-  
-  buyerStatement  String
-  buyerEvidence   String?   // JSON array of evidence URLs
-  
-  reviewedAt      DateTime?
-  reviewedBy      String?
-  reviewNotes     String?
-  
-  processedAt     DateTime?
-  
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id      String @id @default(uuid())
+  orderId String
+  buyerId String
+  storeId String
+
+  claimType String // NON_DELIVERY, SIGNIFICANTLY_NOT_AS_DESCRIBED, DAMAGED
+  status    String @default("PENDING") // PENDING, APPROVED, REJECTED
+
+  claimAmount    Float
+  approvedAmount Float?
+
+  buyerStatement String
+  buyerEvidence  String? // JSON array of evidence URLs
+
+  reviewedAt  DateTime?
+  reviewedBy  String?
+  reviewNotes String?
+
+  processedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([status])
   @@index([buyerId])

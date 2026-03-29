@@ -123,8 +123,8 @@ export async function POST(
       }, { status: 400 })
     }
 
-    // Get escrow transaction
-    const escrow = await prisma.escrowTransaction.findUnique({
+    // Get escrow transaction (use findFirst for multi-vendor support)
+    const escrow = await prisma.escrowTransaction.findFirst({
       where: { orderId },
     })
 
@@ -293,12 +293,13 @@ export async function GET(
       return NextResponse.json({ error: 'Order not found' }, { status: 404 })
     }
 
-    // Calculate refund details
-    const escrow = order.EscrowTransaction
+    // Calculate refund details (EscrowTransaction is now an array for multi-vendor support)
+    const escrows = Array.isArray(order.EscrowTransaction) ? order.EscrowTransaction : []
+    const primaryEscrow = escrows[0] // First escrow for backward compatibility
 
     const refundEligibility = {
       canRefund: order.paymentStatus === 'PAID' && order.escrowStatus !== 'REFUNDED',
-      maxRefundAmount: escrow?.sellerAmount || order.total,
+      maxRefundAmount: primaryEscrow?.sellerAmount || order.total,
       productTotal: order.subtotal,
       shippingFee: order.shippingFee,
       orderTotal: order.total,
@@ -311,12 +312,17 @@ export async function GET(
         pending: order.Store?.pendingBalance || 0,
         available: order.Store?.availableBalance || 0,
       },
-      escrowDetails: escrow ? {
-        sellerAmount: escrow.sellerAmount,
-        platformAmount: escrow.platformAmount,
-        status: escrow.status,
-        heldAt: escrow.heldAt,
+      escrowDetails: primaryEscrow ? {
+        sellerAmount: primaryEscrow.sellerAmount,
+        platformAmount: primaryEscrow.platformAmount,
+        status: primaryEscrow.status,
+        heldAt: primaryEscrow.heldAt,
       } : null,
+      multiVendorEscrows: escrows.length > 1 ? escrows.map((e) => ({
+        storeId: e.storeId,
+        sellerAmount: e.sellerAmount,
+        status: e.status,
+      })) : null,
     }
 
     return NextResponse.json({
