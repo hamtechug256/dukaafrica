@@ -29,8 +29,8 @@ export async function GET(request: NextRequest) {
     const products = await prisma.product.findMany({
       where: {
         OR: [
-          { name: { contains: searchTerm } },
-          { description: { contains: searchTerm } },
+          { name: { contains: searchTerm, mode: 'insensitive' } },
+          { description: { contains: searchTerm, mode: 'insensitive' } },
         ],
         status: 'ACTIVE',
       },
@@ -52,8 +52,8 @@ export async function GET(request: NextRequest) {
     const categories = await prisma.category.findMany({
       where: {
         OR: [
-          { name: { contains: searchTerm } },
-          { description: { contains: searchTerm } },
+          { name: { contains: searchTerm, mode: 'insensitive' } },
+          { description: { contains: searchTerm, mode: 'insensitive' } },
         ],
         isActive: true,
       },
@@ -70,8 +70,8 @@ export async function GET(request: NextRequest) {
     const stores = await prisma.store.findMany({
       where: {
         OR: [
-          { name: { contains: searchTerm } },
-          { description: { contains: searchTerm } },
+          { name: { contains: searchTerm, mode: 'insensitive' } },
+          { description: { contains: searchTerm, mode: 'insensitive' } },
         ],
         isActive: true,
       },

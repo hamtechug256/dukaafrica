@@ -113,6 +113,9 @@ export function WishlistButton({
             'transition-all',
             className
           )}
+          onClick={(e) => {
+            e.stopPropagation()
+          }}
         >
           <Heart className={cn('w-5 h-5', showText && 'mr-2')} />
           {showText && 'Save'}
