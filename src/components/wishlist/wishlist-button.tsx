@@ -111,13 +111,8 @@ export function WishlistButton({
           size={size}
           className={cn(
             'transition-all',
-            isInWishlist && 'text-red-500 hover:text-red-600',
             className
           )}
-          onClick={(e) => {
-            e.preventDefault()
-            e.stopPropagation()
-          }}
         >
           <Heart className={cn('w-5 h-5', showText && 'mr-2')} />
           {showText && 'Save'}
