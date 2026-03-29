@@ -17,6 +17,7 @@ const isPublicRoute = createRouteMatcher([
   '/api/products(.*)',
   '/api/stores(.*)',
   '/api/search(.*)',
+  '/api/homepage(.*)', // Homepage public APIs (featured, flash-sales, categories, stats, featured-sellers)
   '/admin/login(.*)', // Admin login page must be public
   '/api/admin/security(.*)', // Security API for rate limiting
   '/api/debug(.*)', // Debug endpoints (temporary)
