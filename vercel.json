@@ -1,0 +1,9 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.schema.json",
+  "crons": [
+    {
+      "path": "/api/cron/release-escrows",
+      "schedule": "0 0 * * *"
+    }
+  ]
+}
