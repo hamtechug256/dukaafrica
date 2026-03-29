@@ -126,11 +126,7 @@ async function handleSuccessfulPayment(payload: any) {
     storeTotals.set(item.storeId, existing + item.total)
   }
 
-  // Get all unique stores
-  const storeIds = Array.from(storeTotals.keys())
-  const isMultiVendor = storeIds.length > 1
-
-  // Process each store
+  // Process each store - create escrow for each
   for (const [storeId, storeTotal] of storeTotals) {
     // Get store info for escrow
     const store = await prisma.store.findUnique({
@@ -161,13 +157,27 @@ async function handleSuccessfulPayment(payload: any) {
       })
     }
 
-    // Calculate commission for this store
-    const commissionRate = store.commissionRate || 15
-    const sellerAmount = Math.round(storeTotal * (1 - commissionRate / 100))
+    // Create escrow for each store (now supports multi-vendor via unique constraint on orderId+storeId)
+    const escrowResult = await createEscrowHold({
+      orderId: order.id,
+      storeId: store.id,
+      buyerId: order.userId,
+      grossAmount: storeTotal,
+      currency: order.currency,
+      store: {
+        verificationTier: store.verificationTier,
+        verificationStatus: store.verificationStatus,
+        commissionRate: store.commissionRate,
+      },
+    })
 
-    if (isMultiVendor) {
-      // For multi-vendor orders, update store balances directly
-      // (escrow unique constraint on orderId prevents multiple escrows)
+    if (escrowResult.success) {
+      console.log(`Escrow created for store ${storeId}:`, escrowResult.escrowId)
+    } else {
+      console.error(`Failed to create escrow for store ${storeId}:`, escrowResult.error)
+      // Fallback: update store stats without escrow
+      const commissionRate = store.commissionRate || 15
+      const sellerAmount = Math.round(storeTotal * (1 - commissionRate / 100))
       await prisma.store.update({
         where: { id: storeId },
         data: {
@@ -176,36 +186,6 @@ async function handleSuccessfulPayment(payload: any) {
           escrowBalance: { increment: sellerAmount },
         },
       })
-      console.log(`Multi-vendor: Updated store ${storeId} escrow balance: ${sellerAmount}`)
-    } else {
-      // Single vendor: create proper escrow
-      const escrowResult = await createEscrowHold({
-        orderId: order.id,
-        storeId: store.id,
-        buyerId: order.userId,
-        grossAmount: storeTotal,
-        currency: order.currency,
-        store: {
-          verificationTier: store.verificationTier,
-          verificationStatus: store.verificationStatus,
-          commissionRate: store.commissionRate,
-        },
-      })
-
-      if (escrowResult.success) {
-        console.log(`Escrow created for store ${storeId}:`, escrowResult.escrowId)
-      } else {
-        console.error(`Failed to create escrow for store ${storeId}:`, escrowResult.error)
-        // Fallback: update store stats without escrow
-        await prisma.store.update({
-          where: { id: storeId },
-          data: {
-            totalSales: { increment: storeTotal },
-            totalOrders: { increment: 1 },
-            escrowBalance: { increment: sellerAmount },
-          },
-        })
-      }
     }
   }
 

@@ -852,7 +852,7 @@ model SellerTierConfig {
 
 model EscrowTransaction {
   id              String    @id @default(uuid())
-  orderId         String    @unique
+  orderId         String    
   storeId         String
   buyerId         String
   
@@ -893,6 +893,7 @@ model EscrowTransaction {
   Store           Store?    @relation(fields: [storeId], references: [id], onDelete: Cascade)
   User            User?     @relation(fields: [buyerId], references: [id])
 
+  @@unique([orderId, storeId]) // One escrow per store per order (multi-vendor support)
   @@index([status])
   @@index([releaseAt])
   @@index([storeId])

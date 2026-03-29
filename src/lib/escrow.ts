@@ -174,6 +174,7 @@ export async function createEscrowHold(params: {
 /**
  * Release escrow funds to seller
  * Called when buyer confirms delivery or auto-release
+ * For multi-vendor orders, releases all escrows for that order
  */
 export async function releaseEscrow(params: {
   orderId: string
@@ -185,25 +186,67 @@ export async function releaseEscrow(params: {
   error?: string
 }> {
   try {
-    // Get escrow transaction
-    const escrow = await prisma.escrowTransaction.findFirst({
+    // Get all escrow transactions for this order (supports multi-vendor)
+    const escrows = await prisma.escrowTransaction.findMany({
       where: { orderId: params.orderId, status: 'HELD' }
     })
     
-    if (!escrow) {
-      return { success: false, error: 'Escrow not found or already released' }
+    if (escrows.length === 0) {
+      return { success: false, error: 'No held escrows found for this order' }
     }
     
-    // Update escrow status
-    await prisma.escrowTransaction.update({
-      where: { id: escrow.id },
-      data: {
-        status: 'RELEASED',
-        releaseType: params.releaseType,
-        releasedAt: new Date(),
-        releasedBy: params.releasedBy
+    let totalReleased = 0
+    
+    // Release each escrow (one per store for multi-vendor orders)
+    for (const escrow of escrows) {
+      // Update escrow status
+      await prisma.escrowTransaction.update({
+        where: { id: escrow.id },
+        data: {
+          status: 'RELEASED',
+          releaseType: params.releaseType,
+          releasedAt: new Date(),
+          releasedBy: params.releasedBy
+        }
+      })
+      
+      // Move from escrow balance to pending balance
+      await prisma.store.update({
+        where: { id: escrow.storeId },
+        data: {
+          escrowBalance: { decrement: escrow.sellerAmount },
+          pendingBalance: { increment: escrow.sellerAmount },
+          successfulDeliveries: { increment: 1 },
+          totalOrders: { increment: 1 }
+        }
+      })
+      
+      // Update delivery success rate
+      await updateDeliverySuccessRate(escrow.storeId)
+      
+      // Create notification for seller
+      const store = await prisma.store.findUnique({
+        where: { id: escrow.storeId },
+        select: { userId: true }
+      })
+      
+      if (store) {
+        await prisma.notification.create({
+          data: {
+            userId: store.userId,
+            type: 'ESCROW_RELEASED',
+            title: 'Funds Released!',
+            message: `${escrow.currency} ${escrow.sellerAmount.toLocaleString()} has been released to your balance.`,
+            data: JSON.stringify({
+              orderId: params.orderId,
+              amount: escrow.sellerAmount
+            })
+          }
+        })
       }
-    })
+      
+      totalReleased += escrow.sellerAmount
+    }
     
     // Update order
     await prisma.order.update({
@@ -216,51 +259,9 @@ export async function releaseEscrow(params: {
       }
     })
     
-    // Move from escrow balance to pending balance
-    await prisma.store.update({
-      where: { id: escrow.storeId },
-      data: {
-        escrowBalance: { decrement: escrow.sellerAmount },
-        pendingBalance: { increment: escrow.sellerAmount }
-      }
-    })
-    
-    // Update store performance metrics
-    await prisma.store.update({
-      where: { id: escrow.storeId },
-      data: {
-        successfulDeliveries: { increment: 1 },
-        totalOrders: { increment: 1 }
-      }
-    })
-    
-    // Update delivery success rate
-    await updateDeliverySuccessRate(escrow.storeId)
-    
-    // Create notification for seller
-    const store = await prisma.store.findUnique({
-      where: { id: escrow.storeId },
-      select: { userId: true }
-    })
-    
-    if (store) {
-      await prisma.notification.create({
-        data: {
-          userId: store.userId,
-          type: 'ESCROW_RELEASED',
-          title: 'Funds Released!',
-          message: `${escrow.currency} ${escrow.sellerAmount.toLocaleString()} has been released to your balance.`,
-          data: JSON.stringify({
-            orderId: params.orderId,
-            amount: escrow.sellerAmount
-          })
-        }
-      })
-    }
-    
     return {
       success: true,
-      sellerAmount: escrow.sellerAmount
+      sellerAmount: totalReleased
     }
   } catch (error) {
     console.error('Error releasing escrow:', error)
@@ -273,87 +274,95 @@ export async function releaseEscrow(params: {
 
 /**
  * Refund escrow to buyer
+ * For multi-vendor orders, refunds all escrows for that order
  */
 export async function refundEscrow(params: {
   orderId: string
   refundReason: string
   refundedBy?: string
   refundAmount?: number // Partial refund if specified
+  storeId?: string // Optional: refund only a specific store's escrow
 }): Promise<{
   success: boolean
   refundAmount?: number
   error?: string
 }> {
   try {
-    // Get escrow transaction
-    const escrow = await prisma.escrowTransaction.findFirst({
-      where: { 
-        orderId: params.orderId, 
-        status: { in: ['HELD', 'DISPUTED'] }
-      }
-    })
-    
-    if (!escrow) {
-      return { success: false, error: 'Escrow not found or already processed' }
+    // Get escrow transaction(s) - supports single store refund or full order refund
+    const whereClause: any = { 
+      orderId: params.orderId, 
+      status: { in: ['HELD', 'DISPUTED'] }
+    }
+    if (params.storeId) {
+      whereClause.storeId = params.storeId
     }
     
-    const isPartialRefund = params.refundAmount && params.refundAmount < escrow.sellerAmount
-    const refundAmount = params.refundAmount || escrow.sellerAmount
-    
-    // Update escrow
-    await prisma.escrowTransaction.update({
-      where: { id: escrow.id },
-      data: {
-        status: isPartialRefund ? 'PARTIAL_REFUND' : 'REFUNDED',
-        refundAmount,
-        refundReason: params.refundReason,
-        refundedAt: new Date(),
-        refundedBy: params.refundedBy
-      }
+    const escrows = await prisma.escrowTransaction.findMany({
+      where: whereClause
     })
     
-    // Update order
-    await prisma.order.update({
-      where: { id: params.orderId },
-      data: {
-        escrowStatus: 'REFUNDED',
-        escrowRefundedAt: new Date(),
-        status: 'CANCELLED',
-        cancellationReason: params.refundReason,
-        cancelledAt: new Date()
-      }
-    })
+    if (escrows.length === 0) {
+      return { success: false, error: 'No held escrows found for this order' }
+    }
     
-    // Deduct from store's escrow balance
-    await prisma.store.update({
-      where: { id: escrow.storeId },
-      data: {
-        escrowBalance: { decrement: refundAmount }
-      }
-    })
+    let totalRefunded = 0
     
-    // If partial refund, release remaining to seller
-    if (isPartialRefund) {
-      const remainingAmount = escrow.sellerAmount - refundAmount
+    // Process each escrow
+    for (const escrow of escrows) {
+      const isPartialRefund = params.refundAmount && params.refundAmount < escrow.sellerAmount
+      const refundAmount = params.refundAmount || escrow.sellerAmount
+      
+      // Update escrow
+      await prisma.escrowTransaction.update({
+        where: { id: escrow.id },
+        data: {
+          status: isPartialRefund ? 'PARTIAL_REFUND' : 'REFUNDED',
+          refundAmount,
+          refundReason: params.refundReason,
+          refundedAt: new Date(),
+          refundedBy: params.refundedBy
+        }
+      })
+      
+      // Deduct from store's escrow balance
       await prisma.store.update({
         where: { id: escrow.storeId },
         data: {
-          pendingBalance: { increment: remainingAmount }
+          escrowBalance: { decrement: refundAmount },
+          disputedOrders: { increment: 1 }
+        }
+      })
+      
+      // If partial refund, release remaining to seller
+      if (isPartialRefund) {
+        const remainingAmount = escrow.sellerAmount - refundAmount
+        await prisma.store.update({
+          where: { id: escrow.storeId },
+          data: {
+            pendingBalance: { increment: remainingAmount }
+          }
+        })
+      }
+      
+      // Update delivery success rate
+      await updateDeliverySuccessRate(escrow.storeId)
+      
+      totalRefunded += refundAmount
+    }
+    
+    // Update order - only if all escrows are being refunded
+    if (!params.storeId) {
+      await prisma.order.update({
+        where: { id: params.orderId },
+        data: {
+          escrowStatus: 'REFUNDED',
+          escrowRefundedAt: new Date(),
+          status: 'CANCELLED',
+          cancellationReason: params.refundReason,
+          cancelledAt: new Date()
         }
       })
     }
-    
-    // Update store disputed orders count
-    await prisma.store.update({
-      where: { id: escrow.storeId },
-      data: {
-        disputedOrders: { increment: 1 },
-        totalOrders: { increment: 1 }
-      }
-    })
-    
-    // Update delivery success rate
-    await updateDeliverySuccessRate(escrow.storeId)
     
     // Get buyer for notification
     const order = await prisma.order.findUnique({
@@ -367,10 +376,10 @@ export async function refundEscrow(params: {
           userId: order.userId,
           type: 'REFUND_PROCESSED',
           title: 'Refund Processed',
-          message: `Your refund of ${escrow.currency} ${refundAmount.toLocaleString()} has been processed.`,
+          message: `Your refund has been processed.`,
           data: JSON.stringify({
             orderId: params.orderId,
-            amount: refundAmount
+            amount: totalRefunded
           })
         }
       })
@@ -378,7 +387,7 @@ export async function refundEscrow(params: {
     
     return {
       success: true,
-      refundAmount
+      refundAmount: totalRefunded
     }
   } catch (error) {
     console.error('Error refunding escrow:', error)
