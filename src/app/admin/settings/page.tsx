@@ -524,6 +524,51 @@ export default function AdminSettingsPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
+                  {/* Connection Status */}
+                  <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-3 h-3 rounded-full ${flutterwaveForm.publicKey && flutterwaveForm.secretKey ? 'bg-green-500' : 'bg-yellow-500'}`} />
+                      <div>
+                        <p className="font-medium">Payment Gateway Status</p>
+                        <p className="text-sm text-gray-500">
+                          {flutterwaveForm.publicKey && flutterwaveForm.secretKey 
+                            ? 'Configured - Click Test to verify connection' 
+                            : 'Not configured - Add keys below'}
+                        </p>
+                      </div>
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={async () => {
+                        try {
+                          const res = await fetch('/api/admin/flutterwave/verify')
+                          const data = await res.json()
+                          if (data.success && data.status?.isFullyConfigured) {
+                            toast({
+                              title: '✅ Flutterwave Connected',
+                              description: `API working. Balance: ${data.tests?.apiConnection?.balance?.availableBalance || 'N/A'} ${data.tests?.apiConnection?.balance?.currency || ''}`,
+                            })
+                          } else {
+                            toast({
+                              title: '⚠️ Configuration Issues',
+                              description: data.recommendations?.[0] || 'Check your keys and try again',
+                              variant: 'destructive',
+                            })
+                          }
+                        } catch {
+                          toast({
+                            title: 'Test Failed',
+                            description: 'Could not verify Flutterwave connection',
+                            variant: 'destructive',
+                          })
+                        }
+                      }}
+                    >
+                      Test Connection
+                    </Button>
+                  </div>
+
                   <div className="bg-yellow-50 dark:bg-yellow-950/30 p-4 rounded-lg flex items-start gap-3">
                     <AlertCircle className="w-5 h-5 text-yellow-500 mt-0.5" />
                     <div>
