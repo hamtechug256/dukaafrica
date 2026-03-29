@@ -118,7 +118,7 @@ export function SellerShowcase() {
                         {hasSellers ? 'Start Selling Free' : 'Be a Founding Seller'}
                       </motion.button>
                     </Link>
-                    <Link href="/seller">
+                    <Link href="/seller/learn-more">
                       <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}

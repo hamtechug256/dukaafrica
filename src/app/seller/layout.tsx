@@ -10,17 +10,23 @@ export default async function SellerLayout({
   const { userId } = await auth()
   const user = await currentUser()
 
-  if (!userId) {
-    redirect('/sign-in?redirect_url=/seller')
-  }
-
   // Get the current pathname
   const headersList = await headers()
   const pathname = headersList.get('x-pathname') || ''
   
-  // Pages that are accessible without being a seller
+  // Pages that are publicly accessible (no auth required)
   const publicPages = ['/seller/onboarding', '/seller/register', '/seller/login', '/seller/learn-more', '/seller/fees', '/seller/guidelines', '/seller/resources']
   const isPublicPage = publicPages.some(page => pathname.startsWith(page))
+
+  // If on a public page, render it directly without auth checks
+  if (isPublicPage) {
+    return <>{children}</>
+  }
+
+  // For protected pages, check authentication
+  if (!userId) {
+    redirect('/sign-in?redirect_url=' + encodeURIComponent(pathname))
+  }
 
   // Check if user is a seller or admin
   const role = user?.unsafeMetadata?.role as string | undefined
@@ -34,17 +40,14 @@ export default async function SellerLayout({
   // Allow access if:
   // 1. User is already a seller with a store
   // 2. User is an admin
-  // 3. User is on a public page (onboarding, registration, etc.)
-  
-  if (!isSeller && !isAdmin && !isPublicPage) {
-    // Redirect to onboarding if not a seller and not on a public page
-    redirect('/seller/onboarding')
-  }
-  
-  // If seller but no store, redirect to onboarding (unless already there)
-  if (isSeller && needsOnboarding && !isPublicPage) {
-    redirect('/seller/onboarding')
+  if (isSeller || isAdmin) {
+    // If seller but needs onboarding, redirect to onboarding (unless already there)
+    if (needsOnboarding && !pathname.startsWith('/seller/onboarding')) {
+      redirect('/seller/onboarding')
+    }
+    return <>{children}</>
   }
 
-  return <>{children}</>
+  // Not a seller/admin and not on a public page - redirect to onboarding
+  redirect('/seller/onboarding')
 }
