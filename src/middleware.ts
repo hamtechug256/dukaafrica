@@ -20,7 +20,8 @@ const isPublicRoute = createRouteMatcher([
   '/api/homepage(.*)', // Homepage public APIs (featured, flash-sales, categories, stats, featured-sellers)
   '/admin/login(.*)', // Admin login page must be public
   '/api/admin/security(.*)', // Security API for rate limiting
-  '/api/debug(.*)', // Debug endpoints (temporary)
+  // SECURITY FIX: Debug endpoint removed from public routes
+  '/api/cron(.*)', // Cron endpoints use their own Bearer token auth
   // Cart and checkout - accessible (cart uses local storage)
   '/cart(.*)',
   '/checkout(.*)',
