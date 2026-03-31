@@ -1,6 +1,14 @@
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { Prisma } from '@prisma/client'
+
+// Helper to safely convert Prisma Decimal to number
+function toNum(val: unknown): number {
+  if (val instanceof Prisma.Decimal) return val.toNumber()
+  if (typeof val === 'number') return val
+  return 0
+}
 
 // Super admin emails from environment
 const SUPER_ADMIN_EMAILS = (process.env.SUPER_ADMIN_EMAILS || '')
@@ -142,7 +150,7 @@ export async function GET() {
     })
 
     const revenueGrowth = lastMonthRevenue._sum.amount 
-      ? ((currentMonthRevenue._sum.amount || 0) - (lastMonthRevenue._sum.amount || 0)) / (lastMonthRevenue._sum.amount || 1)
+      ? (toNum(currentMonthRevenue._sum.amount) - toNum(lastMonthRevenue._sum.amount)) / (toNum(lastMonthRevenue._sum.amount) || 1)
       : 0
 
     return NextResponse.json({
@@ -166,7 +174,7 @@ export async function GET() {
         disputed: disputedOrders,
       },
       revenue: {
-        total: totalRevenue._sum.amount || 0,
+        total: toNum(totalRevenue._sum.amount),
         growth: revenueGrowth,
       },
       recentActivity: [

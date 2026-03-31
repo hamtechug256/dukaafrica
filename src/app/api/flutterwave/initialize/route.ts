@@ -17,6 +17,14 @@ import {
 } from '@/lib/flutterwave/client'
 import { calculatePaymentBreakdown } from '@/lib/payment-split'
 import { Country, Currency } from '@/lib/currency'
+import { Prisma } from '@prisma/client'
+
+// Helper to safely convert Prisma Decimal to number
+function toNum(val: unknown): number {
+  if (val instanceof Prisma.Decimal) return val.toNumber()
+  if (typeof val === 'number') return val
+  return 0
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -87,10 +95,10 @@ export async function POST(request: NextRequest) {
 
     // Calculate payment breakdown
     const paymentBreakdown = await calculatePaymentBreakdown({
-      productPrice: order.subtotal,
+      productPrice: toNum(order.subtotal),
       sellerCurrency: order.currency as Currency,
       sellerCountry: order.sellerCountry as Country,
-      sellerCommissionRate: store.commissionRate,
+      sellerCommissionRate: toNum(store.commissionRate),
       buyerCurrency: order.currency as Currency,
       buyerCountry: order.buyerCountry as Country,
       productWeightKg: order.OrderItem.reduce((sum, item) => {
@@ -102,7 +110,7 @@ export async function POST(request: NextRequest) {
     // Build Flutterwave payment request
     const paymentRequest = {
       tx_ref: txRef,
-      amount: order.total,
+      amount: toNum(order.total),
       currency: CURRENCY_TO_FW_CURRENCY[order.currency],
       customer: {
         email: customerEmail || user.email,
@@ -151,7 +159,7 @@ export async function POST(request: NextRequest) {
       data: {
         orderId: order.id,
         userId: user.id,
-        amount: order.total,
+        amount: toNum(order.total),
         currency: order.currency,
         method: 'MOBILE_MONEY',
         provider: 'FLUTTERWAVE',

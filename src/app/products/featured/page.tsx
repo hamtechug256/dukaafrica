@@ -1,6 +1,14 @@
 import { Metadata } from 'next'
 import { prisma } from '@/lib/db'
 import { FeaturedProductsClient } from './client'
+import { Prisma } from '@prisma/client'
+
+// Helper to safely convert Prisma Decimal to number
+function toNum(val: unknown): number {
+  if (val instanceof Prisma.Decimal) return val.toNumber()
+  if (typeof val === 'number') return val
+  return 0
+}
 
 // Make this page dynamic - no static generation
 export const dynamic = 'force-dynamic'
@@ -46,8 +54,10 @@ async function getFeaturedProducts() {
       } catch {}
     }
 
-    const discount = product.comparePrice 
-      ? Math.round((1 - product.price / product.comparePrice) * 100)
+    const price = toNum(product.price)
+    const comparePrice = product.comparePrice ? toNum(product.comparePrice) : null
+    const discount = comparePrice 
+      ? Math.round((1 - price / comparePrice) * 100)
       : 0
 
     return {
@@ -55,8 +65,8 @@ async function getFeaturedProducts() {
       name: product.name,
       slug: product.slug,
       images,
-      price: product.price,
-      comparePrice: product.comparePrice,
+      price,
+      comparePrice,
       discount,
       rating: product.rating,
       reviewCount: product.reviewCount,

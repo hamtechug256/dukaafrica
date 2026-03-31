@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/db'
+import { Prisma } from '@prisma/client'
+
+// Helper to safely convert Prisma Decimal to number
+function toNum(val: unknown): number {
+  if (val instanceof Prisma.Decimal) return val.toNumber()
+  if (typeof val === 'number') return val
+  return 0
+}
 
 // GET /api/seller/analytics - Get sales analytics for seller dashboard
 export async function GET(request: NextRequest) {
@@ -65,8 +73,8 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: 'asc' },
     })
 
-    // Calculate totals
-    const totalRevenue = orders.reduce((sum, order) => sum + (order.sellerProductEarnings || 0), 0)
+    // Calculate totals (convert Decimal fields to numbers)
+    const totalRevenue = orders.reduce((sum, order) => sum + toNum(order.sellerProductEarnings), 0)
     const totalOrders = orders.length
     const totalProductsSold = orders.reduce(
       (sum, order) => sum + order.OrderItem.reduce((itemSum, item) => itemSum + item.quantity, 0),
@@ -119,7 +127,7 @@ export async function GET(request: NextRequest) {
       if (!revenueByDay[day]) {
         revenueByDay[day] = { revenue: 0, orders: 0, products: 0 }
       }
-      revenueByDay[day].revenue += order.sellerProductEarnings || 0
+      revenueByDay[day].revenue += toNum(order.sellerProductEarnings)
       revenueByDay[day].orders += 1
       revenueByDay[day].products += order.OrderItem.reduce((sum, item) => sum + item.quantity, 0)
     })
@@ -170,7 +178,7 @@ export async function GET(request: NextRequest) {
     })
 
     // Calculate growth
-    const prevRev = previousRevenue._sum.sellerProductEarnings || 0
+    const prevRev = toNum(previousRevenue._sum.sellerProductEarnings)
     const revenueGrowth = prevRev > 0
       ? ((totalRevenue - prevRev) / prevRev) * 100
       : totalRevenue > 0 ? 100 : 0
@@ -202,7 +210,7 @@ export async function GET(request: NextRequest) {
         productId: p.productId,
         productName: p.productName,
         quantitySold: p._sum.quantity || 0,
-        revenue: p._sum.total || 0,
+        revenue: toNum(p._sum.total),
         orderCount: p._count,
       })),
       orderStatusBreakdown: orderStatusBreakdown.map(s => ({

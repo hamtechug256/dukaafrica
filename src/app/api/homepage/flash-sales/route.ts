@@ -1,5 +1,13 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { Prisma } from '@prisma/client'
+
+// Helper to safely convert Prisma Decimal to number
+function toNum(val: unknown): number {
+  if (val instanceof Prisma.Decimal) return val.toNumber()
+  if (typeof val === 'number') return val
+  return 0
+}
 
 /**
  * API: Homepage Flash Sales
@@ -34,6 +42,7 @@ export async function GET() {
         flashSaleEnd: true,
         rating: true,
         reviewCount: true,
+        currency: true,
         Store: {
           select: {
             id: true,
@@ -52,14 +61,18 @@ export async function GET() {
     // Transform for frontend
     const products = flashSales.map(product => {
       // Calculate actual sale price
-      const salePrice = product.flashSaleDiscount 
-        ? product.price * (1 - product.flashSaleDiscount / 100)
-        : product.price
+      const price = toNum(product.price)
+      const comparePrice = toNum(product.comparePrice)
+      const flashSaleDiscount = toNum(product.flashSaleDiscount)
       
-      const originalPrice = product.comparePrice || product.price
-      const discount = product.flashSaleDiscount || 
-        (product.comparePrice 
-          ? Math.round((1 - product.price / product.comparePrice) * 100)
+      const salePrice = flashSaleDiscount 
+        ? price * (1 - flashSaleDiscount / 100)
+        : price
+      
+      const originalPrice = comparePrice || price
+      const discount = flashSaleDiscount || 
+        (comparePrice 
+          ? Math.round((1 - price / comparePrice) * 100)
           : 0)
       
       const sold = product.flashSaleClaimed || 0
@@ -83,13 +96,14 @@ export async function GET() {
         name: product.name,
         image: imageUrl,
         originalPrice,
-        salePrice,
+        salePrice: Math.round(salePrice),
         discount,
         rating: product.rating || 0,
         reviews: product.reviewCount || 0,
         sold,
         total,
         remaining,
+        currency: product.currency,
         flashSaleEnd: product.flashSaleEnd?.toISOString() || null,
         seller: {
           id: product.Store.id,

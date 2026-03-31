@@ -1,5 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { Prisma } from '@prisma/client'
+
+// Helper to safely convert Prisma Decimal to number
+function toNum(val: unknown): number {
+  if (val instanceof Prisma.Decimal) return val.toNumber()
+  if (typeof val === 'number') return val
+  return 0
+}
 
 /**
  * M-Pesa C2B STK Push Callback Handler
@@ -180,6 +188,11 @@ export async function POST(req: NextRequest) {
 
     const { checkoutRequestID, resultCode, resultDesc, callbackMetadata } = validation
 
+    // TypeScript guard: checkoutRequestID is guaranteed when valid is true
+    if (!checkoutRequestID) {
+      return NextResponse.json({ error: 'Missing checkoutRequestID' }, { status: 400 })
+    }
+
     // --- Audit Log every callback received ---
     console.log(`[MPESA-CALLBACK] Received callback for CheckoutRequestID: ${checkoutRequestID}, ResultCode: ${resultCode}, IP: ${clientIP}`)
 
@@ -229,9 +242,10 @@ export async function POST(req: NextRequest) {
       const amount = getMetadataValue('Amount')
 
       // SECURITY: Validate amount matches what we expect (prevent amount tampering)
-      if (amount !== undefined && Number(amount) !== Math.ceil(payment.amount)) {
+      const expectedAmount = toNum(payment.amount)
+      if (amount !== undefined && Number(amount) !== Math.ceil(expectedAmount)) {
         console.error(
-          `[MPESA-CALLBACK] AMOUNT MISMATCH for payment ${payment.id}! Expected: ${Math.ceil(payment.amount)}, Received: ${amount}. Rejecting.`
+          `[MPESA-CALLBACK] AMOUNT MISMATCH for payment ${payment.id}! Expected: ${Math.ceil(expectedAmount)}, Received: ${amount}. Rejecting.`
         )
 
         await prisma.securityLog.create({
@@ -240,7 +254,7 @@ export async function POST(req: NextRequest) {
             identifier: checkoutRequestID,
             details: JSON.stringify({
               paymentId: payment.id,
-              expectedAmount: payment.amount,
+              expectedAmount,
               receivedAmount: amount,
               clientIP,
             }),

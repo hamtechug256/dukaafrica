@@ -1,6 +1,14 @@
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { Prisma } from '@prisma/client'
+
+// Helper to safely convert Prisma Decimal to number
+function toNum(val: unknown): number {
+  if (val instanceof Prisma.Decimal) return val.toNumber()
+  if (typeof val === 'number') return val
+  return 0
+}
 
 // GET - Fetch a single order for the seller
 export async function GET(
@@ -76,9 +84,9 @@ export async function GET(
 
     // Calculate seller-specific earnings from order (earnings are on the Order model)
     // For multi-seller orders, we calculate based on this seller's items
-    const sellerItemsTotal = order.OrderItem.reduce((sum, item) => sum + item.total, 0)
-    const sellerProductEarnings = order.sellerProductEarnings || (sellerItemsTotal * 0.9) // Fallback to 90% if not set
-    const sellerShippingAmount = order.sellerShippingAmount || 0
+    const sellerItemsTotal = order.OrderItem.reduce((sum, item) => sum + toNum(item.total), 0)
+    const sellerProductEarnings = toNum(order.sellerProductEarnings) || (sellerItemsTotal * 0.9) // Fallback to 90% if not set
+    const sellerShippingAmount = toNum(order.sellerShippingAmount) || 0
 
     // Format response
     const formattedOrder = {
@@ -87,9 +95,9 @@ export async function GET(
       status: order.status,
       paymentStatus: order.paymentStatus,
       paymentMethod: order.paymentMethod,
-      subtotal: order.OrderItem.reduce((sum, item) => sum + item.total, 0),
-      shippingFee: order.shippingFee,
-      total: order.total,
+      subtotal: order.OrderItem.reduce((sum, item) => sum + toNum(item.total), 0),
+      shippingFee: toNum(order.shippingFee),
+      total: toNum(order.total),
       currency,
       sellerProductEarnings,
       sellerShippingAmount,
@@ -115,9 +123,9 @@ export async function GET(
         id: item.id,
         productId: item.productId,
         productName: item.productName,
-        price: item.price,
+        price: toNum(item.price),
         quantity: item.quantity,
-        total: item.total,
+        total: toNum(item.total),
         product: item.Product,
       })),
       

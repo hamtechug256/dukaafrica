@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuth } from '@clerk/nextjs/server'
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient, Prisma } from '@prisma/client'
 
 const prisma = new PrismaClient()
+
+// Helper to safely convert Prisma Decimal to number
+function toNum(val: unknown): number {
+  if (val instanceof Prisma.Decimal) return val.toNumber()
+  if (typeof val === 'number') return val
+  return 0
+}
 
 // GET /api/chat - Get all chats for the current user
 export async function GET(request: NextRequest) {
@@ -79,7 +86,7 @@ export async function GET(request: NextRequest) {
         let store: { id: string; name: string; slug: string } | null = null
 
         if (chat.productId) {
-          product = await prisma.product.findUnique({
+          const productData = await prisma.product.findUnique({
             where: { id: chat.productId },
             select: {
               id: true,
@@ -97,6 +104,12 @@ export async function GET(request: NextRequest) {
               },
             },
           })
+          if (productData) {
+            product = {
+              ...productData,
+              price: toNum(productData.price),
+            }
+          }
           store = product?.Store ?? null
         }
 

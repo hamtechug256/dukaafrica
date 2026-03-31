@@ -4,6 +4,14 @@ import { ProductGrid } from '@/app/products/product-grid'
 import { Header } from '@/components/layout/header'
 import { Footer } from '@/components/layout/footer'
 import { DynamicIcon, getCategoryEmoji } from '@/components/ui/dynamic-icon'
+import { Prisma } from '@prisma/client'
+
+// Helper to safely convert Prisma Decimal to number
+function toNum(val: unknown): number {
+  if (val instanceof Prisma.Decimal) return val.toNumber()
+  if (typeof val === 'number') return val
+  return 0
+}
 
 // Get category by slug
 async function getCategory(slug: string) {
@@ -53,9 +61,13 @@ async function getCategoryProducts(categoryId: string, page: number = 1) {
     }),
   ])
 
-  // Transform to lowercase for frontend
+  // Transform to lowercase for frontend and convert Decimal to number
   const products = rawProducts.map((p) => ({
     ...p,
+    price: toNum(p.price),
+    comparePrice: p.comparePrice ? toNum(p.comparePrice) : null,
+    costPrice: p.costPrice ? toNum(p.costPrice) : null,
+    flashSaleDiscount: p.flashSaleDiscount ? toNum(p.flashSaleDiscount) : null,
     store: p.Store,
     category: p.Category,
   }))

@@ -105,7 +105,7 @@ export async function POST(req: Request) {
 
     // SECURITY FIX: Verify prices against database
     const productIds = items.map(i => i.productId)
-    const variantIds = items.filter(i => i.variantId).map(i => i.variantId)
+    const variantIds = items.map(i => i.variantId).filter((id): id is string => id !== undefined)
 
     const dbProducts = await prisma.product.findMany({
       where: { id: { in: productIds } },

@@ -3,6 +3,14 @@ import { ProductGrid } from '../products/product-grid'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Search, TrendingUp, Clock } from 'lucide-react'
+import { Prisma } from '@prisma/client'
+
+// Helper to safely convert Prisma Decimal to number
+function toNum(val: unknown): number {
+  if (val instanceof Prisma.Decimal) return val.toNumber()
+  if (typeof val === 'number') return val
+  return 0
+}
 
 // Search products
 async function searchProducts(query: string, page: number = 1) {
@@ -57,9 +65,13 @@ async function searchProducts(query: string, page: number = 1) {
     }),
   ])
 
-  // Transform to match ProductGrid expected shape
+  // Transform to match ProductGrid expected shape and convert Decimal to number
   const products = rawProducts.map((p) => ({
     ...p,
+    price: toNum(p.price),
+    comparePrice: p.comparePrice ? toNum(p.comparePrice) : null,
+    costPrice: p.costPrice ? toNum(p.costPrice) : null,
+    flashSaleDiscount: p.flashSaleDiscount ? toNum(p.flashSaleDiscount) : null,
     store: p.Store,
     category: p.Category,
   }))

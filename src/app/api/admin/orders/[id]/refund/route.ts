@@ -14,6 +14,14 @@ import { auth } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { refundEscrow } from '@/lib/escrow'
+import { Prisma } from '@prisma/client'
+
+// Helper to safely convert Prisma Decimal to number
+function toNum(val: unknown): number {
+  if (val instanceof Prisma.Decimal) return val.toNumber()
+  if (typeof val === 'number') return val
+  return 0
+}
 
 // Check admin access
 async function checkAdminAccess() {
@@ -128,18 +136,18 @@ export async function POST(
       where: { orderId },
     })
 
-    // Calculate refund amount
+    // Calculate refund amount (convert Decimal to number for calculations)
     let finalRefundAmount: number
 
     if (refundType === 'FULL') {
       // Full refund includes product amount + shipping
       finalRefundAmount = refundShipping
-        ? order.total
-        : order.subtotal
+        ? toNum(order.total)
+        : toNum(order.subtotal)
 
       // For escrow, we refund seller's portion
       if (escrow) {
-        finalRefundAmount = escrow.sellerAmount
+        finalRefundAmount = toNum(escrow.sellerAmount)
       }
     } else {
       // Partial refund
@@ -150,7 +158,7 @@ export async function POST(
       }
 
       // Cap at seller's amount or order total
-      const maxRefund = escrow?.sellerAmount || order.total
+      const maxRefund = toNum(escrow?.sellerAmount) || toNum(order.total)
       if (refundAmount > maxRefund) {
         return NextResponse.json({
           error: `Refund amount cannot exceed ${order.currency} ${maxRefund.toLocaleString()}`,
@@ -299,28 +307,28 @@ export async function GET(
 
     const refundEligibility = {
       canRefund: order.paymentStatus === 'PAID' && order.escrowStatus !== 'REFUNDED',
-      maxRefundAmount: primaryEscrow?.sellerAmount || order.total,
-      productTotal: order.subtotal,
-      shippingFee: order.shippingFee,
-      orderTotal: order.total,
+      maxRefundAmount: toNum(primaryEscrow?.sellerAmount) || toNum(order.total),
+      productTotal: toNum(order.subtotal),
+      shippingFee: toNum(order.shippingFee),
+      orderTotal: toNum(order.total),
       currency: order.currency,
       escrowStatus: order.escrowStatus,
       paymentStatus: order.paymentStatus,
       orderStatus: order.status,
       storeBalances: {
-        escrow: order.Store?.escrowBalance || 0,
-        pending: order.Store?.pendingBalance || 0,
-        available: order.Store?.availableBalance || 0,
+        escrow: toNum(order.Store?.escrowBalance),
+        pending: toNum(order.Store?.pendingBalance),
+        available: toNum(order.Store?.availableBalance),
       },
       escrowDetails: primaryEscrow ? {
-        sellerAmount: primaryEscrow.sellerAmount,
-        platformAmount: primaryEscrow.platformAmount,
+        sellerAmount: toNum(primaryEscrow.sellerAmount),
+        platformAmount: toNum(primaryEscrow.platformAmount),
         status: primaryEscrow.status,
         heldAt: primaryEscrow.heldAt,
       } : null,
       multiVendorEscrows: escrows.length > 1 ? escrows.map((e) => ({
         storeId: e.storeId,
-        sellerAmount: e.sellerAmount,
+        sellerAmount: toNum(e.sellerAmount),
         status: e.status,
       })) : null,
     }
