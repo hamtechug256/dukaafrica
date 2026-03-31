@@ -10,7 +10,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { getFlutterwaveConfig } from '@/lib/flutterwave/client'
 import { createEscrowHold } from '@/lib/escrow'
+import { Prisma } from '@prisma/client'
 import crypto from 'crypto'
+
+// Helper to safely convert Prisma Decimal to number
+function toNum(val: unknown): number {
+  if (val instanceof Prisma.Decimal) return val.toNumber()
+  if (typeof val === 'number') return val
+  return 0
+}
 
 /**
  * Timing-safe string comparison to prevent timing attacks
@@ -126,7 +134,7 @@ async function handleSuccessfulPayment(payload: any) {
 
   for (const item of order.OrderItem) {
     const existing = storeTotals.get(item.storeId) || 0
-    storeTotals.set(item.storeId, existing + item.total)
+    storeTotals.set(item.storeId, existing + toNum(item.total))
   }
 
   // Process each store - create escrow for each
@@ -170,7 +178,7 @@ async function handleSuccessfulPayment(payload: any) {
       store: {
         verificationTier: store.verificationTier,
         verificationStatus: store.verificationStatus,
-        commissionRate: store.commissionRate,
+        commissionRate: toNum(store.commissionRate),
       },
     })
 
@@ -179,7 +187,7 @@ async function handleSuccessfulPayment(payload: any) {
     } else {
       console.error(`Failed to create escrow for store ${storeId}:`, escrowResult.error)
       // Fallback: update store stats without escrow
-      const commissionRate = store.commissionRate || 15
+      const commissionRate = toNum(store.commissionRate) || 15
       const sellerAmount = Math.round(storeTotal * (1 - commissionRate / 100))
       await prisma.store.update({
         where: { id: storeId },
@@ -227,7 +235,7 @@ async function handleSuccessfulTransfer(payload: any) {
     where: { id: payout.storeId },
     data: {
       availableBalance: {
-        decrement: payout.amount
+        decrement: toNum(payout.amount)
       }
     }
   })

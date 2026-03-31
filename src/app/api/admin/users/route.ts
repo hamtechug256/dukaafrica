@@ -69,6 +69,26 @@ export async function PUT(req: Request) {
     const body = await req.json()
     const { targetUserId, role, isActive } = body
 
+    // SECURITY: Only SUPER_ADMIN can assign the SUPER_ADMIN role.
+    // An ADMIN must not be able to escalate privileges to SUPER_ADMIN,
+    // which would grant full platform control including escrow, payouts, etc.
+    if (role === 'SUPER_ADMIN' && adminUser.role !== 'SUPER_ADMIN') {
+      return NextResponse.json(
+        { error: 'Access denied' },
+        { status: 403 }
+      )
+    }
+
+    // SECURITY: ADMIN users can only assign BUYER, SELLER, or ADMIN roles.
+    // SUPER_ADMIN can assign any role including SUPER_ADMIN.
+    const ALLOWED_ADMIN_ROLES = ['BUYER', 'SELLER', 'ADMIN']
+    if (adminUser.role === 'ADMIN' && role && !ALLOWED_ADMIN_ROLES.includes(role)) {
+      return NextResponse.json(
+        { error: 'Access denied' },
+        { status: 403 }
+      )
+    }
+
     const updatedUser = await prisma.user.update({
       where: { id: targetUserId },
       data: {

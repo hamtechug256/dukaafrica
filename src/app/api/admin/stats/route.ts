@@ -64,18 +64,15 @@ export async function GET() {
     // Ensure user exists and is promoted if needed
     const user = await ensureAdmin(userId)
 
-    // Debug logging
-    console.log(`[ADMIN STATS] Email: ${user?.email}, Role: ${user?.role}, SuperAdminList: ${SUPER_ADMIN_EMAILS.join(', ')}`)
+    // Logging - do NOT log sensitive email lists
+    console.log(`[ADMIN STATS] User role check: ${user?.role}`)
 
     // Check if user is admin
     if (!user || (user.role !== 'ADMIN' && user.role !== 'SUPER_ADMIN')) {
-      console.log(`[ADMIN STATS] ACCESS DENIED for ${user?.email} with role ${user?.role}`)
+      console.log(`[ADMIN STATS] ACCESS DENIED for user with role ${user?.role}`)
+      // SECURITY: Return generic error - do NOT leak email, role, or config info
       return NextResponse.json({ 
-        error: 'Forbidden',
-        hint: 'Your email is not authorized for admin access',
-        email: user?.email,
-        role: user?.role,
-        superAdminEmailsConfigured: SUPER_ADMIN_EMAILS.length,
+        error: 'Access denied',
       }, { status: 403 })
     }
 

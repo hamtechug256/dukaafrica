@@ -2,6 +2,25 @@ import { auth, currentUser } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { z } from 'zod'
+import { Prisma } from '@prisma/client'
+import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
+
+// Helper to serialize Decimal values to numbers for JSON responses
+function serializeDecimal<T>(obj: T): T {
+  if (obj === null || obj === undefined) return obj
+  if (obj instanceof Prisma.Decimal) return obj.toNumber() as unknown as T
+  if (Array.isArray(obj)) return obj.map(serializeDecimal) as unknown as T
+  if (typeof obj === 'object') {
+    const result: Record<string, unknown> = {}
+    for (const key in obj) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        result[key] = serializeDecimal((obj as Record<string, unknown>)[key])
+      }
+    }
+    return result as unknown as T
+  }
+  return obj
+}
 
 // Zod validation schema for order creation
 const OrderItemSchema = z.object({
@@ -62,6 +81,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // Rate limiting: 10 orders per minute per user
+    const rateLimit = await checkRateLimit('order_create', userId, RATE_LIMITS.ORDER_CREATE.maxRequests, RATE_LIMITS.ORDER_CREATE.windowSeconds)
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many order attempts. Please try again later.', retryAfter: rateLimit.retryAfterSeconds },
+        { status: 429, headers: { 'Retry-After': String(rateLimit.retryAfterSeconds || 60) } }
+      )
+    }
+
     const body = await req.json()
 
     // Validate input with Zod
@@ -83,7 +111,7 @@ export async function POST(req: Request) {
       where: { id: { in: productIds } },
       select: { id: true, price: true, status: true, currency: true },
     })
-    const productPriceMap = new Map(dbProducts.map(p => [p.id, p]))
+    const productPriceMap = new Map(dbProducts.map(p => [p.id, { ...p, price: p.price.toNumber() }]))
 
     // Fetch variants if any
     const dbVariants = variantIds.length > 0
@@ -92,7 +120,7 @@ export async function POST(req: Request) {
           select: { id: true, price: true },
         })
       : []
-    const variantPriceMap = new Map(dbVariants.map(v => [v.id, v]))
+    const variantPriceMap = new Map(dbVariants.map(v => [v.id, { ...v, price: v.price.toNumber() }]))
 
     let serverSubtotal = 0
     for (const item of items) {
@@ -109,7 +137,7 @@ export async function POST(req: Request) {
         )
       }
 
-      // Use the DATABASE price, not the client-provided price
+      // Use the DATABASE price (already converted to number), not the client-provided price
       serverSubtotal += dbPrice * item.quantity
     }
 
@@ -138,7 +166,7 @@ export async function POST(req: Request) {
       )
     }
 
-    // Use server-verified prices
+    // Use server-verified prices (already converted to number)
     const verifiedItems = items.map(item => {
       const dbPrice = item.variantId
         ? variantPriceMap.get(item.variantId)?.price ?? productPriceMap.get(item.productId)?.price ?? 0
@@ -278,7 +306,7 @@ export async function POST(req: Request) {
         })
 
         return NextResponse.json({
-          order,
+          order: serializeDecimal(order),
           payment: {
             id: payment.id,
             authorization_url: paystackData.data.authorization_url,
@@ -295,7 +323,7 @@ export async function POST(req: Request) {
 
     // For mobile money, return order and payment info (using server-verified total)
     return NextResponse.json({
-      order,
+      order: serializeDecimal(order),
       payment: {
         id: payment.id,
         amount: serverTotal,

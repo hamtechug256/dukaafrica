@@ -38,7 +38,7 @@ async function getPlatformReserve(): Promise<{
   }
   
   return {
-    reservePercent: reserve.reservePercent,
+    reservePercent: reserve.reservePercent.toNumber(),
     record: reserve
   }
 }
@@ -115,6 +115,7 @@ export async function createEscrowHold(params: {
           availableReserve: { increment: reserveAmount }
         }
       })
+
       
       return newEscrow
     })
@@ -211,11 +212,12 @@ export async function releaseEscrow(params: {
       })
       
       // Move from escrow balance to pending balance
+      const sellerAmt = escrow.sellerAmount.toNumber()
       await prisma.store.update({
         where: { id: escrow.storeId },
         data: {
-          escrowBalance: { decrement: escrow.sellerAmount },
-          pendingBalance: { increment: escrow.sellerAmount },
+          escrowBalance: { decrement: sellerAmt },
+          pendingBalance: { increment: sellerAmt },
           successfulDeliveries: { increment: 1 },
           totalOrders: { increment: 1 }
         }
@@ -231,21 +233,22 @@ export async function releaseEscrow(params: {
       })
       
       if (store) {
+        const releasedSellerAmt = escrow.sellerAmount.toNumber()
         await prisma.notification.create({
           data: {
             userId: store.userId,
             type: 'ESCROW_RELEASED',
             title: 'Funds Released!',
-            message: `${escrow.currency} ${escrow.sellerAmount.toLocaleString()} has been released to your balance.`,
+            message: `${escrow.currency} ${releasedSellerAmt.toLocaleString()} has been released to your balance.`,
             data: JSON.stringify({
               orderId: params.orderId,
-              amount: escrow.sellerAmount
+              amount: releasedSellerAmt
             })
           }
         })
       }
       
-      totalReleased += escrow.sellerAmount
+      totalReleased += escrow.sellerAmount.toNumber()
     }
     
     // Update order
@@ -309,8 +312,9 @@ export async function refundEscrow(params: {
     
     // Process each escrow
     for (const escrow of escrows) {
-      const isPartialRefund = params.refundAmount && params.refundAmount < escrow.sellerAmount
-      const refundAmount = params.refundAmount || escrow.sellerAmount
+      const escrowSellerAmount = escrow.sellerAmount.toNumber()
+      const isPartialRefund = params.refundAmount && params.refundAmount < escrowSellerAmount
+      const refundAmount = params.refundAmount || escrowSellerAmount
       
       // Update escrow
       await prisma.escrowTransaction.update({
@@ -335,7 +339,7 @@ export async function refundEscrow(params: {
       
       // If partial refund, release remaining to seller
       if (isPartialRefund) {
-        const remainingAmount = escrow.sellerAmount - refundAmount
+        const remainingAmount = escrowSellerAmount - refundAmount
         await prisma.store.update({
           where: { id: escrow.storeId },
           data: {
@@ -543,18 +547,18 @@ export async function getEscrowSummary(): Promise<{
   for (const tx of transactions) {
     switch (tx.status) {
       case 'HELD':
-        totalHeld += tx.sellerAmount
+        totalHeld += tx.sellerAmount.toNumber()
         heldTransactions++
         break
       case 'RELEASED':
-        totalReleased += tx.sellerAmount
+        totalReleased += tx.sellerAmount.toNumber()
         break
       case 'REFUNDED':
       case 'PARTIAL_REFUND':
-        totalRefunded += tx.refundAmount || 0
+        totalRefunded += tx.refundAmount?.toNumber() || 0
         break
       case 'DISPUTED':
-        totalDisputed += tx.sellerAmount
+        totalDisputed += tx.sellerAmount.toNumber()
         break
     }
   }
@@ -596,11 +600,24 @@ export async function getStoreEscrowTransactions(storeId: string, limit = 20): P
   
   for (const tx of transactions) {
     if (tx.status === 'HELD' || tx.status === 'DISPUTED') {
-      totalHeld += tx.sellerAmount
+      totalHeld += tx.sellerAmount.toNumber()
     } else if (tx.status === 'RELEASED') {
-      totalReleased += tx.sellerAmount
+      totalReleased += tx.sellerAmount.toNumber()
     }
   }
-  
-  return { transactions, totalHeld, totalReleased }
+
+  return {
+    transactions: transactions.map(tx => ({
+      ...tx,
+      amount: tx.amount?.toNumber() ?? null,
+      grossAmount: tx.grossAmount?.toNumber() ?? null,
+      sellerAmount: tx.sellerAmount.toNumber(),
+      platformFee: tx.platformFee?.toNumber() ?? null,
+      platformAmount: tx.platformAmount?.toNumber() ?? null,
+      reserveAmount: tx.reserveAmount.toNumber(),
+      refundAmount: tx.refundAmount?.toNumber() ?? null,
+    })),
+    totalHeld,
+    totalReleased
+  }
 }

@@ -23,8 +23,10 @@ function verifyCronSecret(request: NextRequest): boolean {
   const cronSecret = process.env.CRON_SECRET
   
   if (!cronSecret) {
-    console.warn('CRON_SECRET not set - cron jobs may be insecure')
-    return true // Allow in development
+    // SECURITY FIX: Never allow unauthenticated cron access, even in development.
+    // Vercel Cron sends the secret automatically. For local dev, set CRON_SECRET in .env
+    console.error('[CRON] CRON_SECRET not configured - cron endpoint blocked')
+    return false
   }
   
   return authHeader === `Bearer ${cronSecret}`

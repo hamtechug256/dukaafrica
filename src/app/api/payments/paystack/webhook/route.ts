@@ -7,7 +7,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { createEscrowHold } from '@/lib/escrow'
+import { Prisma } from '@prisma/client'
 import crypto from 'crypto'
+
+// Helper to safely convert Prisma Decimal to number
+function toNum(val: unknown): number {
+  if (val instanceof Prisma.Decimal) return val.toNumber()
+  if (typeof val === 'number') return val
+  return 0
+}
 
 /**
  * Verify Paystack webhook signature
@@ -128,7 +136,7 @@ async function handleSuccessfulPayment(data: any) {
 
   for (const item of order.OrderItem) {
     const existing = storeTotals.get(item.storeId) || { total: 0, items: [] }
-    existing.total += item.total
+    existing.total += toNum(item.total)
     existing.items.push(item)
     storeTotals.set(item.storeId, { ...existing, items: existing.items })
   }
@@ -169,7 +177,7 @@ async function handleSuccessfulPayment(data: any) {
     }
 
     // Calculate commission for this store
-    const commissionRate = store.commissionRate || 15 // Default 15%
+    const commissionRate = toNum(store.commissionRate) || 15 // Default 15%
     const sellerAmount = Math.round(storeTotal * (1 - commissionRate / 100))
 
     if (isMultiVendor) {
@@ -196,7 +204,7 @@ async function handleSuccessfulPayment(data: any) {
         store: {
           verificationTier: store.verificationTier,
           verificationStatus: store.verificationStatus,
-          commissionRate: store.commissionRate,
+          commissionRate: toNum(store.commissionRate),
         },
       })
 

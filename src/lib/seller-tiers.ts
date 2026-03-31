@@ -6,6 +6,14 @@
  */
 
 import { prisma } from '@/lib/db'
+import { Prisma } from '@prisma/client'
+
+// Helper to safely convert Prisma Decimal to number
+function toNum(val: unknown): number {
+  if (val instanceof Prisma.Decimal) return val.toNumber()
+  if (typeof val === 'number') return val
+  return 0
+}
 
 // Default tier configurations (used if database doesn't have them yet)
 export const DEFAULT_TIER_CONFIGS = {
@@ -158,7 +166,11 @@ export async function getTierConfig(tierName: string): Promise<SellerTier> {
   })
   
   if (dbTier) {
-    return dbTier
+    return {
+      ...dbTier,
+      commissionRate: toNum(dbTier.commissionRate),
+      maxTransactionAmount: toNum(dbTier.maxTransactionAmount),
+    }
   }
   
   // Return default if not in database
@@ -180,7 +192,11 @@ export async function getAllTierConfigs(): Promise<SellerTier[]> {
   })
   
   if (dbTiers.length > 0) {
-    return dbTiers
+    return dbTiers.map(t => ({
+      ...t,
+      commissionRate: toNum(t.commissionRate),
+      maxTransactionAmount: toNum(t.maxTransactionAmount),
+    }))
   }
   
   // Return defaults if not in database

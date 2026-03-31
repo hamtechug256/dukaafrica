@@ -9,6 +9,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/db'
+import { Prisma } from '@prisma/client'
+
+// Helper to safely convert Prisma Decimal to number
+function toNum(val: unknown): number {
+  if (val instanceof Prisma.Decimal) return val.toNumber()
+  if (typeof val === 'number') return val
+  return 0
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -65,16 +73,16 @@ export async function GET(request: NextRequest) {
     let pendingBalance = 0
     let totalOrders = orders.length
 
-    orders.forEach(order => {
-      totalProductEarnings += order.sellerProductEarnings || 0
-      totalShippingEarnings += order.sellerShippingAmount || 0
+    orders.forEach((order: any) => {
+      totalProductEarnings += toNum(order.sellerProductEarnings)
+      totalShippingEarnings += toNum(order.sellerShippingAmount)
       
       // Check if order is in pending period (e.g., less than 48 hours old)
       const orderAge = Date.now() - new Date(order.createdAt).getTime()
       const pendingPeriod = 48 * 60 * 60 * 1000 // 48 hours
       
       if (orderAge < pendingPeriod && order.status !== 'DELIVERED') {
-        pendingBalance += (order.sellerProductEarnings || 0) + (order.sellerShippingAmount || 0)
+        pendingBalance += toNum(order.sellerProductEarnings) + toNum(order.sellerShippingAmount)
       }
     })
 
@@ -88,7 +96,7 @@ export async function GET(request: NextRequest) {
     // Calculate total withdrawn
     const totalWithdrawn = payouts
       .filter(p => p.status === 'COMPLETED')
-      .reduce((sum, p) => sum + p.amount, 0)
+      .reduce((sum, p) => sum + toNum(p.amount), 0)
 
     // Determine currency based on country
     const currencyMap: Record<string, string> = {
@@ -100,7 +108,7 @@ export async function GET(request: NextRequest) {
     const currency = currencyMap[store.country] || 'UGX'
 
     // Calculate available balance
-    const availableBalance = Math.max(0, store.availableBalance)
+    const availableBalance = Math.max(0, toNum(store.availableBalance))
 
     return NextResponse.json({
       store: {
@@ -113,7 +121,7 @@ export async function GET(request: NextRequest) {
         payoutBankName: store.payoutBankName,
         payoutBankAccount: store.payoutBankAccount,
         flutterwaveSubaccountId: store.flutterwaveSubaccountId,
-        commissionRate: store.commissionRate
+        commissionRate: toNum(store.commissionRate)
       },
       earnings: {
         availableBalance,
@@ -126,7 +134,7 @@ export async function GET(request: NextRequest) {
       },
       payouts: payouts.map(p => ({
         id: p.id,
-        amount: p.amount,
+        amount: toNum(p.amount),
         currency: p.currency,
         status: p.status,
         method: p.method,
