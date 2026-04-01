@@ -120,45 +120,52 @@ export async function createEscrowHold(params: {
       return newEscrow
     })
     
-    // Update order with escrow info
-    await prisma.order.update({
-      where: { id: params.orderId },
-      data: {
-        escrowStatus: 'HELD',
-        escrowHoldDays: holdDays,
-        sellerProductEarnings: sellerAmount,
-        platformProductCommission: platformAmount,
-      }
-    })
-    
-    // Add to store's escrow balance (final seller amount after reserve)
-    await prisma.store.update({
-      where: { id: params.storeId },
-      data: {
-        escrowBalance: { increment: sellerAmount }
-      }
-    })
-    
-    // Create notification for seller (H1 FIX: look up store owner's userId, not storeId)
-    const store = await prisma.store.findUnique({
-      where: { id: params.storeId },
-      select: { userId: true },
-    })
-
-    if (store) {
-      await prisma.notification.create({
+    // Update order + store escrow balance atomically
+    await prisma.$transaction(async (tx) => {
+      await tx.order.update({
+        where: { id: params.orderId },
         data: {
-          userId: store.userId,
-          type: 'ESCROW_HELD',
-          title: 'Payment Received - Funds in Escrow',
-          message: `Order payment of ${params.currency} ${params.grossAmount.toLocaleString()} received. Funds will be released in ${holdDays} days after delivery confirmation.`,
-          data: JSON.stringify({
-            orderId: params.orderId,
-            amount: sellerAmount,
-            releaseDate: releaseDate.toISOString()
-          })
+          escrowStatus: 'HELD',
+          escrowHoldDays: holdDays,
+          sellerProductEarnings: sellerAmount,
+          platformProductCommission: platformAmount,
         }
       })
+      
+      await tx.store.update({
+        where: { id: params.storeId },
+        data: {
+          escrowBalance: { increment: sellerAmount }
+        }
+      })
+    })
+    
+    // FIX: Isolate notification — failure should not cause escrow to report failure
+    // (prevents double-credit bug in callers that check escrowResult.success)
+    try {
+      const store = await prisma.store.findUnique({
+        where: { id: params.storeId },
+        select: { userId: true },
+      })
+
+      if (store) {
+        await prisma.notification.create({
+          data: {
+            userId: store.userId,
+            type: 'ESCROW_HELD',
+            title: 'Payment Received - Funds in Escrow',
+            message: `Order payment of ${params.currency} ${params.grossAmount.toLocaleString()} received. Funds will be released in ${holdDays} days after delivery confirmation.`,
+            data: JSON.stringify({
+              orderId: params.orderId,
+              amount: sellerAmount,
+              releaseDate: releaseDate.toISOString()
+            })
+          }
+        })
+      }
+    } catch (notifError) {
+      // Non-fatal: notification failure should not break escrow creation
+      console.error('Failed to create escrow hold notification (non-fatal):', notifError)
     }
     
     return {
@@ -207,52 +214,60 @@ export async function releaseEscrow(params: {
     
     // Release each escrow (one per store for multi-vendor orders)
     for (const escrow of escrows) {
-      // Update escrow status
-      await prisma.escrowTransaction.update({
-        where: { id: escrow.id },
-        data: {
-          status: 'RELEASED',
-          releaseType: params.releaseType,
-          releasedAt: new Date(),
-          releasedBy: params.releasedBy
-        }
-      })
-      
-      // Move from escrow balance to pending balance
-      const sellerAmt = escrow.sellerAmount.toNumber()
-      await prisma.store.update({
-        where: { id: escrow.storeId },
-        data: {
-          escrowBalance: { decrement: sellerAmt },
-          pendingBalance: { increment: sellerAmt },
-          successfulDeliveries: { increment: 1 },
-          totalOrders: { increment: 1 }
-        }
+      // FIX: Wrap escrow release + store balance update in a transaction for atomicity
+      await prisma.$transaction(async (tx) => {
+        // Update escrow status
+        await tx.escrowTransaction.update({
+          where: { id: escrow.id },
+          data: {
+            status: 'RELEASED',
+            releaseType: params.releaseType,
+            releasedAt: new Date(),
+            releasedBy: params.releasedBy
+          }
+        })
+        
+        // Move from escrow balance to pending balance
+        const sellerAmt = escrow.sellerAmount.toNumber()
+        await tx.store.update({
+          where: { id: escrow.storeId },
+          data: {
+            escrowBalance: { decrement: sellerAmt },
+            pendingBalance: { increment: sellerAmt },
+            successfulDeliveries: { increment: 1 },
+            totalOrders: { increment: 1 }
+          }
+        })
       })
       
       // Update delivery success rate
       await updateDeliverySuccessRate(escrow.storeId)
       
-      // Create notification for seller
-      const store = await prisma.store.findUnique({
-        where: { id: escrow.storeId },
-        select: { userId: true }
-      })
-      
-      if (store) {
-        const releasedSellerAmt = escrow.sellerAmount.toNumber()
-        await prisma.notification.create({
-          data: {
-            userId: store.userId,
-            type: 'ESCROW_RELEASED',
-            title: 'Funds Released!',
-            message: `${escrow.currency} ${releasedSellerAmt.toLocaleString()} has been released to your balance.`,
-            data: JSON.stringify({
-              orderId: params.orderId,
-              amount: releasedSellerAmt
-            })
-          }
+      // FIX: Isolate notification creation — failure should not affect release
+      try {
+        const store = await prisma.store.findUnique({
+          where: { id: escrow.storeId },
+          select: { userId: true }
         })
+        
+        if (store) {
+          const releasedSellerAmt = escrow.sellerAmount.toNumber()
+          await prisma.notification.create({
+            data: {
+              userId: store.userId,
+              type: 'ESCROW_RELEASED',
+              title: 'Funds Released!',
+              message: `${escrow.currency} ${releasedSellerAmt.toLocaleString()} has been released to your balance.`,
+              data: JSON.stringify({
+                orderId: params.orderId,
+                amount: releasedSellerAmt
+              })
+            }
+          })
+        }
+      } catch (notifError) {
+        // Non-fatal: notification failure should not break escrow release
+        console.error('Failed to create escrow release notification (non-fatal):', notifError)
       }
       
       totalReleased += escrow.sellerAmount.toNumber()

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { createEscrowHold } from '@/lib/escrow'
 import { Prisma } from '@prisma/client'
 
 // Helper to safely convert Prisma Decimal to number
@@ -342,6 +343,51 @@ export async function POST(req: NextRequest) {
       })
 
       console.log(`[MPESA-CALLBACK] Payment ${payment.id} confirmed PAID via M-Pesa. Receipt: ${mpesaReceiptNumber}`)
+
+      // FIX: Create escrow holds per store (same pattern as Flutterwave webhook)
+      try {
+        const order = await prisma.order.findUnique({
+          where: { id: payment.orderId },
+          include: { OrderItem: true },
+        })
+
+        if (order) {
+          const storeTotals = new Map<string, number>()
+          for (const item of order.OrderItem) {
+            const itemTotal = toNum(item.total) || toNum(item.price) * item.quantity
+            storeTotals.set(item.storeId, (storeTotals.get(item.storeId) || 0) + itemTotal)
+          }
+
+          for (const [storeId, storeTotal] of storeTotals) {
+            const store = await prisma.store.findUnique({
+              where: { id: storeId },
+              select: {
+                id: true,
+                verificationTier: true,
+                verificationStatus: true,
+                commissionRate: true,
+              },
+            })
+
+            if (store) {
+              await createEscrowHold({
+                orderId: order.id,
+                storeId: store.id,
+                buyerId: order.userId,
+                grossAmount: storeTotal,
+                currency: order.currency,
+                store: {
+                  verificationTier: store.verificationTier,
+                  verificationStatus: store.verificationStatus,
+                  commissionRate: toNum(store.commissionRate),
+                },
+              })
+            }
+          }
+        }
+      } catch (escrowError) {
+        console.error('[MPESA-CALLBACK] Escrow creation failed (non-fatal):', escrowError)
+      }
     } else {
       // Payment failed - update status
       await prisma.payment.update({

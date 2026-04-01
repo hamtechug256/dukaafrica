@@ -77,8 +77,11 @@ export async function POST(req: Request) {
   const email = email_addresses[0]?.email_address
   const phone = phone_numbers?.[0]?.phone_number
   
-  // Determine role
-  let role = unsafe_metadata?.role || 'BUYER'
+  // Determine role — validate against allowed values
+  const VALID_ROLES = ['BUYER', 'SELLER', 'ADMIN', 'SUPER_ADMIN'] as string[]
+  const VALID_COUNTRIES = ['UGANDA', 'KENYA', 'TANZANIA', 'RWANDA'] as string[]
+  let role: string = unsafe_metadata?.role && VALID_ROLES.includes(unsafe_metadata.role) ? unsafe_metadata.role : 'BUYER'
+  let country: string | null = unsafe_metadata?.country && VALID_COUNTRIES.includes(unsafe_metadata.country) ? unsafe_metadata.country : null
   const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(email?.toLowerCase() || '')
   if (isSuperAdmin) {
     role = 'SUPER_ADMIN'
@@ -99,8 +102,8 @@ export async function POST(req: Request) {
             lastName: last_name,
             name: [first_name, last_name].filter(Boolean).join(' ') || null,
             avatar: image_url,
-            role: role as any,
-            country: unsafe_metadata?.country as any || null,
+            role: role,
+            country: country ?? undefined,
             currency: unsafe_metadata?.currency ?? undefined,
             emailVerified: email_addresses[0]?.verification?.status === 'verified' ? new Date() : null,
           },
@@ -130,9 +133,9 @@ export async function POST(req: Request) {
             lastName: last_name,
             name: [first_name, last_name].filter(Boolean).join(' ') || null,
             avatar: image_url,
-            country: unsafe_metadata?.country as any || null,
+            country: country ?? undefined,
             currency: unsafe_metadata?.currency ?? undefined,
-            ...(isSuperAdmin ? { role: 'SUPER_ADMIN' } : unsafe_metadata?.role && { role: unsafe_metadata.role as any }),
+            ...(isSuperAdmin ? { role: 'SUPER_ADMIN' } : unsafe_metadata?.role && VALID_ROLES.includes(unsafe_metadata.role) && { role: unsafe_metadata.role }),
             emailVerified: email_addresses[0]?.verification?.status === 'verified' ? new Date() : null,
           }
         })

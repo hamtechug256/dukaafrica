@@ -1,5 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { createEscrowHold } from '@/lib/escrow'
+import { Prisma } from '@prisma/client'
+
+// Helper to safely convert Prisma Decimal to number
+function toNum(val: unknown): number {
+  if (val instanceof Prisma.Decimal) return val.toNumber()
+  if (typeof val === 'number') return val
+  return 0
+}
 
 /**
  * Airtel Money Callback Handler
@@ -106,6 +115,52 @@ export async function POST(req: NextRequest) {
           path: '/api/payments/airtel/callback',
         },
       })
+
+      // FIX: Create escrow holds per store (same pattern as Flutterwave webhook)
+      try {
+        const order = await prisma.order.findUnique({
+          where: { id: payment.orderId },
+          include: { OrderItem: true },
+        })
+
+        if (order) {
+          // Group order items by store for multi-vendor support
+          const storeTotals = new Map<string, number>()
+          for (const item of order.OrderItem) {
+            const itemTotal = toNum(item.total) || toNum(item.price) * item.quantity
+            storeTotals.set(item.storeId, (storeTotals.get(item.storeId) || 0) + itemTotal)
+          }
+
+          for (const [storeId, storeTotal] of storeTotals) {
+            const store = await prisma.store.findUnique({
+              where: { id: storeId },
+              select: {
+                id: true,
+                verificationTier: true,
+                verificationStatus: true,
+                commissionRate: true,
+              },
+            })
+
+            if (store) {
+              await createEscrowHold({
+                orderId: order.id,
+                storeId: store.id,
+                buyerId: order.userId,
+                grossAmount: storeTotal,
+                currency: order.currency,
+                store: {
+                  verificationTier: store.verificationTier,
+                  verificationStatus: store.verificationStatus,
+                  commissionRate: toNum(store.commissionRate),
+                },
+              })
+            }
+          }
+        }
+      } catch (escrowError) {
+        console.error('[AIRTEL-CALLBACK] Escrow creation failed (non-fatal):', escrowError)
+      }
     } else {
       // Payment failed
       await prisma.payment.update({

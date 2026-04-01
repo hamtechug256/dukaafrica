@@ -16,19 +16,24 @@ import {
  * PUBLIC endpoint - used during login flow before authentication
  */
 export async function GET(request: NextRequest) {
-  const ip = getClientIP(request)
-  const blockStatus = await isIPBlocked(ip)
-  const attemptCount = await getAttemptCount(ip)
+  try {
+    const ip = getClientIP(request)
+    const blockStatus = await isIPBlocked(ip)
+    const attemptCount = await getAttemptCount(ip)
 
-  const response = NextResponse.json({
-    blocked: blockStatus.blocked,
-    reason: blockStatus.reason,
-    remainingMinutes: blockStatus.remainingTime,
-    attemptCount,
-    ip: ip !== 'unknown' ? ip.slice(0, 3) + '***' : 'unknown' // Partially masked for privacy
-  })
+    const response = NextResponse.json({
+      blocked: blockStatus.blocked,
+      reason: blockStatus.reason,
+      remainingMinutes: blockStatus.remainingTime,
+      attemptCount,
+      ip: ip !== 'unknown' ? ip.slice(0, 3) + '***' : 'unknown' // Partially masked for privacy
+    })
 
-  return addSecurityHeaders(response)
+    return addSecurityHeaders(response)
+  } catch (error) {
+    console.error('Security check error:', error)
+    return NextResponse.json({ error: 'Security check failed' }, { status: 500 })
+  }
 }
 
 /**
@@ -37,46 +42,51 @@ export async function GET(request: NextRequest) {
  * PUBLIC endpoint - used during login flow before authentication
  */
 export async function POST(request: NextRequest) {
-  const ip = getClientIP(request)
+  try {
+    const ip = getClientIP(request)
 
-  // Check if already blocked
-  const blockStatus = await isIPBlocked(ip)
-  if (blockStatus.blocked) {
+    // Check if already blocked
+    const blockStatus = await isIPBlocked(ip)
+    if (blockStatus.blocked) {
+      await logSecurityEvent({
+        type: 'BLOCKED_ACCESS',
+        ip,
+        details: 'Attempted login while blocked',
+        userAgent: request.headers.get('user-agent') || undefined
+      })
+
+      const response = NextResponse.json({
+        blocked: true,
+        error: 'Your access has been temporarily restricted.',
+        remainingMinutes: blockStatus.remainingTime
+      }, { status: 429 })
+
+      return addSecurityHeaders(response)
+    }
+
+    // Record the failed attempt
+    const result = await recordFailedAttempt(ip)
+
     await logSecurityEvent({
-      type: 'BLOCKED_ACCESS',
+      type: 'LOGIN_ATTEMPT',
       ip,
-      details: 'Attempted login while blocked',
+      details: `Failed login attempt #${result.attempts}${result.blocked ? ' - BLOCKED' : ''}`,
       userAgent: request.headers.get('user-agent') || undefined
     })
 
     const response = NextResponse.json({
-      blocked: true,
-      error: 'Your access has been temporarily restricted.',
-      remainingMinutes: blockStatus.remainingTime
-    }, { status: 429 })
+      blocked: result.blocked,
+      attempts: result.attempts,
+      delay: result.delay,
+      message: result.message,
+      remainingAttempts: 5 - result.attempts
+    })
 
     return addSecurityHeaders(response)
+  } catch (error) {
+    console.error('Failed login record error:', error)
+    return NextResponse.json({ error: 'Failed to record attempt' }, { status: 500 })
   }
-
-  // Record the failed attempt
-  const result = await recordFailedAttempt(ip)
-
-  await logSecurityEvent({
-    type: 'LOGIN_ATTEMPT',
-    ip,
-    details: `Failed login attempt #${result.attempts}${result.blocked ? ' - BLOCKED' : ''}`,
-    userAgent: request.headers.get('user-agent') || undefined
-  })
-
-  const response = NextResponse.json({
-    blocked: result.blocked,
-    attempts: result.attempts,
-    delay: result.delay,
-    message: result.message,
-    remainingAttempts: 5 - result.attempts
-  })
-
-  return addSecurityHeaders(response)
 }
 
 /**
@@ -86,29 +96,34 @@ export async function POST(request: NextRequest) {
  * This prevents attackers from bypassing rate limiting by clearing their own attempts
  */
 export async function DELETE(request: NextRequest) {
-  // Require authentication - only allow after successful login
-  const { userId } = await auth()
-  if (!userId) {
-    return NextResponse.json(
-      { error: 'Authentication required' },
-      { status: 401 }
-    )
+  try {
+    // Require authentication - only allow after successful login
+    const { userId } = await auth()
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      )
+    }
+
+    const ip = getClientIP(request)
+    await clearFailedAttempts(ip)
+
+    await logSecurityEvent({
+      type: 'LOGIN_ATTEMPT',
+      ip,
+      details: 'Attempts cleared after successful login',
+      userAgent: request.headers.get('user-agent') || undefined
+    })
+
+    const response = NextResponse.json({
+      success: true,
+      message: 'Attempts cleared'
+    })
+
+    return addSecurityHeaders(response)
+  } catch (error) {
+    console.error('Clear attempts error:', error)
+    return NextResponse.json({ error: 'Failed to clear attempts' }, { status: 500 })
   }
-
-  const ip = getClientIP(request)
-  await clearFailedAttempts(ip)
-
-  await logSecurityEvent({
-    type: 'LOGIN_ATTEMPT',
-    ip,
-    details: 'Attempts cleared after successful login',
-    userAgent: request.headers.get('user-agent') || undefined
-  })
-
-  const response = NextResponse.json({
-    success: true,
-    message: 'Attempts cleared'
-  })
-
-  return addSecurityHeaders(response)
 }
