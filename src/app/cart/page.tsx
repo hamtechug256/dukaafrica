@@ -20,8 +20,7 @@ export default function CartPage() {
   const storeCount = Object.keys(itemsByStore).length
 
   const handleApplyCoupon = () => {
-    // TODO: Validate and apply coupon
-    console.log('Apply coupon:', couponCode)
+    // TODO: Validate coupon code against server and apply discount
   }
 
   return (

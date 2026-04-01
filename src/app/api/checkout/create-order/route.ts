@@ -103,15 +103,15 @@ export async function POST(req: Request) {
 
     const { items, shippingAddress, deliveryOption, paymentMethod, subtotal, shipping, total } = validationResult.data
 
-    // SECURITY FIX: Verify prices against database
+    // SECURITY FIX: Verify prices and stock against database
     const productIds = items.map(i => i.productId)
     const variantIds = items.map(i => i.variantId).filter((id): id is string => id !== undefined)
 
     const dbProducts = await prisma.product.findMany({
       where: { id: { in: productIds } },
-      select: { id: true, price: true, status: true, currency: true },
+      select: { id: true, price: true, status: true, currency: true, quantity: true },
     })
-    const productPriceMap = new Map(dbProducts.map(p => [p.id, { ...p, price: p.price.toNumber() }]))
+    const productPriceMap = new Map(dbProducts.map(p => [p.id, { ...p, price: p.price.toNumber(), quantity: p.quantity }]))
 
     // Fetch variants if any
     const dbVariants = variantIds.length > 0
@@ -132,7 +132,16 @@ export async function POST(req: Request) {
       const dbProduct = productPriceMap.get(item.productId)
       if (!dbProduct || dbProduct.status !== 'ACTIVE') {
         return NextResponse.json(
-          { error: `Product ${item.productId} is not available` },
+          { error: 'One or more products are not available' },
+          { status: 400 }
+        )
+      }
+
+      // SECURITY FIX: Validate stock quantity against database
+      const availableStock = dbProduct.quantity
+      if (item.quantity > availableStock) {
+        return NextResponse.json(
+          { error: `Insufficient stock for one or more items. Only ${availableStock} available.` },
           { status: 400 }
         )
       }
@@ -202,6 +211,22 @@ export async function POST(req: Request) {
 
     // Use transaction for atomic order creation
     const result = await prisma.$transaction(async (tx) => {
+      // SECURITY FIX: Decrement stock atomically within the transaction
+      for (const item of verifiedItems) {
+        const productId = item.productId
+        const currentProduct = await tx.product.findUnique({
+          where: { id: productId },
+          select: { quantity: true },
+        })
+        if (!currentProduct || currentProduct.quantity < item.quantity) {
+          throw new Error(`Insufficient stock for product ${productId}`)
+        }
+        await tx.product.update({
+          where: { id: productId },
+          data: { quantity: { decrement: item.quantity } },
+        })
+      }
+
       // Create order
       const order = await tx.order.create({
         data: {

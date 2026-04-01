@@ -44,9 +44,7 @@ const sidebarLinks = [
 
 async function fetchUserRole() {
   const res = await fetch('/api/user/role')
-  const data = await res.json()
-  console.log('[ADMIN PAGE] Role response:', data)
-  return data
+  return res.json()
 }
 
 async function fetchAdminStats() {
@@ -85,24 +83,17 @@ export default function AdminDashboard() {
   // Handle authorization - with proper loading state
   useEffect(() => {
     if (roleLoading) {
-      console.log('[ADMIN PAGE] Still loading role...')
       return
     }
 
     if (roleError) {
-      console.error('[ADMIN PAGE] Role error:', roleError)
       return
     }
 
     if (roleData?.authenticated === false) {
-      console.log('[ADMIN PAGE] Not authenticated, redirecting to login')
       setRedirecting(true)
       router.push('/admin/login')
       return
-    }
-
-    if (roleData?.user) {
-      console.log('[ADMIN PAGE] Role data received:', JSON.stringify(roleData, null, 2))
     }
   }, [roleData, roleLoading, roleError, router])
 

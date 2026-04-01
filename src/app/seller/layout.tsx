@@ -1,6 +1,7 @@
-import { auth, currentUser } from '@clerk/nextjs/server'
+import { auth } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
+import { prisma } from '@/lib/db'
 
 export default async function SellerLayout({
   children,
@@ -8,7 +9,6 @@ export default async function SellerLayout({
   children: React.ReactNode
 }) {
   const { userId } = await auth()
-  const user = await currentUser()
 
   // Get the current pathname
   const headersList = await headers()
@@ -28,24 +28,39 @@ export default async function SellerLayout({
     redirect('/sign-in?redirect_url=' + encodeURIComponent(pathname))
   }
 
-  // Check if user is a seller or admin
-  const role = user?.unsafeMetadata?.role as string | undefined
-  const hasStore = user?.unsafeMetadata?.hasStore as boolean | undefined
-  const onboardingCompleted = user?.unsafeMetadata?.onboardingCompleted as boolean | undefined
+  // SECURITY FIX: Use database-backed role check instead of Clerk's unsafeMetadata
+  // unsafeMetadata is not cryptographically signed and can diverge from the database
+  const dbUser = await prisma.user.findUnique({
+    where: { clerkId: userId },
+    select: {
+      role: true,
+      Store: {
+        select: {
+          id: true,
+          verificationStatus: true,
+        },
+      },
+    },
+  })
+
+  const role = dbUser?.role
+  const hasStore = !!dbUser?.Store
+  const storeVerified = hasStore && dbUser!.Store!.verificationStatus === 'VERIFIED'
   
   const isSeller = role === 'SELLER'
   const isAdmin = role === 'ADMIN' || role === 'SUPER_ADMIN'
-  const needsOnboarding = !hasStore && !onboardingCompleted
+  const needsOnboarding = isSeller && !storeVerified
 
   // Allow access if:
-  // 1. User is already a seller with a store
+  // 1. User is already a seller with an active store
   // 2. User is an admin
-  if (isSeller || isAdmin) {
-    // If seller but needs onboarding, redirect to onboarding (unless already there)
-    if (needsOnboarding && !pathname.startsWith('/seller/onboarding')) {
-      redirect('/seller/onboarding')
-    }
+  if ((isSeller && storeVerified) || isAdmin) {
     return <>{children}</>
+  }
+
+  // If seller but needs onboarding, redirect (unless already there)
+  if (isSeller && needsOnboarding && !pathname.startsWith('/seller/onboarding')) {
+    redirect('/seller/onboarding')
   }
 
   // Not a seller/admin and not on a public page - redirect to onboarding
