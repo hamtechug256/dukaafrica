@@ -20,75 +20,52 @@ interface UploadOptions {
   format?: 'auto' | 'jpg' | 'png' | 'webp'
 }
 
-// Upload image to Cloudinary
+// Upload image to Cloudinary via server-side signed API
+// This replaces the old unsigned upload for better security
 export async function uploadToCloudinary(
   file: File | Blob | string,
   options: UploadOptions = {}
 ): Promise<CloudinaryUploadResult | null> {
-  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
-  const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET
-
-  if (!cloudName || !uploadPreset) {
-    console.error('Cloudinary configuration missing')
-    return null
-  }
-
   try {
     const formData = new FormData()
-    
-    // Handle different input types
+
     if (typeof file === 'string') {
-      // Base64 or URL
-      formData.append('file', file)
+      // Base64 or URL - fetch and convert to blob first
+      const response = await fetch(file)
+      if (!response.ok) return null
+      const blob = await response.blob()
+      formData.append('file', blob)
     } else {
       // File or Blob
       formData.append('file', file)
     }
 
-    formData.append('upload_preset', uploadPreset)
-    
-    // Optional folder
     if (options.folder) {
       formData.append('folder', options.folder)
     }
 
-    // Optional transformations
-    const transformations: string[] = []
-    
-    if (options.maxWidth || options.maxHeight) {
-      transformations.push(
-        `w_${options.maxWidth || 'auto'},h_${options.maxHeight || 'auto'},c_limit`
-      )
-    }
-    
-    if (options.quality) {
-      transformations.push(`q_${options.quality}`)
-    }
-    
-    if (options.format) {
-      transformations.push(`f_${options.format}`)
-    }
-
-    if (transformations.length > 0) {
-      formData.append('transformation', transformations.join(','))
-    }
-
-    const response = await fetch(
-      `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
-      {
-        method: 'POST',
-        body: formData,
-      }
-    )
+    // Upload through our secure server-side API route
+    const response = await fetch('/api/upload', {
+      method: 'POST',
+      body: formData,
+    })
 
     if (!response.ok) {
-      const error = await response.json()
-      console.error('Cloudinary upload error:', error)
+      console.error('Upload failed:', response.status)
       return null
     }
 
     const result = await response.json()
-    return result as CloudinaryUploadResult
+    return {
+      public_id: result.publicId,
+      secure_url: result.url,
+      url: result.url,
+      width: result.width,
+      height: result.height,
+      format: result.format,
+      resource_type: 'image',
+      bytes: result.bytes,
+    }
   } catch (error) {
     console.error('Upload error:', error)
     return null
@@ -126,7 +103,12 @@ export async function deleteFromCloudinary(publicId: string): Promise<boolean> {
   try {
     // Generate signature for authenticated request
     const timestamp = Math.round(Date.now() / 1000)
-    const signature = await generateSignature(publicId, timestamp, apiSecret)
+    const message = `public_id=${publicId}&timestamp=${timestamp}${apiSecret}`
+    const encoder = new TextEncoder()
+    const data = encoder.encode(message)
+    const hashBuffer = await crypto.subtle.digest('SHA-1', data)
+    const hashArray = Array.from(new Uint8Array(hashBuffer))
+    const signature = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
 
     const response = await fetch(
       `https://api.cloudinary.com/v1_1/${cloudName}/image/destroy`,
@@ -156,20 +138,6 @@ export async function deleteFromCloudinary(publicId: string): Promise<boolean> {
   }
 }
 
-// Generate signature for authenticated Cloudinary requests
-async function generateSignature(
-  publicId: string,
-  timestamp: number,
-  apiSecret: string
-): Promise<string> {
-  const message = `public_id=${publicId}&timestamp=${timestamp}${apiSecret}`
-  const encoder = new TextEncoder()
-  const data = encoder.encode(message)
-  const hashBuffer = await crypto.subtle.digest('SHA-1', data)
-  const hashArray = Array.from(new Uint8Array(hashBuffer))
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
-}
-
 // Get optimized image URL
 export function getOptimizedImageUrl(
   publicId: string,
@@ -182,7 +150,7 @@ export function getOptimizedImageUrl(
   } = {}
 ): string {
   const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
-  
+
   if (!cloudName) {
     return ''
   }
@@ -207,11 +175,11 @@ export function getOptimizedImageUrl(
   }
 
   const transformationString = transformations.join(',')
-  
+
   return `https://res.cloudinary.com/${cloudName}/image/upload/${transformationString}/${publicId}`
 }
 
-// Client-side upload hook
+// Client-side upload hook — now routes through secure server API
 export function useCloudinaryUpload() {
   const upload = async (
     file: File | Blob,
@@ -224,7 +192,7 @@ export function useCloudinaryUpload() {
       format: 'webp',
       ...options,
     })
-    
+
     return result?.secure_url || null
   }
 
@@ -239,7 +207,7 @@ export function useCloudinaryUpload() {
       format: 'webp',
       ...options,
     })
-    
+
     return results.map(r => r.secure_url)
   }
 
