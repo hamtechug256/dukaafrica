@@ -139,20 +139,27 @@ export async function createEscrowHold(params: {
       }
     })
     
-    // Create notification for seller
-    await prisma.notification.create({
-      data: {
-        userId: params.storeId, // This should be store owner's user ID
-        type: 'ESCROW_HELD',
-        title: 'Payment Received - Funds in Escrow',
-        message: `Order payment of ${params.currency} ${params.grossAmount.toLocaleString()} received. Funds will be released in ${holdDays} days after delivery confirmation.`,
-        data: JSON.stringify({
-          orderId: params.orderId,
-          amount: sellerAmount,
-          releaseDate: releaseDate.toISOString()
-        })
-      }
+    // Create notification for seller (H1 FIX: look up store owner's userId, not storeId)
+    const store = await prisma.store.findUnique({
+      where: { id: params.storeId },
+      select: { userId: true },
     })
+
+    if (store) {
+      await prisma.notification.create({
+        data: {
+          userId: store.userId,
+          type: 'ESCROW_HELD',
+          title: 'Payment Received - Funds in Escrow',
+          message: `Order payment of ${params.currency} ${params.grossAmount.toLocaleString()} received. Funds will be released in ${holdDays} days after delivery confirmation.`,
+          data: JSON.stringify({
+            orderId: params.orderId,
+            amount: sellerAmount,
+            releaseDate: releaseDate.toISOString()
+          })
+        }
+      })
+    }
     
     return {
       success: true,

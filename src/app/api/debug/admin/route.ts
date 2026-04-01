@@ -2,40 +2,43 @@ import { auth, currentUser } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 
-// SECURITY FIX: Debug endpoint now requires SUPER_ADMIN authentication
-// Previously this was accessible to anyone (public route in middleware)
+// Debug endpoint - SUPER_ADMIN only, disabled in production
 export async function GET() {
   try {
+    // H5 FIX: Block in production
+    if (process.env.NODE_ENV === 'production') {
+      return NextResponse.json({ error: 'Debug endpoint disabled in production' }, { status: 404 })
+    }
+
     const { userId } = await auth()
     const clerkUser = await currentUser()
 
     if (!userId || !clerkUser) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      )
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Only super admins can access debug info
+    // H5 FIX: Require SUPER_ADMIN role (not just any authenticated user)
+    const dbUser = await prisma.user.findUnique({
+      where: { clerkId: userId },
+      select: { role: true },
+    })
+
+    if (!dbUser || dbUser.role !== 'SUPER_ADMIN') {
+      return NextResponse.json({ error: 'Forbidden: SUPER_ADMIN access required' }, { status: 403 })
+    }
+
     const superAdminEnv = process.env.SUPER_ADMIN_EMAILS || ''
-    const email = clerkUser.emailAddresses?.[0]?.emailAddress?.toLowerCase() || ''
-    const superAdminEmails = superAdminEnv.split(',').map(e => e.trim().toLowerCase()).filter(Boolean)
-
-    if (!superAdminEmails.includes(email)) {
-      return NextResponse.json(
-        { error: 'Forbidden. Super admin access required.' },
-        { status: 403 }
-      )
-    }
-
-    // Get env var (mask for security)
-    const maskedEnv = superAdminEmails.map(e => {
-      if (e.length < 3) return e
-      return e.substring(0, 2) + '***' + e.substring(e.length - 2)
+    const maskedEnv = superAdminEnv.split(',').map(e => {
+      const trimmed = e.trim().toLowerCase()
+      if (trimmed.length < 3) return trimmed
+      return trimmed.substring(0, 2) + '***' + trimmed.substring(trimmed.length - 2)
     }).join(', ')
 
-    // Check database
-    const dbUser = await prisma.user.findUnique({
+    const email = clerkUser.emailAddresses?.[0]?.emailAddress?.toLowerCase() || ''
+    const emailFromEnv = superAdminEnv.split(',').map(e => e.trim().toLowerCase()).filter(Boolean)
+    const isEmailInEnv = emailFromEnv.includes(email)
+
+    const fullDbUser = await prisma.user.findUnique({
       where: { clerkId: userId },
       select: {
         id: true,
@@ -54,17 +57,32 @@ export async function GET() {
         firstName: clerkUser.firstName,
         lastName: clerkUser.lastName,
       },
+      envConfig: {
+        raw: maskedEnv,
+        parsed: emailFromEnv,
+        count: emailFromEnv.length,
+      },
+      match: {
+        isEmailInEnv: isEmailInEnv,
+        matchedEmail: isEmailInEnv ? email : null,
+      },
+      database: fullDbUser ? {
+        id: fullDbUser.id,
+        role: fullDbUser.role,
+        email: fullDbUser.email,
+        createdAt: fullDbUser.createdAt,
+        updatedAt: fullDbUser.updatedAt,
+      } : null,
       analysis: {
-        should: superAdminEmails.includes(email) ? 'SUPER_ADMIN' : (dbUser?.role || 'Not in DB'),
-        actual: dbUser?.role || 'Not in DB',
-        needsFix: superAdminEmails.includes(email) && dbUser?.role !== 'SUPER_ADMIN',
+        should: isEmailInEnv ? 'SUPER_ADMIN' : (fullDbUser?.role || 'Not in DB'),
+        actual: fullDbUser?.role || 'Not in DB',
+        needsFix: isEmailInEnv && fullDbUser?.role !== 'SUPER_ADMIN',
       },
     })
   } catch (error) {
-    console.error('Debug failed:', error)
-    return NextResponse.json(
-      { error: 'Internal error' },
-      { status: 500 }
-    )
+    return NextResponse.json({
+      error: 'Debug failed',
+      details: error instanceof Error ? error.message : 'Unknown error',
+    }, { status: 500 })
   }
 }

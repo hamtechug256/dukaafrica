@@ -1,3 +1,4 @@
+import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/db'
 import { NextResponse } from 'next/server'
 
@@ -119,6 +120,21 @@ const categories = [
 
 export async function GET() {
   try {
+    // C5 FIX: Require admin authentication
+    const { userId } = await auth()
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { clerkId: userId },
+      select: { role: true },
+    })
+
+    if (!user || (user.role !== 'ADMIN' && user.role !== 'SUPER_ADMIN')) {
+      return NextResponse.json({ error: 'Forbidden: admin access required' }, { status: 403 })
+    }
+
     let createdCount = 0
     let skippedCount = 0
 
