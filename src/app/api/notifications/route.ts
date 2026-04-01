@@ -110,14 +110,13 @@ export async function POST(request: NextRequest) {
     const isInternalCall = internalSecret && internalSecret === process.env.CRON_SECRET
 
     // If not an internal call, require admin authentication
-    let adminUser = null
     if (!isInternalCall) {
       const { userId } = getAuth(request)
       if (!userId) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
       }
 
-      adminUser = await prisma.user.findUnique({
+      const adminUser = await prisma.user.findUnique({
         where: { clerkId: userId },
         select: { id: true, role: true },
       })
