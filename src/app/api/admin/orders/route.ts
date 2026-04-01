@@ -1,6 +1,14 @@
 import { auth } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { Prisma } from '@prisma/client'
+
+// Helper to safely convert Prisma Decimal to number
+function toNum(val: unknown): number {
+  if (val instanceof Prisma.Decimal) return val.toNumber()
+  if (typeof val === 'number') return val
+  return 0
+}
 
 // GET - Fetch all orders (admin only)
 export async function GET(req: Request) {
@@ -85,7 +93,7 @@ export async function GET(req: Request) {
       delivered: allOrders.filter(o => o.status === 'DELIVERED').length,
       revenue: allOrders
         .filter(o => o.paymentStatus === 'PAID')
-        .reduce((sum, o) => sum + (o.total || 0), 0),
+        .reduce((sum, o) => sum + toNum(o.total), 0),
     }
 
     return NextResponse.json({ orders: transformedOrders, stats })

@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/db'
 import { flutterwaveClient, generateTransactionReference } from '@/lib/flutterwave/client'
+import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 
 // Minimum withdrawal amounts per currency
 const MIN_WITHDRAWAL: Record<string, number> = {
@@ -43,6 +44,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
+      )
+    }
+
+    // Rate limiting: 3 withdrawal attempts per minute per user
+    const rateLimit = await checkRateLimit('seller_withdraw', userId, RATE_LIMITS.WITHDRAW.maxRequests, RATE_LIMITS.WITHDRAW.windowSeconds)
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many withdrawal attempts. Please try again later.', retryAfter: rateLimit.retryAfterSeconds },
+        { status: 429, headers: { 'Retry-After': String(rateLimit.retryAfterSeconds || 60) } }
       )
     }
 
@@ -82,8 +92,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check available balance
-    if (store.availableBalance < amount) {
+    // Check available balance (convert Decimal to number for comparison)
+    const storeAvailableBalance = store.availableBalance.toNumber()
+    if (storeAvailableBalance < amount) {
       return NextResponse.json(
         { error: 'Insufficient balance' },
         { status: 400 }

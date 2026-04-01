@@ -1,6 +1,14 @@
 import { Metadata } from 'next'
 import { prisma } from '@/lib/db'
 import { FlashSalesClient } from './client'
+import { Prisma } from '@prisma/client'
+
+// Helper to safely convert Prisma Decimal to number
+function toNum(val: unknown): number {
+  if (val instanceof Prisma.Decimal) return val.toNumber()
+  if (typeof val === 'number') return val
+  return 0
+}
 
 // Make this page dynamic - no static generation
 export const dynamic = 'force-dynamic'
@@ -48,18 +56,20 @@ async function getFlashSales() {
       } catch {}
     }
 
-    const salePrice = product.flashSaleDiscount 
-      ? product.price * (1 - product.flashSaleDiscount / 100)
-      : product.price
+    const price = toNum(product.price)
+    const flashSaleDiscount = toNum(product.flashSaleDiscount)
+    const salePrice = flashSaleDiscount 
+      ? price * (1 - flashSaleDiscount / 100)
+      : price
 
     return {
       id: product.id,
       name: product.name,
       slug: product.slug,
       images,
-      price: product.price,
-      comparePrice: product.comparePrice,
-      flashSaleDiscount: product.flashSaleDiscount || 0,
+      price,
+      comparePrice: product.comparePrice ? toNum(product.comparePrice) : null,
+      flashSaleDiscount: flashSaleDiscount || 0,
       flashSalePrice: salePrice,
       flashSaleStart: product.flashSaleStart?.toISOString() || null,
       flashSaleEnd: product.flashSaleEnd?.toISOString() || null,

@@ -1,5 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { Prisma } from '@prisma/client'
+
+// Helper to safely convert Prisma Decimal to number
+function toNum(val: unknown): number {
+  if (val instanceof Prisma.Decimal) return val.toNumber()
+  if (typeof val === 'number') return val
+  return 0
+}
 
 // GET - Fetch active flash sales for public display
 export async function GET(request: NextRequest) {
@@ -41,17 +49,19 @@ export async function GET(request: NextRequest) {
     // Transform products for display
     const flashDeals = products.map(product => {
       const images = product.images ? JSON.parse(product.images) : []
-      const salePrice = product.flashSaleDiscount
-        ? product.price * (1 - product.flashSaleDiscount / 100)
-        : product.price
+      const price = toNum(product.price)
+      const discount = toNum(product.flashSaleDiscount) || 0
+      const salePrice = discount
+        ? price * (1 - discount / 100)
+        : price
 
       return {
         id: product.id,
         name: product.name,
         slug: product.slug,
-        originalPrice: product.price,
+        originalPrice: price,
         salePrice: Math.round(salePrice),
-        discount: product.flashSaleDiscount || 0,
+        discount,
         image: images[0] || null,
         sold: product.flashSaleClaimed,
         total: product.flashSaleStock || 0,

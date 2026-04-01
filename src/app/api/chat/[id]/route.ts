@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAuth } from '@clerk/nextjs/server'
-import { PrismaClient } from '@prisma/client'
-
-const prisma = new PrismaClient()
+import { auth } from '@clerk/nextjs/server'
+import { prisma } from '@/lib/db'
 
 // GET /api/chat/[id] - Get chat messages
 export async function GET(
@@ -10,7 +8,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId } = getAuth(request)
+    const { userId } = await auth()
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -25,7 +23,6 @@ export async function GET(
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    // Check if user is participant
     const participant = await prisma.chatParticipant.findFirst({
       where: {
         chatId: id,
@@ -37,7 +34,6 @@ export async function GET(
       return NextResponse.json({ error: 'Not authorized for this chat' }, { status: 403 })
     }
 
-    // Get chat with messages
     const chat = await prisma.chat.findUnique({
       where: { id },
       include: {
@@ -79,7 +75,6 @@ export async function GET(
       return NextResponse.json({ error: 'Chat not found' }, { status: 404 })
     }
 
-    // Get product info if exists
     let product: {
       id: string;
       name: string;
@@ -89,7 +84,7 @@ export async function GET(
       slug: string;
     } | null = null
     if (chat.productId) {
-      product = await prisma.product.findUnique({
+      const productData = await prisma.product.findUnique({
         where: { id: chat.productId },
         select: {
           id: true,
@@ -100,9 +95,16 @@ export async function GET(
           slug: true,
         },
       })
+      if (productData) {
+        product = {
+          ...productData,
+          price: productData.price instanceof Object && 'toNumber' in productData.price
+            ? (productData.price as any).toNumber()
+            : Number(productData.price),
+        }
+      }
     }
 
-    // Mark messages as read
     await prisma.message.updateMany({
       where: {
         chatId: id,
@@ -112,7 +114,6 @@ export async function GET(
       data: { isRead: true },
     })
 
-    // Update participant's last read
     await prisma.chatParticipant.update({
       where: { id: participant.id },
       data: { lastRead: new Date() },
@@ -137,7 +138,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId } = getAuth(request)
+    const { userId } = await auth()
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -152,7 +153,6 @@ export async function POST(
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    // Check if user is participant
     const participant = await prisma.chatParticipant.findFirst({
       where: {
         chatId: id,
@@ -171,7 +171,15 @@ export async function POST(
       return NextResponse.json({ error: 'Message content required' }, { status: 400 })
     }
 
-    // Create message
+    const validTypes = ['TEXT', 'IMAGE', 'FILE', 'SYSTEM']
+    if (!validTypes.includes(type)) {
+      return NextResponse.json({ error: 'Invalid message type' }, { status: 400 })
+    }
+
+    if (content && content.length > 10000) {
+      return NextResponse.json({ error: 'Message too long (max 10000 characters)' }, { status: 400 })
+    }
+
     const message = await prisma.message.create({
       data: {
         chatId: id,
@@ -191,7 +199,6 @@ export async function POST(
       },
     })
 
-    // Update chat timestamp
     await prisma.chat.update({
       where: { id },
       data: { updatedAt: new Date() },

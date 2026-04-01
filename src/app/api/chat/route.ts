@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAuth } from '@clerk/nextjs/server'
-import { PrismaClient } from '@prisma/client'
-
-const prisma = new PrismaClient()
+import { auth } from '@clerk/nextjs/server'
+import { prisma } from '@/lib/db'
 
 // GET /api/chat - Get all chats for the current user
 export async function GET(request: NextRequest) {
   try {
-    const { userId } = getAuth(request)
+    const { userId } = await auth()
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -20,7 +18,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    // Get all chats where user is a participant
     const chats = await prisma.chat.findMany({
       where: {
         ChatParticipant: {
@@ -64,7 +61,6 @@ export async function GET(request: NextRequest) {
       orderBy: { updatedAt: 'desc' },
     })
 
-    // Get store info for product chats
     const chatsWithStore = await Promise.all(
       chats.map(async (chat) => {
         let product: {
@@ -79,7 +75,7 @@ export async function GET(request: NextRequest) {
         let store: { id: string; name: string; slug: string } | null = null
 
         if (chat.productId) {
-          product = await prisma.product.findUnique({
+          const productData = await prisma.product.findUnique({
             where: { id: chat.productId },
             select: {
               id: true,
@@ -97,10 +93,18 @@ export async function GET(request: NextRequest) {
               },
             },
           })
-          store = product?.Store ?? null
+          if (productData) {
+            product = {
+              ...productData,
+              price: productData.price instanceof Object && 'toNumber' in productData.price
+                ? (productData.price as any).toNumber()
+                : Number(productData.price),
+              Store: productData.Store,
+            }
+          }
+          store = productData?.Store ?? null
         }
 
-        // Get other participant (the one we're chatting with)
         const otherParticipant = chat.ChatParticipant.find((p) => p.userId !== user.id)
 
         return {
@@ -123,7 +127,7 @@ export async function GET(request: NextRequest) {
 // POST /api/chat - Start a new chat
 export async function POST(request: NextRequest) {
   try {
-    const { userId } = getAuth(request)
+    const { userId } = await auth()
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -139,7 +143,28 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { productId, orderId, recipientId, message } = body
 
-    // Check if chat already exists
+    // M3 FIX: Input validation
+    if (!recipientId) {
+      return NextResponse.json({ error: 'recipientId is required' }, { status: 400 })
+    }
+    if (!message || typeof message !== 'string' || message.trim().length === 0) {
+      return NextResponse.json({ error: 'message is required and must be non-empty' }, { status: 400 })
+    }
+    if (message.length > 5000) {
+      return NextResponse.json({ error: 'message is too long (max 5000 characters)' }, { status: 400 })
+    }
+    if (recipientId === user.id) {
+      return NextResponse.json({ error: 'Cannot start a chat with yourself' }, { status: 400 })
+    }
+
+    const recipientExists = await prisma.user.findUnique({
+      where: { id: recipientId },
+      select: { id: true },
+    })
+    if (!recipientExists) {
+      return NextResponse.json({ error: 'Recipient not found' }, { status: 404 })
+    }
+
     const existingChat = await prisma.chat.findFirst({
       where: {
         OR: [
@@ -158,12 +183,11 @@ export async function POST(request: NextRequest) {
     })
 
     if (existingChat) {
-      // Add message to existing chat
       const newMessage = await prisma.message.create({
         data: {
           chatId: existingChat.id,
           userId: user.id,
-          content: message,
+          content: message.trim(),
         },
       })
 
@@ -175,7 +199,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ chat: existingChat, message: newMessage })
     }
 
-    // Create new chat
     const chat = await prisma.chat.create({
       data: {
         productId: productId || undefined,
@@ -186,14 +209,12 @@ export async function POST(request: NextRequest) {
             { userId: recipientId },
           ],
         },
-        Message: message
-          ? {
-              create: {
-                userId: user.id,
-                content: message,
-              },
-            }
-          : undefined,
+        Message: {
+          create: {
+            userId: user.id,
+            content: message.trim(),
+          },
+        },
       },
       include: {
         ChatParticipant: {

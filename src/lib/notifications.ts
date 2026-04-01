@@ -1,6 +1,8 @@
-import { PrismaClient } from '@prisma/client'
-
-const prisma = new PrismaClient()
+// SECURITY FIX: Import shared PrismaClient from @/lib/db instead of creating a new one.
+// Creating a separate PrismaClient bypasses the singleton pattern, causing connection pool
+// exhaustion in development (hot-reload creates many connections) and inconsistent
+// transaction behavior in production.
+import { prisma } from '@/lib/db'
 
 // Define notification type locally since Prisma schema uses string, not enum
 export type NotificationType = string

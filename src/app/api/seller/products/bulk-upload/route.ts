@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/db'
+import { Prisma } from '@prisma/client'
+
+// Helper to safely convert Prisma Decimal to number
+function toNum(val: unknown): number {
+  if (val instanceof Prisma.Decimal) return val.toNumber()
+  if (typeof val === 'number') return val
+  return 0
+}
 
 // Generate unique slug
 function generateSlug(name: string): string {
@@ -293,7 +301,7 @@ export async function POST(request: NextRequest) {
         results.products.push({
           id: newProduct.id,
           name: newProduct.name,
-          price: newProduct.price,
+          price: toNum(newProduct.price),
         })
       } catch (error: any) {
         results.failed++

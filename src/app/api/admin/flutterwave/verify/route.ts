@@ -43,10 +43,6 @@ export async function GET() {
       hasSecretKey: !!config.secretKey,
       hasEncryptionKey: !!config.encryptionKey,
       hasWebhookHash: !!config.webhookHash,
-      publicKeyPrefix: config.publicKey ? config.publicKey.substring(0, 10) + '...' : null,
-      secretKeyPrefix: config.secretKey ? config.secretKey.substring(0, 10) + '...' : null,
-      isProduction: config.secretKey?.startsWith('FLWSECK_PROD') || false,
-      isTest: config.secretKey?.startsWith('FLWSECK_TEST') || false,
     }
 
     // Check database vs env var source
@@ -133,7 +129,7 @@ export async function GET() {
     if (!configStatus.hasWebhookHash) {
       recommendations.push('Add Flutterwave Webhook Hash for payment confirmation')
     }
-    if (configStatus.isTest) {
+    if (config.secretKey?.startsWith('FLWSECK_TEST')) {
       recommendations.push('Currently using TEST keys - switch to PRODUCTION keys to go live')
     }
     if (isApiWorking && !platformSettings?.flutterwaveSecretKey) {
@@ -162,10 +158,10 @@ export async function GET() {
       recommendations,
     })
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Flutterwave test error:', error)
     return NextResponse.json(
-      { error: error.message || 'Failed to test Flutterwave configuration' },
+      { error: 'Failed to test Flutterwave configuration' },
       { status: 500 }
     )
   }

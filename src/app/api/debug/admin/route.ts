@@ -2,13 +2,31 @@ import { auth, currentUser } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 
-// Debug endpoint - DISABLE IN PRODUCTION
+// Debug endpoint - SUPER_ADMIN only, disabled in production
 export async function GET() {
   try {
+    // H5 FIX: Block in production
+    if (process.env.NODE_ENV === 'production') {
+      return NextResponse.json({ error: 'Debug endpoint disabled in production' }, { status: 404 })
+    }
+
     const { userId } = await auth()
     const clerkUser = await currentUser()
 
-    // Get env var (mask for security)
+    if (!userId || !clerkUser) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // H5 FIX: Require SUPER_ADMIN role (not just any authenticated user)
+    const dbUser = await prisma.user.findUnique({
+      where: { clerkId: userId },
+      select: { role: true },
+    })
+
+    if (!dbUser || dbUser.role !== 'SUPER_ADMIN') {
+      return NextResponse.json({ error: 'Forbidden: SUPER_ADMIN access required' }, { status: 403 })
+    }
+
     const superAdminEnv = process.env.SUPER_ADMIN_EMAILS || ''
     const maskedEnv = superAdminEnv.split(',').map(e => {
       const trimmed = e.trim().toLowerCase()
@@ -16,21 +34,11 @@ export async function GET() {
       return trimmed.substring(0, 2) + '***' + trimmed.substring(trimmed.length - 2)
     }).join(', ')
 
-    if (!userId || !clerkUser) {
-      return NextResponse.json({
-        authenticated: false,
-        message: 'Not logged in',
-        superAdminEnv: maskedEnv,
-        superAdminCount: superAdminEnv.split(',').filter(e => e.trim()).length,
-      })
-    }
-
     const email = clerkUser.emailAddresses?.[0]?.emailAddress?.toLowerCase() || ''
     const emailFromEnv = superAdminEnv.split(',').map(e => e.trim().toLowerCase()).filter(Boolean)
     const isEmailInEnv = emailFromEnv.includes(email)
 
-    // Check database
-    const dbUser = await prisma.user.findUnique({
+    const fullDbUser = await prisma.user.findUnique({
       where: { clerkId: userId },
       select: {
         id: true,
@@ -51,31 +59,29 @@ export async function GET() {
       },
       envConfig: {
         raw: maskedEnv,
-        parsed: emailFromEnv,
         count: emailFromEnv.length,
       },
       match: {
         isEmailInEnv: isEmailInEnv,
         matchedEmail: isEmailInEnv ? email : null,
       },
-      database: dbUser ? {
-        id: dbUser.id,
-        role: dbUser.role,
-        email: dbUser.email,
-        createdAt: dbUser.createdAt,
-        updatedAt: dbUser.updatedAt,
+      database: fullDbUser ? {
+        id: fullDbUser.id,
+        role: fullDbUser.role,
+        email: fullDbUser.email,
+        createdAt: fullDbUser.createdAt,
+        updatedAt: fullDbUser.updatedAt,
       } : null,
       analysis: {
-        should: isEmailInEnv ? 'SUPER_ADMIN' : (dbUser?.role || 'Not in DB'),
-        actual: dbUser?.role || 'Not in DB',
-        needsFix: isEmailInEnv && dbUser?.role !== 'SUPER_ADMIN',
+        should: isEmailInEnv ? 'SUPER_ADMIN' : (fullDbUser?.role || 'Not in DB'),
+        actual: fullDbUser?.role || 'Not in DB',
+        needsFix: isEmailInEnv && fullDbUser?.role !== 'SUPER_ADMIN',
       },
-      isAdmin: dbUser ? ['ADMIN', 'SUPER_ADMIN'].includes(dbUser.role) : false,
     })
   } catch (error) {
+    console.error('Debug endpoint error:', error)
     return NextResponse.json({
       error: 'Debug failed',
-      details: error instanceof Error ? error.message : 'Unknown error',
     }, { status: 500 })
   }
 }

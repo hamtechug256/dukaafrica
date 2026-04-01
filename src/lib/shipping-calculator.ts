@@ -13,6 +13,14 @@
 
 import { Country, Currency } from '@/lib/currency';
 import { prisma } from './db';
+import { Prisma } from '@prisma/client';
+
+// Helper to safely convert Prisma Decimal to number
+function toNum(val: unknown): number {
+  if (val instanceof Prisma.Decimal) return val.toNumber()
+  if (typeof val === 'number') return val
+  return 0
+}
 
 // Define ShippingZoneType locally since Prisma schema uses string, not enum
 export type ShippingZoneType = 'LOCAL' | 'DOMESTIC' | 'REGIONAL' | 'CROSS_BORDER'
@@ -238,15 +246,18 @@ async function getShippingRates(
     });
 
     if (rates) {
-      // Convert to requested currency if needed
+      // Convert to requested currency if needed (convert Decimal to number first)
       const conversionRate = getConversionRate(rates.currency as Currency, currency);
+      const baseFee = toNum(rates.baseFee);
+      const perKgFee = toNum(rates.perKgFee);
+      const crossBorderFee = rates.crossBorderFee ? toNum(rates.crossBorderFee) : 0;
+      const platformMarkupPercent = toNum(rates.platformMarkupPercent);
+      
       return {
-        baseFee: Math.round(rates.baseFee * conversionRate),
-        perKgFee: Math.round(rates.perKgFee * conversionRate),
-        crossBorderFee: rates.crossBorderFee 
-          ? Math.round(rates.crossBorderFee * conversionRate) 
-          : 0,
-        platformMarkupPercent: rates.platformMarkupPercent,
+        baseFee: Math.round(baseFee * conversionRate),
+        perKgFee: Math.round(perKgFee * conversionRate),
+        crossBorderFee: Math.round(crossBorderFee * conversionRate),
+        platformMarkupPercent,
       };
     }
   } catch (error) {

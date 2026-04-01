@@ -18,6 +18,7 @@
 
 import { Country, Currency } from '@/lib/currency';
 import { calculateShippingFee, getConversionRate } from './shipping-calculator';
+import { prisma } from '@/lib/db';
 
 // ============================================
 // INTERFACES
@@ -321,7 +322,8 @@ export interface PlatformWithdrawalInput {
 }
 
 /**
- * Calculate total platform earnings
+ * Calculate total platform earnings from actual database records
+ * Aggregates commission and shipping markup from all orders
  */
 export async function getPlatformEarnings(): Promise<{
   totalCommission: number;
@@ -330,17 +332,52 @@ export async function getPlatformEarnings(): Promise<{
   availableForWithdrawal: number;
   pendingSettlement: number;
 }> {
-  // This would query the database for actual earnings
-  // For now, return placeholder
-  // TODO: Implement actual database queries
-  
-  return {
-    totalCommission: 0,
-    totalShippingMarkup: 0,
-    totalEarnings: 0,
-    availableForWithdrawal: 0,
-    pendingSettlement: 0,
-  };
+  try {
+    // Aggregate from all paid orders
+    const aggregations = await prisma.order.aggregate({
+      where: { paymentStatus: 'PAID' },
+      _sum: {
+        platformProductCommission: true,
+        platformShippingMarkup: true,
+      },
+    });
+
+    const totalCommission = aggregations._sum.platformProductCommission?.toNumber?.() ?? 0;
+    const totalShippingMarkup = aggregations._sum.platformShippingMarkup?.toNumber?.() ?? 0;
+    const totalEarnings = totalCommission + totalShippingMarkup;
+
+    // Calculate pending settlement (escrow funds not yet released)
+    const escrowHeld = await prisma.escrowTransaction.aggregate({
+      where: { status: 'HELD' },
+      _sum: {
+        sellerAmount: true,
+        platformAmount: true,
+      },
+    });
+
+    const pendingSettlement = escrowHeld._sum.platformAmount?.toNumber?.() ?? 0;
+
+    // Available = total earned minus what's held in escrow
+    const availableForWithdrawal = Math.max(0, totalEarnings - pendingSettlement);
+
+    return {
+      totalCommission,
+      totalShippingMarkup,
+      totalEarnings,
+      availableForWithdrawal,
+      pendingSettlement,
+    };
+  } catch (error) {
+    console.error('Error calculating platform earnings:', error);
+    // Return zeros on error rather than crashing
+    return {
+      totalCommission: 0,
+      totalShippingMarkup: 0,
+      totalEarnings: 0,
+      availableForWithdrawal: 0,
+      pendingSettlement: 0,
+    };
+  }
 }
 
 // ============================================

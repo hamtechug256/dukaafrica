@@ -1,5 +1,13 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { Prisma } from '@prisma/client'
+
+// Helper to safely convert Prisma Decimal to number
+function toNum(val: unknown): number {
+  if (val instanceof Prisma.Decimal) return val.toNumber()
+  if (typeof val === 'number') return val
+  return 0
+}
 
 /**
  * API: Homepage Featured Products
@@ -27,6 +35,7 @@ export async function GET() {
         purchaseCount: true,
         quantity: true,
         freeShipping: true,
+        currency: true,
         Store: {
           select: {
             id: true,
@@ -65,8 +74,10 @@ export async function GET() {
       }
 
       // Calculate discount
-      const discount = product.comparePrice 
-        ? Math.round((1 - product.price / product.comparePrice) * 100)
+      const price = toNum(product.price)
+      const comparePrice = toNum(product.comparePrice)
+      const discount = comparePrice 
+        ? Math.round((1 - price / comparePrice) * 100)
         : 0
 
       return {
@@ -74,14 +85,15 @@ export async function GET() {
         slug: product.slug,
         name: product.name,
         image: imageUrl,
-        price: product.price,
-        comparePrice: product.comparePrice,
+        price,
+        comparePrice: comparePrice || null,
         discount,
         rating: product.rating || 0,
         reviewCount: product.reviewCount || 0,
         purchaseCount: product.purchaseCount || 0,
         quantity: product.quantity,
         freeShipping: product.freeShipping,
+        currency: product.currency,
         category: product.Category ? {
           id: product.Category.id,
           name: product.Category.name,

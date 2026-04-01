@@ -1,6 +1,14 @@
 import { auth } from '@clerk/nextjs/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { Prisma } from '@prisma/client'
+
+// Helper to safely convert Prisma Decimal to number
+function toNum(val: unknown): number {
+  if (val instanceof Prisma.Decimal) return val.toNumber()
+  if (typeof val === 'number') return val
+  return 0
+}
 
 // GET - Fetch seller's flash sales
 export async function GET(request: NextRequest) {
@@ -108,7 +116,9 @@ export async function GET(request: NextRequest) {
       ).length,
       totalSaved: allProducts.reduce((sum, p) => {
         if (p.flashSaleDiscount && p.flashSaleClaimed) {
-          return sum + (p.price * (p.flashSaleDiscount / 100) * p.flashSaleClaimed)
+          const price = toNum(p.price)
+          const discount = toNum(p.flashSaleDiscount)
+          return sum + (price * (discount / 100) * p.flashSaleClaimed)
         }
         return sum
       }, 0),

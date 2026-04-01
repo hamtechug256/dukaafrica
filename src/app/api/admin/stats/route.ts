@@ -1,6 +1,14 @@
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { Prisma } from '@prisma/client'
+
+// Helper to safely convert Prisma Decimal to number
+function toNum(val: unknown): number {
+  if (val instanceof Prisma.Decimal) return val.toNumber()
+  if (typeof val === 'number') return val
+  return 0
+}
 
 // Super admin emails from environment
 const SUPER_ADMIN_EMAILS = (process.env.SUPER_ADMIN_EMAILS || '')
@@ -64,18 +72,15 @@ export async function GET() {
     // Ensure user exists and is promoted if needed
     const user = await ensureAdmin(userId)
 
-    // Debug logging
-    console.log(`[ADMIN STATS] Email: ${user?.email}, Role: ${user?.role}, SuperAdminList: ${SUPER_ADMIN_EMAILS.join(', ')}`)
+    // Logging - do NOT log sensitive email lists
+    console.log(`[ADMIN STATS] User role check: ${user?.role}`)
 
     // Check if user is admin
     if (!user || (user.role !== 'ADMIN' && user.role !== 'SUPER_ADMIN')) {
-      console.log(`[ADMIN STATS] ACCESS DENIED for ${user?.email} with role ${user?.role}`)
+      console.log(`[ADMIN STATS] ACCESS DENIED for user with role ${user?.role}`)
+      // SECURITY: Return generic error - do NOT leak email, role, or config info
       return NextResponse.json({ 
-        error: 'Forbidden',
-        hint: 'Your email is not authorized for admin access',
-        email: user?.email,
-        role: user?.role,
-        superAdminEmailsConfigured: SUPER_ADMIN_EMAILS.length,
+        error: 'Access denied',
       }, { status: 403 })
     }
 
@@ -145,7 +150,7 @@ export async function GET() {
     })
 
     const revenueGrowth = lastMonthRevenue._sum.amount 
-      ? ((currentMonthRevenue._sum.amount || 0) - (lastMonthRevenue._sum.amount || 0)) / (lastMonthRevenue._sum.amount || 1)
+      ? (toNum(currentMonthRevenue._sum.amount) - toNum(lastMonthRevenue._sum.amount)) / (toNum(lastMonthRevenue._sum.amount) || 1)
       : 0
 
     return NextResponse.json({
@@ -169,7 +174,7 @@ export async function GET() {
         disputed: disputedOrders,
       },
       revenue: {
-        total: totalRevenue._sum.amount || 0,
+        total: toNum(totalRevenue._sum.amount),
         growth: revenueGrowth,
       },
       recentActivity: [

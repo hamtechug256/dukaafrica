@@ -5,6 +5,14 @@ import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Header } from '@/components/layout/header'
 import { Footer } from '@/components/layout/footer'
+import { Prisma } from '@prisma/client'
+
+// Helper to safely convert Prisma Decimal to number
+function toNum(val: unknown): number {
+  if (val instanceof Prisma.Decimal) return val.toNumber()
+  if (typeof val === 'number') return val
+  return 0
+}
 
 // Get products with filters
 async function getProducts(searchParams: {
@@ -87,9 +95,13 @@ async function getProducts(searchParams: {
     prisma.product.count({ where }),
   ])
 
-  // Transform to lowercase field names for frontend
+  // Transform to lowercase field names for frontend and convert Decimal to number
   const products = rawProducts.map((p) => ({
     ...p,
+    price: toNum(p.price),
+    comparePrice: p.comparePrice ? toNum(p.comparePrice) : null,
+    costPrice: p.costPrice ? toNum(p.costPrice) : null,
+    flashSaleDiscount: p.flashSaleDiscount ? toNum(p.flashSaleDiscount) : null,
     store: p.Store,
     category: p.Category,
   }))

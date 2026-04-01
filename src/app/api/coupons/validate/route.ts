@@ -1,5 +1,13 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { Prisma } from '@prisma/client'
+
+// Helper to safely convert Prisma Decimal to number
+function toNum(val: unknown): number {
+  if (val instanceof Prisma.Decimal) return val.toNumber()
+  if (typeof val === 'number') return val
+  return 0
+}
 
 // Validate coupon
 export async function POST(req: Request) {
@@ -28,18 +36,21 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'This coupon has reached its usage limit' }, { status: 400 })
     }
 
-    if (coupon.minOrder && subtotal < coupon.minOrder) {
+    if (coupon.minOrder && subtotal < toNum(coupon.minOrder)) {
       return NextResponse.json({
-        error: `Minimum order of UGX ${coupon.minOrder.toLocaleString()} required`
+        error: `Minimum order of UGX ${toNum(coupon.minOrder).toLocaleString()} required`
       }, { status: 400 })
     }
 
+    const couponValue = toNum(coupon.value)
+    const maxDiscount = coupon.maxDiscount ? toNum(coupon.maxDiscount) : null
+
     let discount = 0
     if (coupon.type === 'PERCENTAGE') {
-      discount = (subtotal * coupon.value) / 100
-      if (coupon.maxDiscount) discount = Math.min(discount, coupon.maxDiscount)
+      discount = (subtotal * couponValue) / 100
+      if (maxDiscount) discount = Math.min(discount, maxDiscount)
     } else if (coupon.type === 'FIXED') {
-      discount = coupon.value
+      discount = couponValue
     } else if (coupon.type === 'FREE_SHIPPING') {
       return NextResponse.json({
         valid: true,
@@ -51,7 +62,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       valid: true,
-      coupon: { id: coupon.id, code: coupon.code, type: coupon.type, value: coupon.value, description: coupon.description },
+      coupon: { id: coupon.id, code: coupon.code, type: coupon.type, value: couponValue, description: coupon.description },
       discount,
     })
   } catch (error) {

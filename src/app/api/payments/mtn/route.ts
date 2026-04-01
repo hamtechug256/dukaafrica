@@ -1,6 +1,7 @@
 import { auth } from '@clerk/nextjs/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 
 // MTN Mobile Money Collection
 export async function POST(req: NextRequest) {
@@ -9,6 +10,15 @@ export async function POST(req: NextRequest) {
 
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Rate limiting: 5 payment attempts per minute per user
+    const rateLimit = await checkRateLimit('payment_mtn', userId, RATE_LIMITS.PAYMENT_INIT.maxRequests, RATE_LIMITS.PAYMENT_INIT.windowSeconds)
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many payment attempts. Please try again later.', retryAfter: rateLimit.retryAfterSeconds },
+        { status: 429, headers: { 'Retry-After': String(rateLimit.retryAfterSeconds || 60) } }
+      )
     }
 
     const { orderId, phoneNumber } = await req.json()

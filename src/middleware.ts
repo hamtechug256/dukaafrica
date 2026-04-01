@@ -20,7 +20,11 @@ const isPublicRoute = createRouteMatcher([
   '/api/homepage(.*)', // Homepage public APIs (featured, flash-sales, categories, stats, featured-sellers)
   '/admin/login(.*)', // Admin login page must be public
   '/api/admin/security(.*)', // Security API for rate limiting
-  '/api/debug(.*)', // Debug endpoints (temporary)
+  // SECURITY FIX: Debug endpoint removed from public routes
+  '/api/cron(.*)', // Cron endpoints use their own Bearer token auth
+  '/api/payments/mpesa/callback(.*)', // M-Pesa callback (no auth from Safaricom)
+  '/api/payments/airtel/callback(.*)', // Airtel Money callback (no auth from Airtel)
+  '/api/payments/mtn/callback(.*)', // MTN MoMo callback (no auth from MTN)
   // Cart and checkout - accessible (cart uses local storage)
   '/cart(.*)',
   '/checkout(.*)',

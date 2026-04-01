@@ -69,6 +69,53 @@ export async function PUT(req: Request) {
     const body = await req.json()
     const { targetUserId, role, isActive } = body
 
+    if (!targetUserId) {
+      return NextResponse.json({ error: 'targetUserId is required' }, { status: 400 })
+    }
+
+    // H4 FIX: Role validation
+    const VALID_ROLES = ['BUYER', 'SELLER', 'ADMIN', 'SUPER_ADMIN']
+    if (role && !VALID_ROLES.includes(role)) {
+      return NextResponse.json(
+        { error: `Invalid role. Must be one of: ${VALID_ROLES.join(', ')}` },
+        { status: 400 }
+      )
+    }
+
+    // SECURITY: Only SUPER_ADMIN can assign the SUPER_ADMIN role.
+    // An ADMIN must not be able to escalate privileges to SUPER_ADMIN,
+    // which would grant full platform control including escrow, payouts, etc.
+    if (role === 'SUPER_ADMIN' && adminUser.role !== 'SUPER_ADMIN') {
+      return NextResponse.json(
+        { error: 'Access denied' },
+        { status: 403 }
+      )
+    }
+
+    // SECURITY: ADMIN users can only assign BUYER, SELLER, or ADMIN roles.
+    // SUPER_ADMIN can assign any role including SUPER_ADMIN.
+    const ALLOWED_ADMIN_ROLES = ['BUYER', 'SELLER', 'ADMIN']
+    if (adminUser.role === 'ADMIN' && role && !ALLOWED_ADMIN_ROLES.includes(role)) {
+      return NextResponse.json(
+        { error: 'Access denied' },
+        { status: 403 }
+      )
+    }
+
+    // H4 FIX: Prevent non-SUPER_ADMIN from modifying SUPER_ADMIN accounts
+    if (adminUser.role !== 'SUPER_ADMIN') {
+      const targetUser = await prisma.user.findUnique({
+        where: { id: targetUserId },
+        select: { role: true },
+      })
+      if (targetUser && targetUser.role === 'SUPER_ADMIN') {
+        return NextResponse.json(
+          { error: 'Access denied' },
+          { status: 403 }
+        )
+      }
+    }
+
     const updatedUser = await prisma.user.update({
       where: { id: targetUserId },
       data: {

@@ -5,7 +5,7 @@ import { prisma } from '@/lib/db'
 // Types for our string-based fields
 type Country = 'UGANDA' | 'KENYA' | 'TANZANIA' | 'RWANDA'
 type Currency = 'UGX' | 'KES' | 'TZS' | 'RWF'
-type UserRole = 'BUYER' | 'SELLER' | 'ADMIN'
+type UserRole = 'BUYER' | 'SELLER' // ADMIN removed - cannot self-assign
 
 // Valid countries and currencies
 const VALID_COUNTRIES: Country[] = ['UGANDA', 'KENYA', 'TANZANIA', 'RWANDA']
@@ -26,10 +26,11 @@ export async function POST(req: Request) {
     const body = await req.json()
     const { role, country, currency } = body
 
-    // Validate role
-    if (role && !['BUYER', 'SELLER', 'ADMIN'].includes(role)) {
+    // SECURITY FIX: Users can only set their own role to BUYER or SELLER
+    // ADMIN/SUPER_ADMIN can only be assigned by existing admins via /api/admin/users
+    if (role && !['BUYER', 'SELLER'].includes(role)) {
       return NextResponse.json(
-        { error: 'Invalid role. Must be BUYER, SELLER, or ADMIN' },
+        { error: 'Invalid role. Must be BUYER or SELLER' },
         { status: 400 }
       )
     }
@@ -53,7 +54,7 @@ export async function POST(req: Request) {
     // Build update data
     const updateData: Record<string, unknown> = {}
     
-    if (role) updateData.role = role as UserRole
+    if (role) updateData.role = role as 'BUYER' | 'SELLER'
     if (country) updateData.country = country as Country
     if (currency) updateData.currency = currency as Currency
 

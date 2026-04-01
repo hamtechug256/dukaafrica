@@ -102,9 +102,9 @@ model Coupon {
   code          String   @unique
   description   String?
   type          String
-  value         Float
-  minOrder      Float?
-  maxDiscount   Float?
+  value         Decimal  @db.Decimal(20, 2)
+  minOrder      Decimal? @db.Decimal(20, 2)
+  maxDiscount   Decimal? @db.Decimal(20, 2)
   usageLimit    Int?
   usageCount    Int      @default(0)
   perUserLimit  Int      @default(1)
@@ -147,7 +147,7 @@ model Notification {
   data      String?
   isRead    Boolean   @default(false)
   readAt    DateTime?
-  createdAt DateTime  @default(now())
+  createdAt DateTime @default(now())
   User      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([isRead])
@@ -172,18 +172,18 @@ model Order {
   shippingPostal  String?
 
   // Pricing
-  subtotal    Float
-  shippingFee Float  @default(0)
-  tax         Float  @default(0)
-  discount    Float  @default(0)
-  total       Float
-  currency    String @default("UGX")
+  subtotal    Decimal @db.Decimal(20, 2)
+  shippingFee Decimal @default(0) @db.Decimal(20, 2)
+  tax         Decimal @default(0) @db.Decimal(20, 2)
+  discount    Decimal @default(0) @db.Decimal(20, 2)
+  total       Decimal @db.Decimal(20, 2)
+  currency    String  @default("UGX")
 
   // Commission Split
-  platformProductCommission Float @default(0)
-  platformShippingMarkup    Float @default(0)
-  sellerProductEarnings     Float @default(0)
-  sellerShippingAmount      Float @default(0)
+  platformProductCommission Decimal @default(0) @db.Decimal(20, 2)
+  platformShippingMarkup    Decimal @default(0) @db.Decimal(20, 2)
+  sellerProductEarnings     Decimal @default(0) @db.Decimal(20, 2)
+  sellerShippingAmount      Decimal @default(0) @db.Decimal(20, 2)
 
   // Shipping & Delivery
   shippingZoneType  String?
@@ -216,7 +216,7 @@ model Order {
   // Coupon
   couponId       String?
   couponCode     String?
-  couponDiscount Float   @default(0)
+  couponDiscount Decimal @default(0) @db.Decimal(20, 2)
 
   // Status
   status             String    @default("PENDING")
@@ -251,6 +251,7 @@ model Order {
   @@index([storeId, status])
   @@index([status, createdAt])
   @@index([paymentStatus, createdAt])
+  @@index([couponId])
 }
 
 model OrderItem {
@@ -261,8 +262,8 @@ model OrderItem {
   productName    String
   variantName    String?
   quantity       Int
-  price          Float
-  total          Float
+  price          Decimal @db.Decimal(20, 2)
+  total          Decimal @db.Decimal(20, 2)
   storeId        String
   storeName      String
   productImage   String?
@@ -277,21 +278,23 @@ model OrderItem {
 
   @@index([productId])
   @@index([orderId])
+  @@index([storeId])
+  @@index([status])
 }
 
 model Payment {
   id               String    @id @default(uuid())
   orderId          String    @unique
   userId           String
-  amount           Float
+  amount           Decimal   @db.Decimal(20, 2)
   currency         String    @default("UGX")
   method           String
   provider         String    @default("FLUTTERWAVE")
-  sellerAmount     Float     @default(0)
+  sellerAmount     Decimal   @default(0) @db.Decimal(20, 2)
   sellerCurrency   String    @default("UGX")
-  platformAmount   Float     @default(0)
+  platformAmount   Decimal   @default(0) @db.Decimal(20, 2)
   platformCurrency String    @default("UGX")
-  reference        String?
+  reference        String?   @unique
   providerRef      String?
   phone            String?
   cardLast4        String?
@@ -316,8 +319,8 @@ model Payment {
 
 model PlatformSettings {
   id                       String    @id @default(uuid())
-  defaultCommissionRate    Float     @default(10)
-  shippingMarkupPercent    Float     @default(5)
+  defaultCommissionRate    Decimal   @default(10) @db.Decimal(5, 2)
+  shippingMarkupPercent    Decimal   @default(5) @db.Decimal(5, 2)
   flutterwavePublicKey     String?
   flutterwaveSecretKey     String?
   flutterwaveEncryptionKey String?
@@ -327,7 +330,7 @@ model PlatformSettings {
   adminPayoutBankName      String?
   adminPayoutBankAccount   String?
   adminPayoutCountry       String?
-  currencyBufferPercent    Float     @default(1.5)
+  currencyBufferPercent    Decimal   @default(1.5) @db.Decimal(5, 2)
   exchangeRates            String?
   exchangeRatesUpdatedAt   DateTime?
   createdAt                DateTime  @default(now())
@@ -344,9 +347,9 @@ model Product {
   shortDesc          String?
   images             String?
   videos             String?
-  price              Float
-  comparePrice       Float?
-  costPrice          Float?
+  price              Decimal          @db.Decimal(20, 2)
+  comparePrice       Decimal?         @db.Decimal(20, 2)
+  costPrice          Decimal?         @db.Decimal(20, 2)
   currency           String           @default("UGX")
   sku                String?
   barcode            String?
@@ -369,7 +372,7 @@ model Product {
   isFlashSale        Boolean          @default(false)
   flashSaleStart     DateTime?
   flashSaleEnd       DateTime?
-  flashSaleDiscount  Float?
+  flashSaleDiscount  Decimal?         @db.Decimal(20, 2)
   flashSaleStock     Int?
   flashSaleClaimed   Int              @default(0)
   viewCount          Int              @default(0)
@@ -401,6 +404,8 @@ model Product {
   @@index([createdAt])
   @@index([storeId, status])
   @@index([quantity])
+  @@index([storeId, createdAt])
+  @@index([isFlashSale, flashSaleStart])
 }
 
 model ProductVariant {
@@ -408,8 +413,8 @@ model ProductVariant {
   productId    String
   name         String
   sku          String?
-  price        Float
-  comparePrice Float?
+  price        Decimal     @db.Decimal(20, 2)
+  comparePrice Decimal?    @db.Decimal(20, 2)
   quantity     Int         @default(0)
   image        String?
   options      String
@@ -442,12 +447,13 @@ model Review {
   @@unique([userId, productId])
   @@index([userId])
   @@index([productId])
+  @@index([isApproved])
 }
 
 model SellerPayout {
   id          String    @id @default(uuid())
   storeId     String
-  amount      Float
+  amount      Decimal   @db.Decimal(20, 2)
   currency    String    @default("UGX")
   status      String    @default("PENDING")
   method      String
@@ -456,12 +462,13 @@ model SellerPayout {
   processedAt DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
-  Store       Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  Store       Store     @relation(fields: [storeId], references: [id], onDelete: Restrict)
 
   @@index([status])
   @@index([storeId])
   @@index([createdAt])
   @@index([processedAt])
+  @@index([storeId, createdAt])
 }
 
 model Setting {
@@ -480,11 +487,11 @@ model ShippingRate {
   id                    String       @id @default(uuid())
   tierId                String
   zoneType              String
-  baseFee               Float
-  perKgFee              Float
+  baseFee               Decimal      @db.Decimal(20, 2)
+  perKgFee              Decimal      @db.Decimal(20, 2)
   currency              String       @default("UGX")
-  platformMarkupPercent Float        @default(5)
-  crossBorderFee        Float?
+  platformMarkupPercent Decimal      @default(5) @db.Decimal(20, 2)
+  crossBorderFee        Decimal?     @db.Decimal(20, 2)
   isActive              Boolean      @default(true)
   createdAt             DateTime     @default(now())
   updatedAt             DateTime     @updatedAt
@@ -580,11 +587,11 @@ model Store {
   payoutBankAccount       String? // Bank account number
 
   // Financials
-  totalSales       Float @default(0)
-  availableBalance Float @default(0)
-  pendingBalance   Float @default(0)
-  escrowBalance    Float @default(0) // Funds held in escrow
-  commissionRate   Float @default(10)
+  totalSales       Decimal @default(0) @db.Decimal(20, 2)
+  availableBalance Decimal @default(0) @db.Decimal(20, 2)
+  pendingBalance   Decimal @default(0) @db.Decimal(20, 2)
+  escrowBalance    Decimal @default(0) @db.Decimal(20, 2) // Funds held in escrow
+  commissionRate   Decimal @default(10) @db.Decimal(20, 2)
 
   // Shipping
   shipsToCountries String?
@@ -672,9 +679,12 @@ model User {
   Store             Store?
   Wishlist          Wishlist[]
 
+  @@unique([phone, country])
   @@index([country])
   @@index([email])
   @@index([clerkId])
+  @@index([role])
+  @@index([isActive])
 }
 
 model Wishlist {
@@ -693,7 +703,7 @@ model NewsletterSubscriber {
   id        String   @id @default(uuid())
   email     String   @unique
   isActive  Boolean  @default(true)
-  source    String   @default("FOOTER")
+  source    String  @default("FOOTER")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -750,7 +760,7 @@ model Dispute {
   status          String    @default("OPEN") // OPEN, UNDER_REVIEW, RESOLVED, ESCALATED
   resolution      String? // REFUND_BUYER, RELEASE_TO_SELLER, PARTIAL_REFUND
   resolutionNotes String?
-  refundAmount    Float?
+  refundAmount    Decimal?  @db.Decimal(20, 2)
   resolvedAt      DateTime?
   resolvedBy      String? // Admin who resolved
 
@@ -816,13 +826,13 @@ model SellerTierConfig {
   requiresMinRating        Float   @default(0)
 
   // Limits
-  maxProducts          Int   @default(10)
-  maxTransactionAmount Float @default(500000)
-  maxDailyOrders       Int   @default(50)
+  maxProducts          Int     @default(10)
+  maxTransactionAmount Decimal @default(500000) @db.Decimal(20, 2)
+  maxDailyOrders       Int     @default(50)
 
   // Fees & Rates
-  commissionRate Float @default(15)
-  escrowHoldDays Int   @default(7)
+  commissionRate Decimal @default(15) @db.Decimal(20, 2)
+  escrowHoldDays Int     @default(7)
 
   // Features
   canFeatureProducts  Boolean @default(false)
@@ -857,12 +867,12 @@ model EscrowTransaction {
   buyerId String
 
   // Amounts (supporting both naming conventions)
-  amount         Float? // Alternative name for grossAmount
-  grossAmount    Float? // Total order amount
-  sellerAmount   Float // Amount seller will receive
-  platformFee    Float? // Alternative name for platformAmount
-  platformAmount Float? // Platform commission
-  currency       String @default("UGX")
+  amount         Decimal? @db.Decimal(20, 2) // Alternative name for grossAmount
+  grossAmount    Decimal? @db.Decimal(20, 2) // Total order amount
+  sellerAmount   Decimal  @db.Decimal(20, 2) // Amount seller will receive
+  platformFee    Decimal? @db.Decimal(20, 2) // Alternative name for platformAmount
+  platformAmount Decimal? @db.Decimal(20, 2) // Platform commission
+  currency       String   @default("UGX")
 
   // Status
   status String @default("HELD") // HELD, RELEASED, REFUNDED, PARTIAL_REFUND, DISPUTED
@@ -875,10 +885,10 @@ model EscrowTransaction {
   releasedBy   String? // Admin ID if manual
 
   // Platform Reserve
-  reserveAmount Float @default(0) // Amount held in platform reserve
+  reserveAmount Decimal @default(0) @db.Decimal(20, 2) // Amount held in platform reserve
 
   // Refund
-  refundAmount Float?
+  refundAmount Decimal? @db.Decimal(20, 2)
   refundReason String?
   refundedAt   DateTime?
   refundedBy   String?
@@ -890,7 +900,7 @@ model EscrowTransaction {
   updatedAt DateTime @updatedAt
 
   Order Order  @relation(fields: [orderId], references: [id])
-  Store Store? @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  Store Store? @relation(fields: [storeId], references: [id], onDelete: Restrict)
   User  User?  @relation(fields: [buyerId], references: [id])
 
   @@unique([orderId, storeId]) // One escrow per store per order (multi-vendor support)
@@ -901,6 +911,7 @@ model EscrowTransaction {
   @@index([orderId])
   @@index([createdAt])
   @@index([releasedAt])
+  @@index([status, releaseAt])
 }
 
 // ============================================
@@ -913,14 +924,14 @@ model EscrowSettings {
   starterEscrowDays      Int      @default(7)
   verifiedEscrowDays     Int      @default(5)
   premiumEscrowDays      Int      @default(3)
-  starterCommissionRate  Float    @default(15)
-  verifiedCommissionRate Float    @default(10)
-  premiumCommissionRate  Float    @default(8)
+  starterCommissionRate  Decimal  @default(15) @db.Decimal(5, 2)
+  verifiedCommissionRate Decimal  @default(10) @db.Decimal(5, 2)
+  premiumCommissionRate  Decimal  @default(8) @db.Decimal(5, 2)
   autoReleaseEnabled     Boolean  @default(true)
   autoReleaseCronSecret  String?
   autoReleaseHour        Int      @default(0)
   disputeResolutionDays  Int      @default(7)
-  minWithdrawalAmount    Float    @default(50000)
+  minWithdrawalAmount    Decimal  @default(50000) @db.Decimal(20, 2)
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
 }
@@ -930,15 +941,15 @@ model EscrowSettings {
 // ============================================
 
 model PlatformReserve {
-  id               String @id @default(uuid())
-  totalReserve     Float  @default(0)
-  availableReserve Float  @default(0)
-  pendingRefunds   Float  @default(0)
-  currency         String @default("UGX")
+  id               String  @id @default(uuid())
+  totalReserve     Decimal @default(0) @db.Decimal(20, 2)
+  availableReserve Decimal @default(0) @db.Decimal(20, 2)
+  pendingRefunds   Decimal @default(0) @db.Decimal(20, 2)
+  currency         String  @default("UGX")
 
   // Reserve Settings
-  reservePercent Float @default(10) // % of each transaction to hold
-  minReserve     Float @default(500000)
+  reservePercent Decimal @default(10) @db.Decimal(5, 2) // % of each transaction to hold
+  minReserve     Decimal @default(500000) @db.Decimal(5, 2)
 
   updatedAt DateTime @updatedAt
 }
@@ -956,8 +967,8 @@ model BuyerProtectionClaim {
   claimType String // NON_DELIVERY, SIGNIFICANTLY_NOT_AS_DESCRIBED, DAMAGED
   status    String @default("PENDING") // PENDING, APPROVED, REJECTED
 
-  claimAmount    Float
-  approvedAmount Float?
+  claimAmount    Decimal  @db.Decimal(20, 2)
+  approvedAmount Decimal? @db.Decimal(20, 2)
 
   buyerStatement String
   buyerEvidence  String? // JSON array of evidence URLs
@@ -974,4 +985,6 @@ model BuyerProtectionClaim {
   @@index([status])
   @@index([buyerId])
   @@index([orderId])
+  @@index([storeId])
+  @@index([createdAt])
 }

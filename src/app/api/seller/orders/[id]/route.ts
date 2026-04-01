@@ -1,6 +1,14 @@
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { Prisma } from '@prisma/client'
+
+// Helper to safely convert Prisma Decimal to number
+function toNum(val: unknown): number {
+  if (val instanceof Prisma.Decimal) return val.toNumber()
+  if (typeof val === 'number') return val
+  return 0
+}
 
 // GET - Fetch a single order for the seller
 export async function GET(
@@ -76,9 +84,9 @@ export async function GET(
 
     // Calculate seller-specific earnings from order (earnings are on the Order model)
     // For multi-seller orders, we calculate based on this seller's items
-    const sellerItemsTotal = order.OrderItem.reduce((sum, item) => sum + item.total, 0)
-    const sellerProductEarnings = order.sellerProductEarnings || (sellerItemsTotal * 0.9) // Fallback to 90% if not set
-    const sellerShippingAmount = order.sellerShippingAmount || 0
+    const sellerItemsTotal = order.OrderItem.reduce((sum, item) => sum + toNum(item.total), 0)
+    const sellerProductEarnings = toNum(order.sellerProductEarnings) || (sellerItemsTotal * 0.9) // Fallback to 90% if not set
+    const sellerShippingAmount = toNum(order.sellerShippingAmount) || 0
 
     // Format response
     const formattedOrder = {
@@ -87,9 +95,9 @@ export async function GET(
       status: order.status,
       paymentStatus: order.paymentStatus,
       paymentMethod: order.paymentMethod,
-      subtotal: order.OrderItem.reduce((sum, item) => sum + item.total, 0),
-      shippingFee: order.shippingFee,
-      total: order.total,
+      subtotal: order.OrderItem.reduce((sum, item) => sum + toNum(item.total), 0),
+      shippingFee: toNum(order.shippingFee),
+      total: toNum(order.total),
       currency,
       sellerProductEarnings,
       sellerShippingAmount,
@@ -115,9 +123,9 @@ export async function GET(
         id: item.id,
         productId: item.productId,
         productName: item.productName,
-        price: item.price,
+        price: toNum(item.price),
         quantity: item.quantity,
-        total: item.total,
+        total: toNum(item.total),
         product: item.Product,
       })),
       
@@ -178,6 +186,15 @@ export async function PUT(
       notes 
     } = body
 
+    // SECURITY: Validate allowed status transitions for sellers
+    const SELLER_ALLOWED_STATUSES = ['CONFIRMED', 'PROCESSING', 'SHIPPED', 'OUT_FOR_DELIVERY']
+    if (status && !SELLER_ALLOWED_STATUSES.includes(status)) {
+      return NextResponse.json(
+        { error: `Sellers cannot set order status to '${status}'. Only buyer confirmation or admin can mark orders as DELIVERED.` },
+        { status: 403 }
+      )
+    }
+
     // Verify order contains items from this seller
     const orderItem = await prisma.orderItem.findFirst({
       where: { orderId, storeId: store.id },
@@ -189,44 +206,72 @@ export async function PUT(
       }, { status: 403 })
     }
 
-    // Build update data
-    const updateData: any = {}
-    
+    // SECURITY FIX: Update OrderItem status for this seller's items only,
+    // then derive global order status from all items' statuses.
     if (status) {
-      updateData.status = status
-      
-      // Set timestamps based on status
-      if (status === 'SHIPPED') {
-        updateData.estimatedDelivery = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000) // 5 days
-      }
-      if (status === 'DELIVERED') {
-        updateData.deliveredAt = new Date()
-      }
+      await prisma.orderItem.updateMany({
+        where: { orderId, storeId: store.id },
+        data: { status },
+      })
     }
-    
+
+    // Update delivery fields only
+    const updateData: any = {}
     if (busCompany !== undefined) updateData.busCompany = busCompany
     if (busNumberPlate !== undefined) updateData.busNumberPlate = busNumberPlate
     if (conductorPhone !== undefined) updateData.conductorPhone = conductorPhone
     if (pickupLocation !== undefined) updateData.pickupLocation = pickupLocation
     if (notes !== undefined) updateData.notes = notes
+    if (status === 'SHIPPED') {
+      updateData.estimatedDelivery = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000)
+    }
 
-    // Update the order
-    const order = await prisma.order.update({
-      where: { id: orderId },
-      data: updateData,
-    })
+    if (Object.keys(updateData).length > 0) {
+      await prisma.order.update({
+        where: { id: orderId },
+        data: updateData,
+      })
+    }
+
+    // Derive global order status from all items
+    if (status) {
+      const allItems = await prisma.orderItem.findMany({
+        where: { orderId },
+        select: { status: true },
+      })
+      const statuses = allItems.map(item => item.status)
+      const allShipped = statuses.length > 0 && statuses.every(s => ['SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(s))
+      const anyShipped = statuses.some(s => ['SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(s))
+
+      let derivedGlobalStatus: string | undefined
+      if (allShipped && !statuses.includes('DELIVERED')) {
+        derivedGlobalStatus = 'SHIPPED'
+      } else if (anyShipped) {
+        derivedGlobalStatus = 'PROCESSING'
+      } else if (statuses.every(s => ['CONFIRMED', 'PROCESSING'].includes(s))) {
+        derivedGlobalStatus = 'PROCESSING'
+      }
+
+      if (derivedGlobalStatus) {
+        await prisma.order.update({
+          where: { id: orderId },
+          data: { status: derivedGlobalStatus },
+        })
+      }
+    }
+
+    // Fetch updated order for response
+    const order = await prisma.order.findUnique({ where: { id: orderId } })
 
     // Create notification for buyer on status change
-    if (status) {
+    if (order && status) {
       await prisma.notification.create({
         data: {
           userId: order.userId,
-          type: status === 'SHIPPED' ? 'ORDER_SHIPPED' : 
-                status === 'DELIVERED' ? 'ORDER_DELIVERED' : 
-                status === 'PROCESSING' ? 'ORDER_PROCESSING' : 'ORDER_UPDATE',
+          type: status === 'SHIPPED' ? 'ORDER_SHIPPED' : 'ORDER_PROCESSING',
           title: `Order ${status.toLowerCase().replace(/_/g, ' ')}`,
           message: `Your order ${order.orderNumber} has been ${status.toLowerCase().replace(/_/g, ' ')}.`,
-          data: JSON.stringify({ orderId: order.id }),
+          data: JSON.stringify({ orderId: order.id, storeId: store.id }),
         },
       })
     }

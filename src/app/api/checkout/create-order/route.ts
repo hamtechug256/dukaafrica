@@ -2,6 +2,25 @@ import { auth, currentUser } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { z } from 'zod'
+import { Prisma } from '@prisma/client'
+import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
+
+// Helper to serialize Decimal values to numbers for JSON responses
+function serializeDecimal<T>(obj: T): T {
+  if (obj === null || obj === undefined) return obj
+  if (obj instanceof Prisma.Decimal) return obj.toNumber() as unknown as T
+  if (Array.isArray(obj)) return obj.map(serializeDecimal) as unknown as T
+  if (typeof obj === 'object') {
+    const result: Record<string, unknown> = {}
+    for (const key in obj) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        result[key] = serializeDecimal((obj as Record<string, unknown>)[key])
+      }
+    }
+    return result as unknown as T
+  }
+  return obj
+}
 
 // Zod validation schema for order creation
 const OrderItemSchema = z.object({
@@ -62,6 +81,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // Rate limiting: 10 orders per minute per user
+    const rateLimit = await checkRateLimit('order_create', userId, RATE_LIMITS.ORDER_CREATE.maxRequests, RATE_LIMITS.ORDER_CREATE.windowSeconds)
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many order attempts. Please try again later.', retryAfter: rateLimit.retryAfterSeconds },
+        { status: 429, headers: { 'Retry-After': String(rateLimit.retryAfterSeconds || 60) } }
+      )
+    }
+
     const body = await req.json()
 
     // Validate input with Zod
@@ -74,6 +102,90 @@ export async function POST(req: Request) {
     }
 
     const { items, shippingAddress, deliveryOption, paymentMethod, subtotal, shipping, total } = validationResult.data
+
+    // SECURITY FIX: Verify prices and stock against database
+    const productIds = items.map(i => i.productId)
+    const variantIds = items.map(i => i.variantId).filter((id): id is string => id !== undefined)
+
+    const dbProducts = await prisma.product.findMany({
+      where: { id: { in: productIds } },
+      select: { id: true, price: true, status: true, currency: true, quantity: true },
+    })
+    const productPriceMap = new Map(dbProducts.map(p => [p.id, { ...p, price: p.price.toNumber(), quantity: p.quantity }]))
+
+    // Fetch variants if any
+    const dbVariants = variantIds.length > 0
+      ? await prisma.productVariant.findMany({
+          where: { id: { in: variantIds } },
+          select: { id: true, price: true },
+        })
+      : []
+    const variantPriceMap = new Map(dbVariants.map(v => [v.id, { ...v, price: v.price.toNumber() }]))
+
+    let serverSubtotal = 0
+    for (const item of items) {
+      // Get the actual price from database
+      const dbPrice = item.variantId
+        ? variantPriceMap.get(item.variantId)?.price ?? productPriceMap.get(item.productId)?.price ?? 0
+        : productPriceMap.get(item.productId)?.price ?? 0
+
+      const dbProduct = productPriceMap.get(item.productId)
+      if (!dbProduct || dbProduct.status !== 'ACTIVE') {
+        return NextResponse.json(
+          { error: 'One or more products are not available' },
+          { status: 400 }
+        )
+      }
+
+      // SECURITY FIX: Validate stock quantity against database
+      const availableStock = dbProduct.quantity
+      if (item.quantity > availableStock) {
+        return NextResponse.json(
+          { error: `Insufficient stock for one or more items. Only ${availableStock} available.` },
+          { status: 400 }
+        )
+      }
+
+      // Use the DATABASE price (already converted to number), not the client-provided price
+      serverSubtotal += dbPrice * item.quantity
+    }
+
+    // Calculate server-side shipping (simple estimation)
+    // In production, this would call the shipping calculator API
+    const serverTotal = serverSubtotal + shipping
+
+    // SECURITY FIX: Reject if client prices don't match server prices (within tolerance)
+    if (Math.abs(subtotal - serverSubtotal) > 100) { // 100 currency units tolerance
+      return NextResponse.json(
+        {
+          error: 'Price mismatch detected. Please refresh and try again.',
+          details: { clientSubtotal: subtotal, serverSubtotal },
+        },
+        { status: 400 }
+      )
+    }
+
+    if (Math.abs(total - serverTotal) > 100) {
+      return NextResponse.json(
+        {
+          error: 'Total mismatch detected. Please refresh and try again.',
+          details: { clientTotal: total, serverTotal },
+        },
+        { status: 400 }
+      )
+    }
+
+    // Use server-verified prices (already converted to number)
+    const verifiedItems = items.map(item => {
+      const dbPrice = item.variantId
+        ? variantPriceMap.get(item.variantId)?.price ?? productPriceMap.get(item.productId)?.price ?? 0
+        : productPriceMap.get(item.productId)?.price ?? 0
+      return {
+        ...item,
+        price: dbPrice,
+        total: dbPrice * item.quantity,
+      }
+    })
 
     // Get or create user in database
     let dbUser = await prisma.user.findUnique({
@@ -114,13 +226,13 @@ export async function POST(req: Request) {
           shippingAddress: shippingAddress.addressLine1 + (shippingAddress.addressLine2 ? `, ${shippingAddress.addressLine2}` : ''),
           shippingPostal: shippingAddress.postalCode,
           
-          // Pricing
-          subtotal,
+          // SECURITY FIX: Use server-verified prices
+          subtotal: serverSubtotal,
           shippingFee: shipping,
           tax: 0,
           discount: 0,
-          total,
-          currency: 'UGX',
+          total: serverTotal,
+          currency: dbUser!.currency || 'UGX',
           
           // Delivery
           deliveryMethod: deliveryOption.id.toUpperCase(),
@@ -130,16 +242,16 @@ export async function POST(req: Request) {
           paymentStatus: 'PENDING',
           status: 'PENDING',
           
-          // Items - using OrderItem relation name as per Prisma schema
+          // Items - using verified prices from database
           OrderItem: {
-            create: items.map((item) => ({
+            create: verifiedItems.map((item) => ({
               productId: item.productId,
               variantId: item.variantId,
               productName: item.name,
               variantName: item.variantName,
               quantity: item.quantity,
               price: item.price,
-              total: item.price * item.quantity,
+              total: item.total,
               storeId: item.storeId,
               storeName: item.storeName,
               productImage: item.image,
@@ -156,8 +268,8 @@ export async function POST(req: Request) {
         data: {
           orderId: order.id,
           userId: dbUser!.id,
-          amount: total,
-          currency: 'UGX',
+          amount: serverTotal,
+          currency: dbUser!.currency || 'UGX',
           method: paymentMethod.type,
           provider: paymentMethod.provider,
           status: 'PENDING',
@@ -179,7 +291,7 @@ export async function POST(req: Request) {
         },
         body: JSON.stringify({
           email: user.emailAddresses[0]?.emailAddress,
-          amount: total * 100, // Convert to kobo
+          amount: serverTotal * 100, // SECURITY FIX: Use server-verified total
           reference: `DA-${order.id}`,
           callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/checkout/success?orderId=${order.id}`,
           metadata: {
@@ -203,7 +315,7 @@ export async function POST(req: Request) {
         })
 
         return NextResponse.json({
-          order,
+          order: serializeDecimal(order),
           payment: {
             id: payment.id,
             authorization_url: paystackData.data.authorization_url,
@@ -218,11 +330,12 @@ export async function POST(req: Request) {
       }
     }
 
-    // For mobile money, return order and payment info
+    // For mobile money, return order and payment info (using server-verified total)
     return NextResponse.json({
-      order,
+      order: serializeDecimal(order),
       payment: {
         id: payment.id,
+        amount: serverTotal,
         method: paymentMethod.type,
         provider: paymentMethod.provider,
       },

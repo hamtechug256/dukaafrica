@@ -152,7 +152,9 @@ export const useCheckoutStore = create<CheckoutStore>((set, get) => ({
   },
 
   setDiscount: (amount) => {
-    set({ discount: amount })
+    if (amount >= 0) {
+      set({ discount: amount })
+    }
   },
 
   setNotes: (notes) => {
