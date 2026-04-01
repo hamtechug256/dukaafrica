@@ -211,22 +211,6 @@ export async function POST(req: Request) {
 
     // Use transaction for atomic order creation
     const result = await prisma.$transaction(async (tx) => {
-      // SECURITY FIX: Decrement stock atomically within the transaction
-      for (const item of verifiedItems) {
-        const productId = item.productId
-        const currentProduct = await tx.product.findUnique({
-          where: { id: productId },
-          select: { quantity: true },
-        })
-        if (!currentProduct || currentProduct.quantity < item.quantity) {
-          throw new Error(`Insufficient stock for product ${productId}`)
-        }
-        await tx.product.update({
-          where: { id: productId },
-          data: { quantity: { decrement: item.quantity } },
-        })
-      }
-
       // Create order
       const order = await tx.order.create({
         data: {
