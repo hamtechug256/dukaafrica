@@ -13,16 +13,23 @@ import { NextRequest, NextResponse } from 'next/server'
  * This route now simply redirects to the canonical endpoint.
  */
 export async function GET(request: NextRequest) {
-  const redirectUrl = new URL('/api/cron/release-escrows', request.url)
+  try {
+    const redirectUrl = new URL('/api/cron/release-escrows', request.url)
 
-  // Forward any Bearer token from the original request
-  const authHeader = request.headers.get('authorization')
-  const headers: Record<string, string> = {}
-  if (authHeader) {
-    headers['Authorization'] = authHeader
+    // Forward any Bearer token from the original request
+    const authHeader = request.headers.get('authorization')
+    const headers: Record<string, string> = {}
+    if (authHeader) {
+      headers['Authorization'] = authHeader
+    }
+
+    return NextResponse.redirect(redirectUrl)
+  } catch (error) {
+    return NextResponse.json(
+      { error: 'Cron redirect failed' },
+      { status: 500 }
+    )
   }
-
-  return NextResponse.redirect(redirectUrl)
 }
 
 export async function POST(request: NextRequest) {
