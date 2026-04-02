@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/db'
 import { Prisma } from '@prisma/client'
-import { canListMoreProducts } from '@/lib/seller-tiers'
+import { canListMoreProducts, getStoreTier } from '@/lib/seller-tiers'
 
 // Helper to safely convert Prisma Decimal to number
 function toNum(val: unknown): number {
@@ -10,6 +10,9 @@ function toNum(val: unknown): number {
   if (typeof val === 'number') return val
   return 0
 }
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
+const MAX_ROW_COUNT = 500
 
 // Generate unique slug
 function generateSlug(name: string): string {
@@ -85,6 +88,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Store not found' }, { status: 404 })
     }
 
+    // Check bulk upload tier permission
+    const tier = await getStoreTier(store)
+    if (!tier.canBulkUpload) {
+      return NextResponse.json({
+        error: 'Bulk upload not available on your tier',
+        details: {
+          tier: store.verificationTier,
+          message: `Bulk upload is available on PREMIUM tier. Please upgrade your plan.`,
+        }
+      }, { status: 403 })
+    }
+
     // Enforce product tier limit before processing batch
     const currentProductCount = await prisma.product.count({
       where: { storeId: store.id }
@@ -115,6 +130,13 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'No file uploaded' }, { status: 400 })
       }
 
+      // Enforce file size limit
+      if (file.size > MAX_FILE_SIZE) {
+        return NextResponse.json({
+          error: `File too large. Maximum size is ${MAX_FILE_SIZE / (1024 * 1024)}MB`
+        }, { status: 400 })
+      }
+
       // Read file content
       const content = await file.text()
       const lines = content.split('\n').filter(line => line.trim())
@@ -124,6 +146,14 @@ export async function POST(request: NextRequest) {
           { error: 'CSV file must have header row and at least one data row' },
           { status: 400 }
         )
+      }
+
+      // Enforce row count limit
+      const dataRowCount = lines.length - 1 // minus header
+      if (dataRowCount > MAX_ROW_COUNT) {
+        return NextResponse.json({
+          error: `Too many products. Maximum ${MAX_ROW_COUNT} products per upload.`
+        }, { status: 400 })
       }
 
       // Parse header
@@ -225,6 +255,13 @@ export async function POST(request: NextRequest) {
         )
       }
 
+      // Enforce row count limit
+      if (body.products.length > MAX_ROW_COUNT) {
+        return NextResponse.json({
+          error: `Too many products. Maximum ${MAX_ROW_COUNT} products per upload.`
+        }, { status: 400 })
+      }
+
       products = body.products.map((p: any) => ({
         name: p.name || '',
         description: p.description || '',
@@ -266,85 +303,89 @@ export async function POST(request: NextRequest) {
     // Track remaining slots for tier limit enforcement
     let remainingSlots = productCheck.remaining === -1 ? Infinity : productCheck.remaining
 
-    // Process each product
-    for (let i = 0; i < products.length; i++) {
-      const product = products[i]
-      const rowNum = i + 1
+    // Process each product inside a transaction for atomicity
+    await prisma.$transaction(async (tx) => {
+      for (let i = 0; i < products.length; i++) {
+        const product = products[i]
+        const rowNum = i + 1
 
-      // Check tier limit before each product
-      if (remainingSlots <= 0) {
-        results.failed++
-        results.errors.push({
-          row: rowNum,
-          error: 'Product limit reached for your tier',
-          productName: product.name
-        })
-        continue
-      }
-
-      try {
-        // Validate required fields
-        if (!product.name || product.name.trim() === '') {
+        // Check tier limit before each product
+        if (remainingSlots <= 0) {
           results.failed++
-          results.errors.push({ row: rowNum, error: 'Product name is required', productName: product.name })
+          results.errors.push({
+            row: rowNum,
+            error: 'Product limit reached for your tier',
+            productName: product.name
+          })
           continue
         }
 
-        if (!product.price || product.price <= 0) {
+        try {
+          // Validate required fields
+          if (!product.name || product.name.trim() === '') {
+            results.failed++
+            results.errors.push({ row: rowNum, error: 'Product name is required', productName: product.name })
+            continue
+          }
+
+          if (!product.price || product.price <= 0) {
+            results.failed++
+            results.errors.push({ row: rowNum, error: 'Price must be a positive number', productName: product.name })
+            continue
+          }
+
+          // Find or match category
+          let categoryId: string | null = product.categoryId || null
+          if (product.category && !categoryId) {
+            const matchedCategory = categories.find(
+              c => c.name.toLowerCase() === product.category!.toLowerCase()
+            )
+            categoryId = matchedCategory?.id || null
+          }
+
+          // Create product
+          const newProduct = await tx.product.create({
+            data: {
+              storeId: store.id,
+              name: product.name,
+              slug: generateSlug(product.name),
+              description: product.description || '',
+              shortDesc: product.shortDesc || null,
+              price: product.price,
+              comparePrice: product.comparePrice || null,
+              costPrice: product.costPrice || null,
+              sku: product.sku || null,
+              quantity: product.quantity || 0,
+              weight: product.weight || null,
+              length: product.length || null,
+              width: product.width || null,
+              height: product.height || null,
+              images: product.images && product.images.length > 0 ? JSON.stringify(product.images) : null,
+              freeShipping: product.freeShipping || false,
+              categoryId,
+              status: 'DRAFT', // Products start as draft
+            },
+          })
+
+          results.success++
+          results.products.push({
+            id: newProduct.id,
+            name: newProduct.name,
+            price: toNum(newProduct.price),
+          })
+          remainingSlots--
+        } catch (error: any) {
           results.failed++
-          results.errors.push({ row: rowNum, error: 'Price must be a positive number', productName: product.name })
-          continue
+          results.errors.push({
+            row: rowNum,
+            error: error.message || 'Unknown error',
+            productName: product.name
+          })
         }
-
-        // Find or match category
-        let categoryId: string | null = product.categoryId || null
-        if (product.category && !categoryId) {
-          const matchedCategory = categories.find(
-            c => c.name.toLowerCase() === product.category!.toLowerCase()
-          )
-          categoryId = matchedCategory?.id || null
-        }
-
-        // Create product
-        const newProduct = await prisma.product.create({
-          data: {
-            storeId: store.id,
-            name: product.name,
-            slug: generateSlug(product.name),
-            description: product.description || '',
-            shortDesc: product.shortDesc || null,
-            price: product.price,
-            comparePrice: product.comparePrice || null,
-            costPrice: product.costPrice || null,
-            sku: product.sku || null,
-            quantity: product.quantity || 0,
-            weight: product.weight || null,
-            length: product.length || null,
-            width: product.width || null,
-            height: product.height || null,
-            images: product.images && product.images.length > 0 ? JSON.stringify(product.images) : null,
-            freeShipping: product.freeShipping || false,
-            categoryId,
-            status: 'DRAFT', // Products start as draft
-          },
-        })
-
-        results.success++
-        results.products.push({
-          id: newProduct.id,
-          name: newProduct.name,
-          price: toNum(newProduct.price),
-        })
-        remainingSlots--
-      } catch (error: any) {
-        results.failed++
-        results.errors.push({
-          row: rowNum,
-          error: error.message || 'Unknown error',
-          productName: product.name
-        })
       }
-    }
+    }, {
+      timeout: 60000, // 60s timeout for large batches
+    })
 
     return NextResponse.json({
       message: `Bulk upload complete: ${results.success} products created, ${results.failed} failed`,

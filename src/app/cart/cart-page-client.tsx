@@ -1,27 +1,70 @@
 'use client'
 
 import { useCartStore } from '@/store/cart-store'
+import { useCheckoutStore } from '@/store/checkout-store'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
-import { Minus, Plus, Trash2, ShoppingBag, ArrowRight, Tag, Store } from 'lucide-react'
+import { Minus, Plus, Trash2, ShoppingBag, ArrowRight, Tag, Store, X, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import { useState } from 'react'
 
 export default function CartPageClient() {
   const { items, removeItem, updateQuantity, getSubtotal, getTotalSavings, getItemsByStore, clearCart } = useCartStore()
-  const [couponCode, setCouponCode] = useState('')
+  const { couponCode: appliedCouponCode, discount: appliedDiscount, setCouponCode, setDiscount, clearAll: clearCheckout } = useCheckoutStore()
+  const [couponCode, setCouponCodeInput] = useState(appliedCouponCode || '')
+  const [couponLoading, setCouponLoading] = useState(false)
+  const [couponError, setCouponError] = useState('')
+  const [couponSuccess, setCouponSuccess] = useState(false)
 
   const subtotal = getSubtotal()
   const savings = getTotalSavings()
   const itemsByStore = getItemsByStore()
   const storeCount = Object.keys(itemsByStore).length
 
-  const handleApplyCoupon = () => {
-    // TODO: Validate coupon code against server and apply discount
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim()) return
+    setCouponLoading(true)
+    setCouponError('')
+    setCouponSuccess(false)
+
+    try {
+      const res = await fetch('/api/coupons/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: couponCode.trim(), subtotal }),
+      })
+      const data = await res.json()
+
+      if (!res.ok) {
+        setCouponError(data.error || 'Invalid coupon')
+        setCouponCode('')
+        setCouponCode(appliedCouponCode || '')
+        return
+      }
+
+      setCouponCode(data.coupon.code)
+      setDiscount(data.discount)
+      setCouponSuccess(true)
+    } catch {
+      setCouponError('Failed to validate coupon. Please try again.')
+    } finally {
+      setCouponLoading(false)
+    }
   }
+
+  const handleRemoveCoupon = () => {
+    setCouponCode(null)
+    setDiscount(0)
+    setCouponCodeInput('')
+    setCouponSuccess(false)
+    setCouponError('')
+  }
+
+  const effectiveDiscount = appliedDiscount
+  const displayTotal = subtotal - effectiveDiscount
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -181,16 +224,34 @@ export default function CartPageClient() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {/* Coupon */}
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="Coupon code"
-                      value={couponCode}
-                      onChange={(e) => setCouponCode(e.target.value)}
-                    />
-                    <Button variant="outline" onClick={handleApplyCoupon}>
-                      <Tag className="w-4 h-4" />
-                    </Button>
-                  </div>
+                  {!appliedCouponCode ? (
+                    <div className="space-y-2">
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Coupon code"
+                          value={couponCode}
+                          onChange={(e) => setCouponCodeInput(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && handleApplyCoupon()}
+                          disabled={couponLoading}
+                        />
+                        <Button variant="outline" onClick={handleApplyCoupon} disabled={couponLoading || !couponCode.trim()}>
+                          {couponLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Tag className="w-4 h-4" />}
+                        </Button>
+                      </div>
+                      {couponError && <p className="text-xs text-red-500">{couponError}</p>}
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between bg-green-50 dark:bg-green-900/20 rounded-lg px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <Tag className="w-4 h-4 text-green-600" />
+                        <span className="text-sm font-medium text-green-700 dark:text-green-400">{appliedCouponCode}</span>
+                        <Badge variant="secondary" className="bg-green-100 text-green-700">-{effectiveDiscount > 0 ? `UGX ${effectiveDiscount.toLocaleString()}` : 'Free Shipping'}</Badge>
+                      </div>
+                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleRemoveCoupon}>
+                        <X className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  )}
 
                   <Separator />
 
@@ -201,6 +262,13 @@ export default function CartPageClient() {
                       <span>UGX {subtotal.toLocaleString()}</span>
                     </div>
                     
+                    {effectiveDiscount > 0 && (
+                      <div className="flex justify-between text-green-600">
+                        <span>Coupon ({appliedCouponCode})</span>
+                        <span>-UGX {effectiveDiscount.toLocaleString()}</span>
+                      </div>
+                    )}
+
                     {savings > 0 && (
                       <div className="flex justify-between text-green-600">
                         <span>Discount Savings</span>
@@ -218,7 +286,7 @@ export default function CartPageClient() {
 
                   <div className="flex justify-between text-lg font-bold">
                     <span>Total</span>
-                    <span>UGX {subtotal.toLocaleString()}</span>
+                    <span>UGX {displayTotal.toLocaleString()}</span>
                   </div>
 
                   <Button className="w-full" size="lg" asChild>
