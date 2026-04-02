@@ -193,7 +193,6 @@ async function handleSuccessfulPayment(payload: any) {
         where: { id: storeId },
         data: {
           totalSales: { increment: storeTotal },
-          totalOrders: { increment: 1 },
           escrowBalance: { increment: sellerAmount },
         },
       })

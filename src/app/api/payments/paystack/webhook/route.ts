@@ -188,7 +188,6 @@ async function handleSuccessfulPayment(data: any) {
         where: { id: storeId },
         data: {
           totalSales: { increment: storeTotal },
-          totalOrders: { increment: 1 },
           escrowBalance: { increment: sellerAmount }, // Still use escrow balance for consistency
         },
       })
@@ -217,7 +216,6 @@ async function handleSuccessfulPayment(data: any) {
           where: { id: storeId },
           data: {
             totalSales: { increment: storeTotal },
-            totalOrders: { increment: 1 },
             escrowBalance: { increment: sellerAmount },
           },
         })
