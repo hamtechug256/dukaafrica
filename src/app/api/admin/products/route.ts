@@ -266,16 +266,26 @@ export async function DELETE(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const productId = searchParams.get('productId')
+    const permanent = searchParams.get('permanent') === 'true'
 
     if (!productId) {
       return NextResponse.json({ error: 'Product ID required' }, { status: 400 })
     }
 
-    await prisma.product.delete({
-      where: { id: productId },
-    })
+    if (permanent) {
+      // Hard delete — admin only, use with extreme caution
+      await prisma.product.delete({
+        where: { id: productId },
+      })
+    } else {
+      // Soft-delete: preserve data for existing orders/reviews
+      await prisma.product.update({
+        where: { id: productId },
+        data: { deletedAt: new Date(), status: 'INACTIVE' }
+      })
+    }
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true, permanent })
   } catch (error) {
     console.error('Error deleting product:', error)
     return NextResponse.json({ 

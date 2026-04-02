@@ -330,7 +330,11 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 })
     }
 
-    await prisma.product.delete({ where: { id } })
+    // Soft-delete: preserve data for existing orders/reviews
+    await prisma.product.update({
+      where: { id },
+      data: { deletedAt: new Date(), status: 'INACTIVE' }
+    })
 
     return NextResponse.json({ success: true })
   } catch (error) {
