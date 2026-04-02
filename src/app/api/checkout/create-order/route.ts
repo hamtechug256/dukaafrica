@@ -111,11 +111,12 @@ export async function POST(req: Request) {
 
     const { items, shippingAddress, deliveryOption, paymentMethod, subtotal, shipping, total, coupon } = validationResult.data
 
-    // Verify coupon if provided (server-side re-validation)
+    // Verify coupon exists early (fail fast before price verification)
     let couponDiscount = 0
     let couponFreeShipping = false
+    let dbCoupon: any = null
     if (coupon) {
-      const dbCoupon = await prisma.coupon.findUnique({
+      dbCoupon = await prisma.coupon.findUnique({
         where: { id: coupon.id },
       })
       if (!dbCoupon || !dbCoupon.isActive) {
@@ -128,19 +129,6 @@ export async function POST(req: Request) {
       if (dbCoupon.usageLimit && dbCoupon.usageCount >= dbCoupon.usageLimit) {
         return NextResponse.json({ error: 'Coupon usage limit reached' }, { status: 400 })
       }
-      // Cap discount to what the server calculates
-      const couponValue = dbCoupon.value instanceof Prisma.Decimal ? dbCoupon.value.toNumber() : Number(dbCoupon.value)
-      if (dbCoupon.type === 'PERCENTAGE') {
-        couponDiscount = (serverSubtotal * couponValue) / 100
-        if (dbCoupon.maxDiscount) {
-          const maxDisc = dbCoupon.maxDiscount instanceof Prisma.Decimal ? dbCoupon.maxDiscount.toNumber() : Number(dbCoupon.maxDiscount)
-          couponDiscount = Math.min(couponDiscount, maxDisc)
-        }
-      } else if (dbCoupon.type === 'FIXED') {
-        couponDiscount = couponValue
-      }
-      couponDiscount = Math.min(couponDiscount, serverSubtotal)
-      couponFreeShipping = dbCoupon.type === 'FREE_SHIPPING' || !!coupon.freeShipping
     }
 
     // SECURITY FIX: Verify prices and stock against database
@@ -188,6 +176,23 @@ export async function POST(req: Request) {
 
       // Use the DATABASE price (already converted to number), not the client-provided price
       serverSubtotal += dbPrice * item.quantity
+    }
+
+    // Calculate coupon discount now that serverSubtotal is known
+    if (dbCoupon) {
+      const couponValue = dbCoupon.value instanceof Prisma.Decimal ? dbCoupon.value.toNumber() : Number(dbCoupon.value)
+      if (dbCoupon.type === 'PERCENTAGE') {
+        couponDiscount = (serverSubtotal * couponValue) / 100
+        if (dbCoupon.maxDiscount) {
+          const maxDisc = dbCoupon.maxDiscount instanceof Prisma.Decimal ? dbCoupon.maxDiscount.toNumber() : Number(dbCoupon.maxDiscount)
+          couponDiscount = Math.min(couponDiscount, maxDisc)
+        }
+      } else if (dbCoupon.type === 'FIXED') {
+        couponDiscount = couponValue
+      }
+      // Cap discount to subtotal (prevent negative totals)
+      couponDiscount = Math.min(couponDiscount, serverSubtotal)
+      couponFreeShipping = dbCoupon.type === 'FREE_SHIPPING' || !!coupon.freeShipping
     }
 
     // Calculate server-side total with coupon discount
