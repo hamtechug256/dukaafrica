@@ -10,7 +10,7 @@ function toNum(val: unknown): number {
   return 0
 }
 
-// GET - Fetch all orders (admin only)
+// GET - Fetch all orders (admin only) with pagination
 export async function GET(req: Request) {
   try {
     const { userId } = await auth()
@@ -30,47 +30,61 @@ export async function GET(req: Request) {
     }
 
     const { searchParams } = new URL(req.url)
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = parseInt(searchParams.get('limit') || '20')
     const status = searchParams.get('status')
     const payment = searchParams.get('payment')
     const search = searchParams.get('search')
+    const storeId = searchParams.get('storeId')
+
+    const skip = (page - 1) * limit
 
     // Build filter
     const where: any = {}
     
-    if (status) {
+    if (status && status !== 'ALL') {
       where.status = status
     }
     
-    if (payment) {
+    if (payment && payment !== 'ALL') {
       where.paymentStatus = payment
     }
     
+    if (storeId) {
+      where.storeId = storeId
+    }
+
     if (search) {
       where.OR = [
         { orderNumber: { contains: search, mode: 'insensitive' } },
         { shippingName: { contains: search, mode: 'insensitive' } },
+        { shippingPhone: { contains: search } },
         { Store: { name: { contains: search, mode: 'insensitive' } } },
         { User: { email: { contains: search, mode: 'insensitive' } } },
       ]
     }
 
-    // Fetch orders
-    const orders = await prisma.order.findMany({
-      where,
-      include: {
-        OrderItem: {
-          select: { id: true },
+    // Fetch paginated orders + total count in parallel
+    const [orders, total] = await Promise.all([
+      prisma.order.findMany({
+        where,
+        include: {
+          OrderItem: {
+            select: { id: true },
+          },
+          Store: {
+            select: { id: true, name: true, slug: true },
+          },
+          User: {
+            select: { id: true, email: true, name: true },
+          },
         },
-        Store: {
-          select: { id: true, name: true, slug: true },
-        },
-        User: {
-          select: { id: true, email: true },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 100,
-    })
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: Math.min(limit, 100), // Cap at 100
+      }),
+      prisma.order.count({ where }),
+    ])
 
     // Transform to match expected format
     const transformedOrders = orders.map((order) => ({
@@ -80,23 +94,45 @@ export async function GET(req: Request) {
       user: order.User,
     }))
 
-    // Calculate stats
-    const allOrders = await prisma.order.findMany({
-      select: { status: true, paymentStatus: true, total: true, currency: true },
-    })
+    // Calculate stats using efficient count queries (no full table scan)
+    const [
+      totalCount,
+      pendingCount,
+      processingCount,
+      shippedCount,
+      deliveredCount,
+      paidRevenue,
+    ] = await Promise.all([
+      prisma.order.count(),
+      prisma.order.count({ where: { status: 'PENDING' } }),
+      prisma.order.count({ where: { status: 'PROCESSING' } }),
+      prisma.order.count({ where: { status: { in: ['SHIPPED', 'OUT_FOR_DELIVERY'] } } }),
+      prisma.order.count({ where: { status: 'DELIVERED' } }),
+      prisma.order.aggregate({
+        where: { paymentStatus: 'PAID' },
+        _sum: { total: true },
+      }),
+    ])
 
     const stats = {
-      total: allOrders.length,
-      pending: allOrders.filter(o => o.status === 'PENDING').length,
-      processing: allOrders.filter(o => o.status === 'PROCESSING').length,
-      shipped: allOrders.filter(o => o.status === 'SHIPPED' || o.status === 'OUT_FOR_DELIVERY').length,
-      delivered: allOrders.filter(o => o.status === 'DELIVERED').length,
-      revenue: allOrders
-        .filter(o => o.paymentStatus === 'PAID')
-        .reduce((sum, o) => sum + toNum(o.total), 0),
+      total: totalCount,
+      pending: pendingCount,
+      processing: processingCount,
+      shipped: shippedCount,
+      delivered: deliveredCount,
+      revenue: toNum(paidRevenue._sum.total),
     }
 
-    return NextResponse.json({ orders: transformedOrders, stats })
+    return NextResponse.json({
+      orders: transformedOrders,
+      pagination: {
+        total,
+        pages: Math.ceil(total / limit),
+        page,
+        limit,
+      },
+      stats,
+    })
   } catch (error) {
     console.error('Error fetching admin orders:', error)
     return NextResponse.json({ error: 'Failed to fetch orders' }, { status: 500 })

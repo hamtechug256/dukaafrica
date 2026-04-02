@@ -990,3 +990,26 @@ model BuyerProtectionClaim {
   @@index([storeId])
   @@index([createdAt])
 }
+
+// ============================================
+// CONTACT SUBMISSIONS
+// ============================================
+
+model ContactSubmission {
+  id          String   @id @default(uuid())
+  name        String
+  email       String
+  subject     String
+  orderNumber String?
+  message     String
+  status      String   @default("NEW") // NEW, READ, REPLIED, RESOLVED
+  ip          String?
+  repliedBy   String?
+  repliedAt   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([status])
+  @@index([email])
+  @@index([createdAt])
+}
