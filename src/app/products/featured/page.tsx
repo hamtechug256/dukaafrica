@@ -99,7 +99,13 @@ export const metadata: Metadata = {
 }
 
 export default async function FeaturedProductsPage() {
-  const products = await getFeaturedProducts()
+  let products: any[] = []
+
+  try {
+    products = await getFeaturedProducts()
+  } catch (error) {
+    console.error('[Featured Products] Failed to fetch featured products:', error)
+  }
 
   return <FeaturedProductsClient products={JSON.parse(JSON.stringify(products))} />
 }

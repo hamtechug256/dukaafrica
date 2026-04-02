@@ -104,7 +104,13 @@ export const metadata: Metadata = {
 }
 
 export default async function FlashSalesPage() {
-  const products = await getFlashSales()
+  let products: any[] = []
+
+  try {
+    products = await getFlashSales()
+  } catch (error) {
+    console.error('[Flash Sales] Failed to fetch flash sale products:', error)
+  }
 
   return <FlashSalesClient products={JSON.parse(JSON.stringify(products))} />
 }

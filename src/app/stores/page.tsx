@@ -62,37 +62,44 @@ export default async function StoresPage({
   }
 
   // Fetch stores and count
-  const [stores, total] = await Promise.all([
-    prisma.store.findMany({
-      where,
-      select: {
-        id: true,
-        slug: true,
-        name: true,
-        description: true,
-        logo: true,
-        banner: true,
-        country: true,
-        city: true,
-        createdAt: true,
-        rating: true,
-        reviewCount: true,
-        _count: {
-          select: {
-            Product: { where: { status: 'ACTIVE' } },
-          }
-        },
-      },
-      orderBy: [
-        { createdAt: 'desc' }
-      ],
-      skip,
-      take: limit,
-    }),
-    prisma.store.count({ where })
-  ])
+  let stores: any[] = []
+  let total = 0
+  let totalPages = 0
 
-  const totalPages = Math.ceil(total / limit)
+  try {
+    [stores, total] = await Promise.all([
+      prisma.store.findMany({
+        where,
+        select: {
+          id: true,
+          slug: true,
+          name: true,
+          description: true,
+          logo: true,
+          banner: true,
+          country: true,
+          city: true,
+          createdAt: true,
+          rating: true,
+          reviewCount: true,
+          _count: {
+            select: {
+              Product: { where: { status: 'ACTIVE' } },
+            }
+          },
+        },
+        orderBy: [
+          { createdAt: 'desc' }
+        ],
+        skip,
+        take: limit,
+      }),
+      prisma.store.count({ where })
+    ])
+    totalPages = Math.ceil(total / limit)
+  } catch (error) {
+    console.error('[Stores Page] Failed to fetch stores:', error)
+  }
 
   // Format stores with rating
   const storesWithRating = stores.map(store => {

@@ -119,18 +119,23 @@ async function getCategoryProducts(categoryId: string, searchParams: Record<stri
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
-  const { slug } = await params
-  const category = await getCategory(slug)
-  if (!category) return { title: 'Category Not Found' }
+  try {
+    const { slug } = await params
+    const category = await getCategory(slug)
+    if (!category) return { title: 'Category Not Found' }
 
-  return {
-    title: `${category.name} - DuukaAfrica | Shop ${category.name} Online`,
-    description: category.description || `Browse the best ${category.name} products on DuukaAfrica. Shop from verified sellers across East Africa with secure payments.`,
-    openGraph: {
-      title: `${category.name} - DuukaAfrica`,
-      description: category.description || `Shop ${category.name} products on DuukaAfrica.`,
-      type: 'website',
-    },
+    return {
+      title: `${category.name} - DuukaAfrica | Shop ${category.name} Online`,
+      description: category.description || `Browse the best ${category.name} products on DuukaAfrica. Shop from verified sellers across East Africa with secure payments.`,
+      openGraph: {
+        title: `${category.name} - DuukaAfrica`,
+        description: category.description || `Shop ${category.name} products on DuukaAfrica.`,
+        type: 'website',
+      },
+    }
+  } catch (error) {
+    console.error('[Category Page] generateMetadata failed:', error)
+    return { title: 'Category - DuukaAfrica' }
   }
 }
 
@@ -144,19 +149,29 @@ interface CategoryPageProps {
 }
 
 export default async function CategoryPage({ params, searchParams }: CategoryPageProps) {
-  const { slug } = await params
-  const sp = await searchParams
+  try {
+    const { slug } = await params
+    const sp = await searchParams
 
-  const category = await getCategory(slug)
+    const category = await getCategory(slug)
 
-  if (!category) {
-    notFound()
-  }
+    if (!category) {
+      notFound()
+    }
 
-  const { products, pagination } = await getCategoryProducts(
-    category.id,
-    { page: sp.page || '1', sort: sp.sort || 'newest', search: sp.search || '' }
-  )
+    let products: any[] = []
+    let pagination = { page: 1, totalPages: 0, total: 0, hasMore: false }
+
+    try {
+      const result = await getCategoryProducts(
+        category.id,
+        { page: sp.page || '1', sort: sp.sort || 'newest', search: sp.search || '' }
+      )
+      products = result.products
+      pagination = result.pagination
+    } catch (error) {
+      console.error('[Category Page] getCategoryProducts failed:', error)
+    }
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -321,6 +336,10 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
       <Footer />
     </div>
   )
+  } catch (error) {
+    console.error('[Category Page] Page render failed:', error)
+    notFound()
+  }
 }
 
 // Generate static params for common categories - optional, won't fail build
