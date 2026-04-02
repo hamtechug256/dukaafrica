@@ -15,9 +15,9 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // First find the user by clerkId
+    // First find the user by clerkId (must be active)
     const user = await prisma.user.findUnique({
-      where: { clerkId: userId },
+      where: { clerkId: userId, isActive: true },
     })
 
     if (!user) {
@@ -71,9 +71,9 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // First find the user by clerkId
+    // First find the user by clerkId (must be active)
     const user = await prisma.user.findUnique({
-      where: { clerkId: userId },
+      where: { clerkId: userId, isActive: true },
     })
 
     if (!user) {
@@ -98,8 +98,11 @@ export async function DELETE(
       return NextResponse.json({ error: 'Product not found' }, { status: 404 })
     }
 
-    // Delete product (variants will be deleted automatically via cascade)
-    await prisma.product.delete({ where: { id } })
+    // Soft-delete: preserve data for existing orders/reviews
+    await prisma.product.update({
+      where: { id },
+      data: { deletedAt: new Date(), status: 'INACTIVE' }
+    })
 
     return NextResponse.json({ success: true, message: 'Product deleted successfully' })
   } catch (error) {

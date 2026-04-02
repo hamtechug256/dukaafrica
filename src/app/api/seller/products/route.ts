@@ -1,6 +1,7 @@
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { canListMoreProducts, getStoreTier } from '@/lib/seller-tiers'
 
 // Generate unique slug
 function generateSlug(name: string): string {
@@ -12,8 +13,8 @@ function generateSlug(name: string): string {
   return `${base}-${random}`
 }
 
-// GET - Fetch seller's products
-export async function GET() {
+// GET - Fetch seller's products (paginated)
+export async function GET(req: Request) {
   try {
     const { userId } = await auth()
 
@@ -21,9 +22,19 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // First find the user by clerkId
+    // Parse pagination params
+    const { searchParams } = new URL(req.url)
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10))
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '20', 10)))
+    const skip = (page - 1) * limit
+
+    // Parse optional filters
+    const statusFilter = searchParams.get('status') || undefined
+    const searchFilter = searchParams.get('search') || undefined
+
+    // First find the user by clerkId (only active users)
     const user = await prisma.user.findUnique({
-      where: { clerkId: userId },
+      where: { clerkId: userId, isActive: true },
     })
 
     if (!user) {
@@ -39,17 +50,43 @@ export async function GET() {
       return NextResponse.json({ error: 'Store not found' }, { status: 404 })
     }
 
-    const products = await prisma.product.findMany({
-      where: { storeId: store.id },
-      include: {
-        Category: {
-          select: { id: true, name: true, slug: true },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-    })
+    // Build where clause with optional filters
+    const where: Record<string, any> = { storeId: store.id }
 
-    return NextResponse.json({ products })
+    if (statusFilter) {
+      where.status = statusFilter
+    }
+
+    if (searchFilter) {
+      where.OR = [
+        { name: { contains: searchFilter, mode: 'insensitive' } },
+        { description: { contains: searchFilter, mode: 'insensitive' } },
+        { sku: { contains: searchFilter, mode: 'insensitive' } },
+      ]
+    }
+
+    // Fetch products and total count in parallel
+    const [products, total] = await Promise.all([
+      prisma.product.findMany({
+        where,
+        include: {
+          Category: {
+            select: { id: true, name: true, slug: true },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      prisma.product.count({ where }),
+    ])
+
+    const pages = Math.ceil(total / limit)
+
+    return NextResponse.json({
+      products,
+      pagination: { page, limit, total, pages },
+    })
   } catch (error) {
     console.error('Error fetching products:', error)
     return NextResponse.json({ error: 'Failed to fetch products' }, { status: 500 })
@@ -65,9 +102,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // First find the user by clerkId
+    // First find the user by clerkId (must be active)
     const user = await prisma.user.findUnique({
-      where: { clerkId: userId },
+      where: { clerkId: userId, isActive: true },
     })
 
     if (!user) {
@@ -81,6 +118,23 @@ export async function POST(req: Request) {
 
     if (!store) {
       return NextResponse.json({ error: 'Store not found' }, { status: 404 })
+    }
+
+    // Enforce product tier limit (STARTER=10, VERIFIED=100, PREMIUM=unlimited)
+    const currentProductCount = await prisma.product.count({
+      where: { storeId: store.id }
+    })
+    const productCheck = await canListMoreProducts(store, currentProductCount)
+    if (!productCheck.canList) {
+      return NextResponse.json({
+        error: 'Product limit reached',
+        details: {
+          maxProducts: productCheck.maxProducts,
+          currentCount: currentProductCount,
+          tier: store.verificationTier,
+          message: `Your ${store.verificationTier} tier allows a maximum of ${productCheck.maxProducts} products. Please upgrade your plan to list more.`,
+        }
+      }, { status: 403 })
     }
 
     const body = await req.json()
@@ -106,6 +160,20 @@ export async function POST(req: Request) {
       images,
       variants,
     } = body
+
+    // Enforce feature product tier permission
+    if (isFeatured) {
+      const tier = await getStoreTier(store)
+      if (!tier.canFeatureProducts) {
+        return NextResponse.json({
+          error: 'Featured products require VERIFIED or PREMIUM tier',
+          details: {
+            currentTier: store.verificationTier,
+            message: 'Please upgrade your plan to feature products on the homepage.',
+          }
+        }, { status: 403 })
+      }
+    }
 
     if (!name || !price) {
       return NextResponse.json({ error: 'Name and price are required' }, { status: 400 })
@@ -173,9 +241,9 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // First find the user by clerkId
+    // First find the user by clerkId (must be active)
     const user = await prisma.user.findUnique({
-      where: { clerkId: userId },
+      where: { clerkId: userId, isActive: true },
     })
 
     if (!user) {
@@ -203,14 +271,23 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 })
     }
 
-    // Prepare update data
-    const updateData: any = {
-      ...data,
-      images: data.images ? JSON.stringify(data.images) : null,
-      categoryId: data.categoryId || null,
-      hasVariants: hasVariants ?? false,
-      variantOptions: variantOptions ? JSON.stringify(variantOptions) : null,
+    // Prepare update data — whitelist ONLY seller-editable fields to prevent mass assignment
+    const ALLOWED_FIELDS = [
+      'name', 'description', 'shortDesc', 'price', 'comparePrice', 'costPrice', 'sku',
+      'quantity', 'lowStockThreshold', 'trackQuantity', 'allowBackorder',
+      'freeShipping', 'weight', 'length', 'width', 'height',
+      'images', 'categoryId', 'videos', 'variantOptions',
+    ]
+    const updateData: Record<string, any> = {}
+    for (const field of ALLOWED_FIELDS) {
+      if (field in data) {
+        updateData[field] = data[field]
+      }
     }
+    updateData.images = data.images ? JSON.stringify(data.images) : null
+    updateData.categoryId = data.categoryId || null
+    updateData.hasVariants = hasVariants ?? false
+    updateData.variantOptions = variantOptions ? JSON.stringify(variantOptions) : null
 
     // Handle submit for review
     if (submitForReview) {
@@ -287,9 +364,9 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // First find the user by clerkId
+    // First find the user by clerkId (must be active)
     const user = await prisma.user.findUnique({
-      where: { clerkId: userId },
+      where: { clerkId: userId, isActive: true },
     })
 
     if (!user) {
@@ -321,7 +398,11 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 })
     }
 
-    await prisma.product.delete({ where: { id } })
+    // Soft-delete: preserve data for existing orders/reviews
+    await prisma.product.update({
+      where: { id },
+      data: { deletedAt: new Date(), status: 'INACTIVE' }
+    })
 
     return NextResponse.json({ success: true })
   } catch (error) {

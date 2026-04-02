@@ -1,5 +1,11 @@
+import { Metadata } from 'next'
 import { Header } from '@/components/layout/header'
 import { Footer } from '@/components/layout/footer'
+
+export const metadata: Metadata = {
+  title: 'Privacy Policy - DuukaAfrica',
+  description: 'Learn how DuukaAfrica collects, uses, and protects your personal data. Your privacy is important to us.',
+}
 
 export default function PrivacyPage() {
   return (

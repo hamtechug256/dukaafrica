@@ -1,4 +1,12 @@
+import { Metadata } from 'next'
 import { prisma } from '@/lib/db'
+
+export const metadata: Metadata = {
+  title: 'Search Products - DuukaAfrica',
+  description: 'Search thousands of products from verified sellers across East Africa on DuukaAfrica. Find electronics, fashion, home goods and more.',
+  keywords: 'search products, find items, online shopping, East Africa marketplace',
+}
+
 import { ProductGrid } from '../products/product-grid'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'

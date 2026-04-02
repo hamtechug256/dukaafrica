@@ -7,6 +7,7 @@
 
 import { prisma } from '@/lib/db'
 import { getEscrowHoldDays, getCommissionRate } from './seller-tiers'
+import { Prisma } from '@prisma/client'
 
 // Escrow status types
 export type EscrowStatus = 'HELD' | 'RELEASED' | 'REFUNDED' | 'PARTIAL_REFUND' | 'DISPUTED'
@@ -331,48 +332,85 @@ export async function refundEscrow(params: {
     }
     
     let totalRefunded = 0
-    
-    // Process each escrow
+
+    // Get order items for stock restoration
+    const order = await prisma.order.findUnique({
+      where: { id: params.orderId },
+      include: { OrderItem: true },
+    })
+
+    // Process each escrow within a transaction for atomicity
     for (const escrow of escrows) {
       const escrowSellerAmount = escrow.sellerAmount.toNumber()
       const isPartialRefund = params.refundAmount && params.refundAmount < escrowSellerAmount
       const refundAmount = params.refundAmount || escrowSellerAmount
-      
-      // Update escrow
-      await prisma.escrowTransaction.update({
-        where: { id: escrow.id },
-        data: {
-          status: isPartialRefund ? 'PARTIAL_REFUND' : 'REFUNDED',
-          refundAmount,
-          refundReason: params.refundReason,
-          refundedAt: new Date(),
-          refundedBy: params.refundedBy
-        }
-      })
-      
-      // Deduct from store's escrow balance
-      await prisma.store.update({
-        where: { id: escrow.storeId },
-        data: {
-          escrowBalance: { decrement: refundAmount },
-          disputedOrders: { increment: 1 }
-        }
-      })
-      
-      // If partial refund, release remaining to seller
-      if (isPartialRefund) {
-        const remainingAmount = escrowSellerAmount - refundAmount
-        await prisma.store.update({
-          where: { id: escrow.storeId },
+
+      await prisma.$transaction(async (tx) => {
+        // Update escrow status
+        await tx.escrowTransaction.update({
+          where: { id: escrow.id },
           data: {
-            pendingBalance: { increment: remainingAmount }
+            status: isPartialRefund ? 'PARTIAL_REFUND' : 'REFUNDED',
+            refundAmount,
+            refundReason: params.refundReason,
+            refundedAt: new Date(),
+            refundedBy: params.refundedBy
           }
         })
+
+        // Deduct from store's escrow balance
+        await tx.store.update({
+          where: { id: escrow.storeId },
+          data: {
+            escrowBalance: { decrement: refundAmount },
+            disputedOrders: { increment: 1 }
+          }
+        })
+
+        // If partial refund, release remaining to seller
+        if (isPartialRefund) {
+          const remainingAmount = escrowSellerAmount - refundAmount
+          await tx.store.update({
+            where: { id: escrow.storeId },
+            data: {
+              pendingBalance: { increment: remainingAmount }
+            }
+          })
+        }
+
+        // Restore platform reserve
+        const reserveAmount = escrow.reserveAmount?.toNumber() || 0
+        const restoreReserve = isPartialRefund
+          ? Math.round(reserveAmount * (refundAmount / escrowSellerAmount))
+          : reserveAmount
+        if (restoreReserve > 0) {
+          await tx.platformReserve.updateMany({
+            data: {
+              totalReserve: { decrement: restoreReserve },
+              availableReserve: { decrement: restoreReserve },
+              pendingRefunds: { increment: restoreReserve }
+            }
+          })
+        }
+      })
+
+      // Restore product stock for each order item
+      if (order && order.OrderItem) {
+        const orderItems = params.storeId
+          ? order.OrderItem.filter(i => i.storeId === escrow.storeId)
+          : order.OrderItem
+
+        for (const item of orderItems) {
+          await prisma.product.update({
+            where: { id: item.productId },
+            data: { quantity: { increment: item.quantity } }
+          })
+        }
       }
-      
+
       // Update delivery success rate
       await updateDeliverySuccessRate(escrow.storeId)
-      
+
       totalRefunded += refundAmount
     }
     
@@ -391,15 +429,15 @@ export async function refundEscrow(params: {
     }
     
     // Get buyer for notification
-    const order = await prisma.order.findUnique({
+    const buyerOrder = await prisma.order.findUnique({
       where: { id: params.orderId },
       select: { userId: true }
     })
     
-    if (order) {
+    if (buyerOrder) {
       await prisma.notification.create({
         data: {
-          userId: order.userId,
+          userId: buyerOrder.userId,
           type: 'REFUND_PROCESSED',
           title: 'Refund Processed',
           message: `Your refund has been processed.`,
@@ -558,40 +596,74 @@ export async function getEscrowSummary(): Promise<{
   heldTransactions: number
   avgHoldDays: number
 }> {
-  const transactions = await prisma.escrowTransaction.findMany()
-  
+  // Use groupBy to aggregate stats per status without loading all rows into memory
+  const grouped = await prisma.escrowTransaction.groupBy({
+    by: ['status'],
+    _sum: {
+      sellerAmount: true,
+      platformAmount: true,
+      reserveAmount: true,
+      refundAmount: true,
+    },
+    _count: true,
+  })
+
   let totalHeld = 0
   let totalReleased = 0
   let totalRefunded = 0
   let totalDisputed = 0
   let heldTransactions = 0
-  
-  for (const tx of transactions) {
-    switch (tx.status) {
+
+  for (const group of grouped) {
+    const toNum = (val: unknown) =>
+      val instanceof Prisma.Decimal ? val.toNumber() : typeof val === 'number' ? val : 0
+
+    switch (group.status) {
       case 'HELD':
-        totalHeld += tx.sellerAmount.toNumber()
-        heldTransactions++
+        totalHeld += toNum(group._sum.sellerAmount)
+        heldTransactions += group._count
         break
       case 'RELEASED':
-        totalReleased += tx.sellerAmount.toNumber()
+        totalReleased += toNum(group._sum.sellerAmount)
         break
       case 'REFUNDED':
       case 'PARTIAL_REFUND':
-        totalRefunded += tx.refundAmount?.toNumber() || 0
+        totalRefunded += toNum(group._sum.refundAmount)
         break
       case 'DISPUTED':
-        totalDisputed += tx.sellerAmount.toNumber()
+        totalDisputed += toNum(group._sum.sellerAmount)
         break
     }
   }
-  
+
+  // Calculate actual average hold days from RELEASED transactions
+  const releasedTxs = await prisma.escrowTransaction.findMany({
+    where: {
+      status: 'RELEASED',
+      releasedAt: { not: null },
+    },
+    select: {
+      heldAt: true,
+      releasedAt: true,
+    },
+  })
+
+  let avgHoldDays = 0
+  if (releasedTxs.length > 0) {
+    const totalDays = releasedTxs.reduce((sum, tx) => {
+      const diffMs = tx.releasedAt!.getTime() - tx.heldAt.getTime()
+      return sum + diffMs / (1000 * 60 * 60 * 24)
+    }, 0)
+    avgHoldDays = Math.round((totalDays / releasedTxs.length) * 10) / 10 // Round to 1 decimal
+  }
+
   return {
     totalHeld,
     totalReleased,
     totalRefunded,
     totalDisputed,
     heldTransactions,
-    avgHoldDays: 5 // Could calculate from actual data
+    avgHoldDays,
   }
 }
 

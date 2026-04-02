@@ -55,6 +55,13 @@ const DeliveryOptionSchema = z.object({
   id: z.string().min(1),
 })
 
+const CouponSchema = z.object({
+  id: z.string().min(1),
+  code: z.string().min(1),
+  discount: z.number().nonnegative(),
+  freeShipping: z.boolean().optional(),
+})
+
 const CreateOrderSchema = z.object({
   items: z.array(OrderItemSchema).min(1, 'At least one item is required'),
   shippingAddress: ShippingAddressSchema,
@@ -63,6 +70,7 @@ const CreateOrderSchema = z.object({
   subtotal: z.number().positive(),
   shipping: z.number().nonnegative(),
   total: z.number().positive(),
+  coupon: CouponSchema.optional(),
 })
 
 // Generate unique order number
@@ -101,7 +109,27 @@ export async function POST(req: Request) {
       )
     }
 
-    const { items, shippingAddress, deliveryOption, paymentMethod, subtotal, shipping, total } = validationResult.data
+    const { items, shippingAddress, deliveryOption, paymentMethod, subtotal, shipping, total, coupon } = validationResult.data
+
+    // Verify coupon exists early (fail fast before price verification)
+    let couponDiscount = 0
+    let couponFreeShipping = false
+    let dbCoupon: any = null
+    if (coupon) {
+      dbCoupon = await prisma.coupon.findUnique({
+        where: { id: coupon.id },
+      })
+      if (!dbCoupon || !dbCoupon.isActive) {
+        return NextResponse.json({ error: 'Coupon is no longer valid' }, { status: 400 })
+      }
+      const now = new Date()
+      if (now < dbCoupon.startDate || now > dbCoupon.endDate) {
+        return NextResponse.json({ error: 'Coupon has expired' }, { status: 400 })
+      }
+      if (dbCoupon.usageLimit && dbCoupon.usageCount >= dbCoupon.usageLimit) {
+        return NextResponse.json({ error: 'Coupon usage limit reached' }, { status: 400 })
+      }
+    }
 
     // SECURITY FIX: Verify prices and stock against database
     const productIds = items.map(i => i.productId)
@@ -150,12 +178,32 @@ export async function POST(req: Request) {
       serverSubtotal += dbPrice * item.quantity
     }
 
-    // Calculate server-side shipping (simple estimation)
-    // In production, this would call the shipping calculator API
-    const serverTotal = serverSubtotal + shipping
+    // Calculate coupon discount now that serverSubtotal is known
+    if (dbCoupon) {
+      const couponValue = dbCoupon.value instanceof Prisma.Decimal ? dbCoupon.value.toNumber() : Number(dbCoupon.value)
+      if (dbCoupon.type === 'PERCENTAGE') {
+        couponDiscount = (serverSubtotal * couponValue) / 100
+        if (dbCoupon.maxDiscount) {
+          const maxDisc = dbCoupon.maxDiscount instanceof Prisma.Decimal ? dbCoupon.maxDiscount.toNumber() : Number(dbCoupon.maxDiscount)
+          couponDiscount = Math.min(couponDiscount, maxDisc)
+        }
+      } else if (dbCoupon.type === 'FIXED') {
+        couponDiscount = couponValue
+      }
+      // Cap discount to subtotal (prevent negative totals)
+      couponDiscount = Math.min(couponDiscount, serverSubtotal)
+      couponFreeShipping = dbCoupon.type === 'FREE_SHIPPING' || !!coupon?.freeShipping
+    }
+
+    // Calculate server-side total with coupon discount
+    const discount = Math.round(couponDiscount) // Round to avoid Decimal precision issues
+    const effectiveShipping = couponFreeShipping ? 0 : shipping
+    const serverTotal = serverSubtotal - discount + effectiveShipping
 
     // SECURITY FIX: Reject if client prices don't match server prices (within tolerance)
-    if (Math.abs(subtotal - serverSubtotal) > 100) { // 100 currency units tolerance
+    // Note: tolerance is higher when a coupon is applied due to rounding differences
+    const tolerance = coupon ? 200 : 100
+    if (Math.abs(subtotal - serverSubtotal) > tolerance) {
       return NextResponse.json(
         {
           error: 'Price mismatch detected. Please refresh and try again.',
@@ -165,7 +213,7 @@ export async function POST(req: Request) {
       )
     }
 
-    if (Math.abs(total - serverTotal) > 100) {
+    if (Math.abs(total - serverTotal) > tolerance) {
       return NextResponse.json(
         {
           error: 'Total mismatch detected. Please refresh and try again.',
@@ -228,9 +276,12 @@ export async function POST(req: Request) {
           
           // SECURITY FIX: Use server-verified prices
           subtotal: serverSubtotal,
-          shippingFee: shipping,
+          shippingFee: effectiveShipping,
           tax: 0,
-          discount: 0,
+          discount,
+          couponId: coupon?.id || null,
+          couponCode: coupon?.code || null,
+          couponDiscount: discount,
           total: serverTotal,
           currency: dbUser!.currency || 'UGX',
           
@@ -275,6 +326,14 @@ export async function POST(req: Request) {
           status: 'PENDING',
         },
       })
+
+      // Increment coupon usage count if coupon was applied
+      if (coupon && coupon.id) {
+        await tx.coupon.update({
+          where: { id: coupon.id },
+          data: { usageCount: { increment: 1 } },
+        })
+      }
 
       return { order, payment }
     })

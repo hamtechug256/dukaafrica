@@ -42,9 +42,9 @@ export async function POST(request: NextRequest) {
       physicalLocationUrl,
     } = body
 
-    // Get user and store - use explicit select for backward compatibility
+    // Get user and store - use explicit select for backward compatibility (must be active)
     const user = await prisma.user.findUnique({
-      where: { clerkId: userId },
+      where: { clerkId: userId, isActive: true },
       select: {
         id: true,
         Store: {
@@ -63,6 +63,22 @@ export async function POST(request: NextRequest) {
     }
 
     const store = user.Store
+
+    // Guard: prevent duplicate submissions while already pending
+    if (store.verificationStatus === 'PENDING') {
+      return NextResponse.json({
+        error: 'Verification already in progress',
+        details: { currentStatus: store.verificationStatus, message: 'Your application is being reviewed. Please wait for a decision before resubmitting.' }
+      }, { status: 400 })
+    }
+
+    // Guard: prevent re-verification of already verified sellers
+    if (store.verificationStatus === 'VERIFIED' || store.verificationStatus === 'PREMIUM') {
+      return NextResponse.json({
+        error: 'Already verified',
+        details: { currentStatus: store.verificationStatus, message: 'Your store is already verified. Contact support if you need to make changes.' }
+      }, { status: 400 })
+    }
 
     // Validate required fields based on target tier
     const validationErrors: string[] = []
@@ -171,9 +187,9 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Use explicit select for backward compatibility with missing database columns
+    // Use explicit select for backward compatibility with missing database columns (must be active)
     const user = await prisma.user.findUnique({
-      where: { clerkId: userId },
+      where: { clerkId: userId, isActive: true },
       select: {
         id: true,
         Store: {

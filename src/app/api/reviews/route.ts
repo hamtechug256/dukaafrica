@@ -1,6 +1,7 @@
 import { auth } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 // GET reviews for a product
 export async function GET(req: Request) {
@@ -73,6 +74,11 @@ export async function POST(req: Request) {
 
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const rateLimit = await checkRateLimit('review_create', userId, 3, 60)
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ error: 'Too many requests. Please try again later.' }, { status: 429 })
     }
 
     const body = await req.json()

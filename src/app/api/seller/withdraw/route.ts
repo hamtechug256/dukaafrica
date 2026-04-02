@@ -67,9 +67,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get user and store
+    // Get user and store (must be active)
     const user = await prisma.user.findUnique({
-      where: { clerkId: userId },
+      where: { clerkId: userId, isActive: true },
       include: { Store: true }
     })
 
@@ -109,6 +109,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Capture verified payout method (TypeScript narrowing lost across async boundaries)
+    const payoutMethod = store.payoutMethod
+
     // Generate reference
     const reference = `WTH-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`
 
@@ -118,28 +121,49 @@ export async function POST(request: NextRequest) {
       accountInfo = store.payoutPhone || ''
     } else {
       accountInfo = `${store.payoutBankName || ''} - ${store.payoutBankAccount || ''}`
+  }
+
+    // ATOMIC: Check balance + create payout + deduct in a single transaction
+    let payout: any
+    try {
+      payout = await prisma.$transaction(async (tx) => {
+        // Re-check balance inside transaction to prevent double-withdrawal
+        const freshStore = await tx.store.findUnique({
+          where: { id: store.id },
+          select: { availableBalance: true }
+        })
+        const freshBalance = freshStore!.availableBalance.toNumber()
+        if (freshBalance < amount) {
+          throw new Error('Insufficient balance')
+        }
+
+        // Create payout record
+        const newPayout = await tx.sellerPayout.create({
+          data: {
+            storeId: store.id,
+            amount,
+            currency,
+            status: 'PENDING',
+            method: payoutMethod,
+            accountInfo,
+            reference
+          }
+        })
+
+        // Deduct balance atomically
+        await tx.store.update({
+          where: { id: store.id },
+          data: { availableBalance: { decrement: amount } }
+        })
+
+        return newPayout
+      })
+    } catch (txError: any) {
+      if (txError.message?.includes('Insufficient balance')) {
+        return NextResponse.json({ error: 'Insufficient balance' }, { status: 400 })
+      }
+      throw txError
     }
-
-    // Create payout record
-    const payout = await prisma.sellerPayout.create({
-      data: {
-        storeId: store.id,
-        amount,
-        currency,
-        status: 'PENDING',
-        method: store.payoutMethod,
-        accountInfo,
-        reference
-      }
-    })
-
-    // Deduct from available balance immediately (hold during processing)
-    await prisma.store.update({
-      where: { id: store.id },
-      data: {
-        availableBalance: { decrement: amount }
-      }
-    })
 
     // Try to process via Flutterwave
     try {

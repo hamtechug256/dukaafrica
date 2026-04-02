@@ -1,5 +1,11 @@
+import { Metadata } from 'next'
 import { Header } from '@/components/layout/header'
 import { Footer } from '@/components/layout/footer'
+
+export const metadata: Metadata = {
+  title: 'Terms of Service - DuukaAfrica',
+  description: 'Read the DuukaAfrica Terms of Service. Understand your rights and obligations as a buyer or seller on East Africa\'s trusted online marketplace.',
+}
 
 export default function TermsPage() {
   return (

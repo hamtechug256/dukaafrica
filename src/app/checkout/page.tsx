@@ -169,6 +169,7 @@ export default function CheckoutPage() {
   }
 
   const handlePlaceOrder = async () => {
+    if (isLoading) return // Prevent double-click / double-order
     setIsLoading(true)
     try {
       // Create order

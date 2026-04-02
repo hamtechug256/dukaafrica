@@ -59,6 +59,38 @@ export async function POST(req: NextRequest) {
     }
 
     if (status === 'SUCCESS' || status === 'COMPLETED') {
+      // SECURITY: Verify amount matches our records (same pattern as MTN callback)
+      const callbackAmount = transaction.amount
+      if (callbackAmount && Number(callbackAmount) !== Math.ceil(Number(payment.amount))) {
+        console.error(
+          `[AIRTEL-CALLBACK] AMOUNT MISMATCH! Expected: ${payment.amount}, Received: ${callbackAmount}`
+        )
+
+        await prisma.securityLog.create({
+          data: {
+            type: 'AIRTEL_AMOUNT_MISMATCH',
+            identifier: referenceId,
+            details: JSON.stringify({
+              paymentId: payment.id,
+              expectedAmount: String(payment.amount),
+              receivedAmount: String(callbackAmount),
+            }),
+            path: '/api/payments/airtel/callback',
+          },
+        })
+
+        await prisma.payment.update({
+          where: { id: payment.id },
+          data: {
+            status: 'FAILED',
+            providerResponse: JSON.stringify(body),
+            failedAt: new Date(),
+          },
+        })
+
+        return NextResponse.json({ error: 'Amount mismatch' }, { status: 400 })
+      }
+
       // Use transaction for atomicity
       await prisma.$transaction(async (tx) => {
         await tx.payment.update({
@@ -97,7 +129,6 @@ export async function POST(req: NextRequest) {
               where: { id: item.storeId },
               data: {
                 totalSales: { increment: item.total },
-                totalOrders: { increment: 1 },
               },
             })
           }

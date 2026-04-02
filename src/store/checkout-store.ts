@@ -1,4 +1,7 @@
+'use client'
+
 import { create } from 'zustand'
+import { persist, createJSONStorage } from 'zustand/middleware'
 
 export interface CheckoutStep {
   id: string
@@ -75,98 +78,9 @@ const initialSteps: CheckoutStep[] = [
   { id: 'review', name: 'Review', isCompleted: false, isCurrent: false },
 ]
 
-export const useCheckoutStore = create<CheckoutStore>((set, get) => ({
-  currentStep: 0,
-  steps: initialSteps,
-  shippingAddress: null,
-  billingAddress: null,
-  useSameAddress: true,
-  deliveryOption: null,
-  paymentMethod: null,
-  couponCode: null,
-  discount: 0,
-  notes: '',
-  orderId: null,
-
-  setStep: (step) => {
-    set((state) => ({
-      currentStep: step,
-      steps: state.steps.map((s, idx) => ({
-        ...s,
-        isCurrent: idx === step,
-        isCompleted: idx < step,
-      })),
-    }))
-  },
-
-  nextStep: () => {
-    const { currentStep, steps } = get()
-    if (currentStep < steps.length - 1) {
-      set((state) => ({
-        currentStep: currentStep + 1,
-        steps: state.steps.map((s, idx) => ({
-          ...s,
-          isCurrent: idx === currentStep + 1,
-          isCompleted: idx <= currentStep,
-        })),
-      }))
-    }
-  },
-
-  prevStep: () => {
-    const { currentStep } = get()
-    if (currentStep > 0) {
-      set((state) => ({
-        currentStep: currentStep - 1,
-        steps: state.steps.map((s, idx) => ({
-          ...s,
-          isCurrent: idx === currentStep - 1,
-          isCompleted: idx < currentStep - 1,
-        })),
-      }))
-    }
-  },
-
-  setShippingAddress: (address) => {
-    set({ shippingAddress: address })
-  },
-
-  setBillingAddress: (address) => {
-    set({ billingAddress: address })
-  },
-
-  setUseSameAddress: (value) => {
-    set({ useSameAddress: value })
-  },
-
-  setDeliveryOption: (option) => {
-    set({ deliveryOption: option })
-  },
-
-  setPaymentMethod: (method) => {
-    set({ paymentMethod: method })
-  },
-
-  setCouponCode: (code) => {
-    set({ couponCode: code })
-  },
-
-  setDiscount: (amount) => {
-    if (amount >= 0) {
-      set({ discount: amount })
-    }
-  },
-
-  setNotes: (notes) => {
-    set({ notes })
-  },
-
-  setOrderId: (id) => {
-    set({ orderId: id })
-  },
-
-  reset: () => {
-    set({
+export const useCheckoutStore = create<CheckoutStore>()(
+  persist(
+    (set, get) => ({
       currentStep: 0,
       steps: initialSteps,
       shippingAddress: null,
@@ -178,22 +92,150 @@ export const useCheckoutStore = create<CheckoutStore>((set, get) => ({
       discount: 0,
       notes: '',
       orderId: null,
-    })
-  },
 
-  isStepValid: (step) => {
-    const state = get()
-    switch (step) {
-      case 0:
-        return state.shippingAddress !== null
-      case 1:
-        return state.deliveryOption !== null
-      case 2:
-        return state.paymentMethod !== null
-      case 3:
-        return true
-      default:
-        return false
+      setStep: (step) => {
+        set((state) => ({
+          currentStep: step,
+          steps: state.steps.map((s, idx) => ({
+            ...s,
+            isCurrent: idx === step,
+            isCompleted: idx < step,
+          })),
+        }))
+      },
+
+      nextStep: () => {
+        const { currentStep, steps } = get()
+        if (currentStep < steps.length - 1) {
+          set((state) => ({
+            currentStep: currentStep + 1,
+            steps: state.steps.map((s, idx) => ({
+              ...s,
+              isCurrent: idx === currentStep + 1,
+              isCompleted: idx <= currentStep,
+            })),
+          }))
+        }
+      },
+
+      prevStep: () => {
+        const { currentStep } = get()
+        if (currentStep > 0) {
+          set((state) => ({
+            currentStep: currentStep - 1,
+            steps: state.steps.map((s, idx) => ({
+              ...s,
+              isCurrent: idx === currentStep - 1,
+              isCompleted: idx < currentStep - 1,
+            })),
+          }))
+        }
+      },
+
+      setShippingAddress: (address) => {
+        set({ shippingAddress: address })
+      },
+
+      setBillingAddress: (address) => {
+        set({ billingAddress: address })
+      },
+
+      setUseSameAddress: (value) => {
+        set({ useSameAddress: value })
+      },
+
+      setDeliveryOption: (option) => {
+        set({ deliveryOption: option })
+      },
+
+      setPaymentMethod: (method) => {
+        set({ paymentMethod: method })
+      },
+
+      setCouponCode: (code) => {
+        set({ couponCode: code })
+      },
+
+      setDiscount: (amount) => {
+        if (amount >= 0) {
+          set({ discount: amount })
+        }
+      },
+
+      setNotes: (notes) => {
+        set({ notes })
+      },
+
+      setOrderId: (id) => {
+        set({ orderId: id })
+      },
+
+      reset: () => {
+        set({
+          currentStep: 0,
+          steps: initialSteps,
+          paymentMethod: null,
+          couponCode: null,
+          discount: 0,
+          orderId: null,
+          // NOTE: shippingAddress, billingAddress, deliveryOption, and notes
+          // are intentionally NOT reset here so returning users don't have
+          // to re-enter them. Call clearAll() for a full reset.
+        })
+      },
+
+      clearAll: () => {
+        set({
+          currentStep: 0,
+          steps: initialSteps,
+          shippingAddress: null,
+          billingAddress: null,
+          useSameAddress: true,
+          deliveryOption: null,
+          paymentMethod: null,
+          couponCode: null,
+          discount: 0,
+          notes: '',
+          orderId: null,
+        })
+      },
+
+      isStepValid: (step) => {
+        const state = get()
+        switch (step) {
+          case 0:
+            return state.shippingAddress !== null
+          case 1:
+            return state.deliveryOption !== null
+          case 2:
+            return state.paymentMethod !== null
+          case 3:
+            return true
+          default:
+            return false
+        }
+      },
+    }),
+    {
+      name: 'dukaafrica-checkout',
+      storage: createJSONStorage(() => {
+        if (typeof window === 'undefined') {
+          return {
+            getItem: () => null,
+            setItem: () => {},
+            removeItem: () => {},
+          }
+        }
+        return localStorage
+      }),
+      // Persist address, delivery, and notes — NOT payment method, coupon, or orderId
+      partialize: (state) => ({
+        shippingAddress: state.shippingAddress,
+        billingAddress: state.billingAddress,
+        useSameAddress: state.useSameAddress,
+        deliveryOption: state.deliveryOption,
+        notes: state.notes,
+      }),
     }
-  },
-}))
+  )
+)

@@ -137,7 +137,6 @@ export async function POST(req: NextRequest) {
               where: { id: item.storeId },
               data: {
                 totalSales: { increment: item.total },
-                totalOrders: { increment: 1 },
               },
             })
           }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/db'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 // POST /api/checkout/validate-stock - Validate stock before checkout
 export async function POST(request: NextRequest) {
@@ -8,6 +9,11 @@ export async function POST(request: NextRequest) {
     const { userId } = await auth()
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const rateLimit = await checkRateLimit('checkout_validate_stock', userId, 30, 60)
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ error: 'Too many requests. Please try again later.' }, { status: 429 })
     }
 
     const body = await request.json()

@@ -109,27 +109,7 @@ async function handleSuccessfulPayment(payload: any) {
     return
   }
 
-  // Update payment status
-  await prisma.payment.update({
-    where: { id: payment.id },
-    data: {
-      status: 'PAID',
-      providerRef: data.id?.toString(),
-      paidAt: new Date(),
-      providerResponse: JSON.stringify(payload)
-    }
-  })
-
-  // Update order status
-  await prisma.order.update({
-    where: { id: payment.orderId },
-    data: {
-      paymentStatus: 'PAID',
-      status: 'CONFIRMED'
-    }
-  })
-
-  // Group items by store for escrow creation
+  // Group items by store for processing
   const storeTotals = new Map<string, number>()
 
   for (const item of order.OrderItem) {
@@ -137,7 +117,59 @@ async function handleSuccessfulPayment(payload: any) {
     storeTotals.set(item.storeId, existing + toNum(item.total))
   }
 
-  // Process each store - create escrow for each
+  // ── ATOMIC CORE ──────────────────────────────────────────────────────────
+  // Payment confirmation, order status, product quantities, and store totalSales
+  // are all updated in a single transaction. If any step fails, everything
+  // rolls back so we never end up in an inconsistent state (e.g. payment
+  // marked PAID but stock not decremented).
+  await prisma.$transaction(async (tx) => {
+    // 1. Update payment status
+    await tx.payment.update({
+      where: { id: payment.id },
+      data: {
+        status: 'PAID',
+        providerRef: data.id?.toString(),
+        paidAt: new Date(),
+        providerResponse: JSON.stringify(payload),
+      },
+    })
+
+    // 2. Update order status
+    await tx.order.update({
+      where: { id: payment.orderId },
+      data: {
+        paymentStatus: 'PAID',
+        status: 'CONFIRMED',
+      },
+    })
+
+    // 3. Per-store: decrement stock & increment totalSales
+    for (const [storeId, storeTotal] of storeTotals) {
+      const storeItems = order.OrderItem.filter(item => item.storeId === storeId)
+
+      for (const item of storeItems) {
+        await tx.product.update({
+          where: { id: item.productId },
+          data: {
+            quantity: { decrement: item.quantity },
+            purchaseCount: { increment: item.quantity },
+          },
+        })
+      }
+
+      await tx.store.update({
+        where: { id: storeId },
+        data: {
+          totalSales: { increment: storeTotal },
+        },
+      })
+    }
+  })
+  // ── END ATOMIC CORE ──────────────────────────────────────────────────────
+
+  // ── ESCROW CREATION (non-atomic, non-fatal) ──────────────────────────────
+  // Escrow holds are created after the core transaction succeeds.
+  // Failures here are logged but do not roll back payment/order/stock.
   for (const [storeId, storeTotal] of storeTotals) {
     // Get store info for escrow
     const store = await prisma.store.findUnique({
@@ -154,18 +186,6 @@ async function handleSuccessfulPayment(payload: any) {
     if (!store) {
       console.error('Store not found:', storeId)
       continue
-    }
-
-    // Update product quantities
-    const storeItems = order.OrderItem.filter(item => item.storeId === storeId)
-    for (const item of storeItems) {
-      await prisma.product.update({
-        where: { id: item.productId },
-        data: {
-          quantity: { decrement: item.quantity },
-          purchaseCount: { increment: item.quantity },
-        },
-      })
     }
 
     // Create escrow for each store (now supports multi-vendor via unique constraint on orderId+storeId)
@@ -186,14 +206,13 @@ async function handleSuccessfulPayment(payload: any) {
       console.log(`Escrow created for store ${storeId}:`, escrowResult.escrowId)
     } else {
       console.error(`Failed to create escrow for store ${storeId}:`, escrowResult.error)
-      // Fallback: update store stats without escrow
+      // Fallback: update escrowBalance without escrow record
+      // (totalSales was already incremented atomically above)
       const commissionRate = toNum(store.commissionRate) || 15
       const sellerAmount = Math.round(storeTotal * (1 - commissionRate / 100))
       await prisma.store.update({
         where: { id: storeId },
         data: {
-          totalSales: { increment: storeTotal },
-          totalOrders: { increment: 1 },
           escrowBalance: { increment: sellerAmount },
         },
       })
@@ -221,23 +240,23 @@ async function handleSuccessfulTransfer(payload: any) {
     return
   }
 
-  // Update payout status
-  await prisma.sellerPayout.update({
-    where: { id: payout.id },
-    data: {
-      status: 'COMPLETED',
-      processedAt: new Date()
-    }
-  })
+  // IDEMPOTENCY: Skip if already processed
+  if (payout.status === 'COMPLETED') {
+    console.log(`Transfer ${reference} already processed, skipping`)
+    return
+  }
 
-  // Update store balance
-  await prisma.store.update({
-    where: { id: payout.storeId },
-    data: {
-      availableBalance: {
-        decrement: toNum(payout.amount)
-      }
-    }
+  // Update payout status + balance in a single transaction
+  await prisma.$transaction(async (tx) => {
+    await tx.sellerPayout.update({
+      where: { id: payout.id },
+      data: { status: 'COMPLETED', processedAt: new Date() }
+    })
+
+    await tx.store.update({
+      where: { id: payout.storeId },
+      data: { availableBalance: { decrement: toNum(payout.amount) } }
+    })
   })
 
   console.log(`Transfer ${reference} completed successfully`)

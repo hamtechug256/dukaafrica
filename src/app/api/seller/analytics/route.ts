@@ -18,9 +18,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // First find the user by clerkId
+    // First find the user by clerkId (must be active)
     const user = await prisma.user.findUnique({
-      where: { clerkId: userId },
+      where: { clerkId: userId, isActive: true },
     })
 
     if (!user) {
