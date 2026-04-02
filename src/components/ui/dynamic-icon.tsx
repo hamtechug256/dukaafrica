@@ -1,115 +1,183 @@
 'use client'
 
-import * as LucideIcons from 'lucide-react'
-import { ComponentProps } from 'react'
+import {
+  Wheat,
+  Leaf,
+  TreeDeciduous,
+  Car,
+  Truck,
+  Bike,
+  Bus,
+  Baby,
+  ToyBrick,
+  Sparkles,
+  Scissors,
+  Palette,
+  BookOpen,
+  Book,
+  GraduationCap,
+  Smartphone,
+  Laptop,
+  Tv,
+  Headphones,
+  Camera,
+  Monitor,
+  Tablet,
+  Watch,
+  Printer,
+  Speaker,
+  Shirt,
+  ShoppingBag,
+  Glasses,
+  Crown,
+  Utensils,
+  Apple,
+  Coffee,
+  Pizza,
+  Cake,
+  HeartPulse,
+  Pill,
+  Activity,
+  Stethoscope,
+  Home,
+  Sofa,
+  Lamp,
+  Bath,
+  Wrench,
+  Hammer,
+  Settings,
+  Building2,
+  Dumbbell,
+  Trophy,
+  Goal,
+  Circle,
+  Briefcase,
+  FileText,
+  Building,
+  MapPin,
+  Package,
+  Box,
+  Star,
+  Heart,
+  Zap,
+  Gift,
+  Tag,
+  Percent,
+  Layers,
+  Grid3X3,
+  ShoppingBasket,
+  Store,
+  User,
+  Users,
+  type LucideProps,
+} from 'lucide-react'
+import type { ComponentType } from 'react'
 
-// Map of icon names to Lucide icon components
-const iconMap: Record<string, React.ComponentType<ComponentProps<typeof LucideIcons.Home>>> = {
-  // Default fallback
-  default: LucideIcons.Package,
-  
+// Map of icon names to Lucide icon components — only import what we use
+const iconMap: Record<string, ComponentType<LucideProps>> = {
+  default: Package,
+
   // Agriculture & Farming
-  Wheat: LucideIcons.Wheat,
-  Leaf: LucideIcons.Leaf,
-  TreeDeciduous: LucideIcons.TreeDeciduous,
-  
+  Wheat,
+  Leaf,
+  TreeDeciduous,
+
   // Automotive
-  Car: LucideIcons.Car,
-  Truck: LucideIcons.Truck,
-  Bike: LucideIcons.Bike,
-  Bus: LucideIcons.Bus,
-  
+  Car,
+  Truck,
+  Bike,
+  Bus,
+
   // Baby & Kids
-  Baby: LucideIcons.Baby,
-  ToyBrick: LucideIcons.ToyBrick,
-  
+  Baby,
+  ToyBrick,
+
   // Beauty
-  Sparkles: LucideIcons.Sparkles,
-  Scissors: LucideIcons.Scissors,
-  Palette: LucideIcons.Palette,
-  
+  Sparkles,
+  Scissors,
+  Palette,
+
   // Books
-  BookOpen: LucideIcons.BookOpen,
-  Book: LucideIcons.Book,
-  GraduationCap: LucideIcons.GraduationCap,
-  
+  BookOpen,
+  Book,
+  GraduationCap,
+
   // Electronics
-  Smartphone: LucideIcons.Smartphone,
-  Laptop: LucideIcons.Laptop,
-  Tv: LucideIcons.Tv,
-  Headphones: LucideIcons.Headphones,
-  Camera: LucideIcons.Camera,
-  Monitor: LucideIcons.Monitor,
-  Tablet: LucideIcons.Tablet,
-  Watch: LucideIcons.Watch,
-  Printer: LucideIcons.Printer,
-  Speaker: LucideIcons.Speaker,
-  
+  Smartphone,
+  Laptop,
+  Tv,
+  Headphones,
+  Camera,
+  Monitor,
+  Tablet,
+  Watch,
+  Printer,
+  Speaker,
+
   // Fashion
-  Shirt: LucideIcons.Shirt,
-  ShoppingBag: LucideIcons.ShoppingBag,
-  Glasses: LucideIcons.Glasses,
-  Crown: LucideIcons.Crown,
-  
+  Shirt,
+  ShoppingBag,
+  Glasses,
+  Crown,
+
   // Food
-  Utensils: LucideIcons.Utensils,
-  Apple: LucideIcons.Apple,
-  Coffee: LucideIcons.Coffee,
-  Pizza: LucideIcons.Pizza,
-  Cake: LucideIcons.Cake,
-  
+  Utensils,
+  Apple,
+  Coffee,
+  Pizza,
+  Cake,
+
   // Health
-  HeartPulse: LucideIcons.HeartPulse,
-  Pill: LucideIcons.Pill,
-  Activity: LucideIcons.Activity,
-  Stethoscope: LucideIcons.Stethoscope,
-  
+  HeartPulse,
+  Pill,
+  Activity,
+  Stethoscope,
+
   // Home
-  Home: LucideIcons.Home,
-  Sofa: LucideIcons.Sofa,
-  Lamp: LucideIcons.Lamp,
-  Bed: LucideIcons.Lamp,
-  Bath: LucideIcons.Bath,
-  
+  Home,
+  Sofa,
+  Lamp,
+  Bath,
+
   // Services
-  Wrench: LucideIcons.Wrench,
-  Hammer: LucideIcons.Hammer,
-  Settings: LucideIcons.Settings,
-  Building2: LucideIcons.Building2,
-  
+  Wrench,
+  Hammer,
+  Settings,
+  Building2,
+
   // Sports
-  Dumbbell: LucideIcons.Dumbbell,
-  Trophy: LucideIcons.Trophy,
-  Goal: LucideIcons.Goal,
-  Basketball: LucideIcons.Circle,
-  Football: LucideIcons.Circle,
+  Dumbbell,
+  Trophy,
+  Goal,
+  Basketball: Circle,
+  Football: Circle,
 
   // Jobs
-  Briefcase: LucideIcons.Briefcase,
-  FileText: LucideIcons.FileText,
+  Briefcase,
+  FileText,
 
   // Real Estate
-  Building: LucideIcons.Building,
-  MapPin: LucideIcons.MapPin,
+  Building,
+  MapPin,
 
   // Vehicles
-  Motorcycle: LucideIcons.Bike,
+  Motorcycle: Bike,
 
   // Generic
-  Package: LucideIcons.Package,
-  Box: LucideIcons.Box,
-  Star: LucideIcons.Star,
-  Heart: LucideIcons.Heart,
-  Zap: LucideIcons.Zap,
-  Gift: LucideIcons.Gift,
-  Tag: LucideIcons.Tag,
-  Percent: LucideIcons.Percent,
-  Layers: LucideIcons.Layers,
-  Grid3X3: LucideIcons.Grid3X3,
-  ShoppingBasket: LucideIcons.ShoppingBasket,
-  Store: LucideIcons.Store,
-  User: LucideIcons.User,
-  Users: LucideIcons.Users,
+  Package,
+  Box,
+  Star,
+  Heart,
+  Zap,
+  Gift,
+  Tag,
+  Percent,
+  Layers,
+  Grid3X3,
+  ShoppingBasket,
+  Store,
+  User,
+  Users,
 }
 
 interface DynamicIconProps {
@@ -122,7 +190,7 @@ interface DynamicIconProps {
 export function DynamicIcon({ name, className = '', size = 24, fallback = 'Package' }: DynamicIconProps) {
   const iconName = name || fallback
   const IconComponent = iconMap[iconName] || iconMap[fallback] || iconMap.default
-  
+
   return <IconComponent className={className} size={size} />
 }
 

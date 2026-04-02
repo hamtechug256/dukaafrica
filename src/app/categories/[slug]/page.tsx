@@ -2,6 +2,7 @@ import { prisma } from '@/lib/db'
 import { notFound } from 'next/navigation'
 import { Prisma } from '@prisma/client'
 import { Metadata } from 'next'
+import { Suspense } from 'react'
 import { CategoryFiltersClient } from './category-filters-client'
 import { Header } from '@/components/layout/header'
 import { Footer } from '@/components/layout/footer'
@@ -118,18 +119,23 @@ async function getCategoryProducts(categoryId: string, searchParams: Record<stri
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
-  const { slug } = await params
-  const category = await getCategory(slug)
-  if (!category) return { title: 'Category Not Found' }
+  try {
+    const { slug } = await params
+    const category = await getCategory(slug)
+    if (!category) return { title: 'Category Not Found' }
 
-  return {
-    title: `${category.name} - DuukaAfrica | Shop ${category.name} Online`,
-    description: category.description || `Browse the best ${category.name} products on DuukaAfrica. Shop from verified sellers across East Africa with secure payments.`,
-    openGraph: {
-      title: `${category.name} - DuukaAfrica`,
-      description: category.description || `Shop ${category.name} products on DuukaAfrica.`,
-      type: 'website',
-    },
+    return {
+      title: `${category.name} - DuukaAfrica | Shop ${category.name} Online`,
+      description: category.description || `Browse the best ${category.name} products on DuukaAfrica. Shop from verified sellers across East Africa with secure payments.`,
+      openGraph: {
+        title: `${category.name} - DuukaAfrica`,
+        description: category.description || `Shop ${category.name} products on DuukaAfrica.`,
+        type: 'website',
+      },
+    }
+  } catch (error) {
+    console.error('[Category Page] generateMetadata failed:', error)
+    return { title: 'Category - DuukaAfrica' }
   }
 }
 
@@ -143,19 +149,29 @@ interface CategoryPageProps {
 }
 
 export default async function CategoryPage({ params, searchParams }: CategoryPageProps) {
-  const { slug } = await params
-  const sp = await searchParams
+  try {
+    const { slug } = await params
+    const sp = await searchParams
 
-  const category = await getCategory(slug)
+    const category = await getCategory(slug)
 
-  if (!category) {
-    notFound()
-  }
+    if (!category) {
+      notFound()
+    }
 
-  const { products, pagination } = await getCategoryProducts(
-    category.id,
-    { page: sp.page || '1', sort: sp.sort || 'newest', search: sp.search || '' }
-  )
+    let products: any[] = []
+    let pagination = { page: 1, totalPages: 0, total: 0, hasMore: false }
+
+    try {
+      const result = await getCategoryProducts(
+        category.id,
+        { page: sp.page || '1', sort: sp.sort || 'newest', search: sp.search || '' }
+      )
+      products = result.products
+      pagination = result.pagination
+    } catch (error) {
+      console.error('[Category Page] getCategoryProducts failed:', error)
+    }
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -194,13 +210,15 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
 
         {/* Products */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {/* Filter Bar */}
-          <CategoryFiltersClient
-            categorySlug={slug}
-            currentSort={sp.sort || 'newest'}
-            currentSearch={sp.search || ''}
-            totalProducts={pagination.total}
-          />
+          {/* Filter Bar — wrapped in Suspense for useSearchParams() */}
+          <Suspense fallback={<div className="h-12 bg-gray-200 rounded-lg animate-pulse mb-6" />}>
+            <CategoryFiltersClient
+              categorySlug={slug}
+              currentSort={sp.sort || 'newest'}
+              currentSearch={sp.search || ''}
+              totalProducts={pagination.total}
+            />
+          </Suspense>
 
           {/* Product Grid */}
           <div id="product-grid">
@@ -318,6 +336,10 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
       <Footer />
     </div>
   )
+  } catch (error) {
+    console.error('[Category Page] Page render failed:', error)
+    notFound()
+  }
 }
 
 // Generate static params for common categories - optional, won't fail build

@@ -200,6 +200,8 @@ model Order {
   waybillPhotoUrl  String? // Photo of bus receipt
   trackingNumber   String? // Tracking/waybill number
   shippedAt        DateTime? // When seller shipped
+  confirmedAt      DateTime? // When seller confirmed order
+  processedAt      DateTime? // When seller started processing
 
   // Delivery Confirmation
   deliveryPhotoUrl    String? // Photo buyer took on receipt

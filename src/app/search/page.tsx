@@ -96,7 +96,7 @@ async function searchProducts(query: string, page: number = 1) {
 }
 
 // Get trending searches
-async function getTrendingSearches() {
+function getTrendingSearches() {
   // In a real app, this would be based on actual search data
   return [
     { term: 'iPhone 15', count: 1250 },
@@ -119,10 +119,17 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   const query = q || ''
   const pageNum = parseInt(page || '1')
 
-  const [{ products, pagination }, trendingSearches] = await Promise.all([
-    searchProducts(query, pageNum),
-    getTrendingSearches(),
-  ])
+  let products: any[] = []
+  let pagination = { page: 1, totalPages: 0, total: 0, hasMore: false }
+  let trendingSearches = getTrendingSearches()
+
+  try {
+    const result = await searchProducts(query, pageNum)
+    products = result.products
+    pagination = result.pagination
+  } catch (error) {
+    console.error('[Search Page] searchProducts failed:', error)
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">

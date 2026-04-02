@@ -74,11 +74,13 @@ export default function AdminDashboard() {
     staleTime: 1000 * 60 * 5,
   })
 
-  // Fetch admin stats only if we know user is admin
+  // Fetch admin stats only if we know user is admin (no retry on 500)
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ['admin-stats'],
     queryFn: fetchAdminStats,
     enabled: roleData?.user?.isAdmin === true,
+    retry: 1,
+    staleTime: 1000 * 60 * 2,
   })
 
   // Handle authorization - with proper loading state

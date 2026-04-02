@@ -125,49 +125,64 @@ interface ProductPageProps {
 }
 
 export default async function ProductPage({ params }: ProductPageProps) {
-  const { slug } = await params
-  const product = await getProduct(slug)
+  try {
+    const { slug } = await params
+    const product = await getProduct(slug)
 
-  if (!product) {
+    if (!product) {
+      notFound()
+    }
+
+    let relatedProducts: any[] = []
+    try {
+      relatedProducts = await getRelatedProducts(product.id, product.categoryId)
+    } catch (error) {
+      console.error('[Product Detail] getRelatedProducts failed:', error)
+    }
+
+    // Parse images
+    const images = product.images ? JSON.parse(product.images as string) : []
+    
+    // Check for active flash sale
+    const flashSale = checkFlashSale(product)
+
+    return (
+      <ProductDetailClient 
+        product={JSON.parse(JSON.stringify(product))} 
+        images={images}
+        relatedProducts={JSON.parse(JSON.stringify(relatedProducts))}
+        flashSale={flashSale}
+      />
+    )
+  } catch (error) {
+    console.error('[Product Detail] Page render failed:', error)
     notFound()
   }
-
-  const relatedProducts = await getRelatedProducts(product.id, product.categoryId)
-
-  // Parse images
-  const images = product.images ? JSON.parse(product.images as string) : []
-  
-  // Check for active flash sale
-  const flashSale = checkFlashSale(product)
-
-  return (
-    <ProductDetailClient 
-      product={JSON.parse(JSON.stringify(product))} 
-      images={images}
-      relatedProducts={JSON.parse(JSON.stringify(relatedProducts))}
-      flashSale={flashSale}
-    />
-  )
 }
 
 // Generate metadata for SEO
 export async function generateMetadata({ params }: ProductPageProps) {
-  const { slug } = await params
-  const product = await getProduct(slug)
+  try {
+    const { slug } = await params
+    const product = await getProduct(slug)
 
-  if (!product) {
-    return {
-      title: 'Product Not Found - DuukaAfrica',
+    if (!product) {
+      return {
+        title: 'Product Not Found - DuukaAfrica',
+      }
     }
-  }
 
-  return {
-    title: `${product.name} - DuukaAfrica`,
-    description: product.description || product.shortDesc || `Buy ${product.name} at the best price from ${product.store?.name}. Fast delivery across East Africa.`,
-    openGraph: {
-      title: product.name,
-      description: product.description || undefined,
-      images: product.images ? JSON.parse(product.images as string).slice(0, 1) : [],
-    },
+    return {
+      title: `${product.name} - DuukaAfrica`,
+      description: product.description || product.shortDesc || `Buy ${product.name} at the best price from ${product.store?.name}. Fast delivery across East Africa.`,
+      openGraph: {
+        title: product.name,
+        description: product.description || undefined,
+        images: product.images ? JSON.parse(product.images as string).slice(0, 1) : [],
+      },
+    }
+  } catch (error) {
+    console.error('[Product Detail] generateMetadata failed:', error)
+    return { title: 'Product - DuukaAfrica' }
   }
 }

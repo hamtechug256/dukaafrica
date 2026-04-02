@@ -43,18 +43,25 @@ export default async function SellerLayout({
 
   // SECURITY FIX: Use database-backed role check instead of Clerk's unsafeMetadata
   // unsafeMetadata is not cryptographically signed and can diverge from the database
-  const dbUser = await prisma.user.findUnique({
-    where: { clerkId: userId },
-    select: {
-      role: true,
-      Store: {
-        select: {
-          id: true,
-          verificationStatus: true,
+  let dbUser: any = null
+  try {
+    dbUser = await prisma.user.findUnique({
+      where: { clerkId: userId },
+      select: {
+        role: true,
+        Store: {
+          select: {
+            id: true,
+            verificationStatus: true,
+          },
         },
       },
-    },
-  })
+    })
+  } catch (error) {
+    console.error('[Seller Layout] Failed to fetch user role:', error)
+    // On DB failure, redirect to sign-in to avoid leaking access
+    redirect('/sign-in?redirect_url=' + encodeURIComponent(pathname))
+  }
 
   const role = dbUser?.role
   const hasStore = !!dbUser?.Store

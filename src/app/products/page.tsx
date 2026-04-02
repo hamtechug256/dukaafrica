@@ -1,4 +1,5 @@
 import { Metadata } from 'next'
+import { Suspense } from 'react'
 import { prisma } from '@/lib/db'
 import { ProductGrid } from './product-grid'
 import { ProductFilters } from './product-filters'
@@ -174,10 +175,22 @@ async function getCategories() {
 
 export default async function ProductsPage({ searchParams }: ProductsPageProps) {
   const resolvedSearchParams = await searchParams
-  const [{ products, pagination }, categories] = await Promise.all([
-    getProducts(resolvedSearchParams),
-    getCategories(),
-  ])
+
+  let products: Awaited<ReturnType<typeof getProducts>>['products'] = []
+  let pagination: Awaited<ReturnType<typeof getProducts>>['pagination'] = { page: 1, totalPages: 0, total: 0, hasMore: false }
+  let categories: Awaited<ReturnType<typeof getCategories>> = []
+
+  try {
+    const results = await Promise.all([
+      getProducts(resolvedSearchParams),
+      getCategories(),
+    ])
+    products = results[0].products
+    pagination = results[0].pagination
+    categories = results[1]
+  } catch (error) {
+    console.error('[Products Page] Failed to fetch data:', error)
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -198,9 +211,11 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex flex-col lg:flex-row gap-8">
-            {/* Filters Sidebar */}
+            {/* Filters Sidebar — wrapped in Suspense for useSearchParams() */}
             <aside className="lg:w-64 flex-shrink-0">
-              <ProductFilters categories={categories} searchParams={resolvedSearchParams} />
+              <Suspense fallback={<div className="space-y-4 animate-pulse"><div className="h-40 bg-gray-200 rounded-lg" /><div className="h-32 bg-gray-200 rounded-lg" /></div>}>
+                <ProductFilters categories={categories} searchParams={resolvedSearchParams} />
+              </Suspense>
             </aside>
 
             {/* Product Grid */}
