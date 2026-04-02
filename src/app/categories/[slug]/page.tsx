@@ -2,6 +2,7 @@ import { prisma } from '@/lib/db'
 import { notFound } from 'next/navigation'
 import { Prisma } from '@prisma/client'
 import { Metadata } from 'next'
+import { Suspense } from 'react'
 import { CategoryFiltersClient } from './category-filters-client'
 import { Header } from '@/components/layout/header'
 import { Footer } from '@/components/layout/footer'
@@ -194,13 +195,15 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
 
         {/* Products */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {/* Filter Bar */}
-          <CategoryFiltersClient
-            categorySlug={slug}
-            currentSort={sp.sort || 'newest'}
-            currentSearch={sp.search || ''}
-            totalProducts={pagination.total}
-          />
+          {/* Filter Bar — wrapped in Suspense for useSearchParams() */}
+          <Suspense fallback={<div className="h-12 bg-gray-200 rounded-lg animate-pulse mb-6" />}>
+            <CategoryFiltersClient
+              categorySlug={slug}
+              currentSort={sp.sort || 'newest'}
+              currentSearch={sp.search || ''}
+              totalProducts={pagination.total}
+            />
+          </Suspense>
 
           {/* Product Grid */}
           <div id="product-grid">
