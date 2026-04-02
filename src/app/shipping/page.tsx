@@ -2,6 +2,17 @@ import { Header } from '@/components/layout/header'
 import { Footer } from '@/components/layout/footer'
 import { Card, CardContent } from '@/components/ui/card'
 import { Truck, MapPin, Clock, Package, CheckCircle } from 'lucide-react'
+import { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'Shipping Information - DuukaAfrica | Delivery Across East Africa',
+  description: 'Learn about DuukaAfrica shipping zones, delivery times, and costs across Uganda, Kenya, Tanzania, and Rwanda. Free shipping on orders over UGX 100,000.',
+  openGraph: {
+    title: 'Shipping Information - DuukaAfrica',
+    description: 'Fast, reliable delivery across East Africa. Free shipping on qualifying orders.',
+    type: 'website',
+  },
+}
 
 export default function ShippingPage() {
   const zones = [

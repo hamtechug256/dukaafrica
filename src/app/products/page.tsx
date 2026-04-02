@@ -12,6 +12,11 @@ export const metadata: Metadata = {
   title: 'Products - DuukaAfrica | Shop Quality Products Online',
   description: 'Browse thousands of products across electronics, fashion, home & living, and more on DuukaAfrica. Find the best deals from verified sellers in Uganda, Kenya, Tanzania, and Rwanda.',
   keywords: 'products, online shopping, electronics, fashion, home, Uganda, Kenya, Tanzania, Rwanda, DuukaAfrica',
+  openGraph: {
+    title: 'Products - DuukaAfrica | Shop Quality Products Online',
+    description: 'Browse thousands of products across electronics, fashion, home & living, and more. Find the best deals from verified sellers in East Africa.',
+    type: 'website',
+  },
 }
 
 // Helper to safely convert Prisma Decimal to number

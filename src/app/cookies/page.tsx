@@ -3,6 +3,17 @@ import { Footer } from '@/components/layout/footer'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Cookie } from 'lucide-react'
+import { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'Cookie Policy - DuukaAfrica',
+  description: 'Learn about how DuukaAfrica uses cookies and how you can manage your cookie preferences. Our cookie policy covers essential, functional, analytics, and marketing cookies.',
+  openGraph: {
+    title: 'Cookie Policy - DuukaAfrica',
+    description: 'How DuukaAfrica uses cookies to improve your shopping experience.',
+    type: 'website',
+  },
+}
 
 export default function CookiesPage() {
   return (

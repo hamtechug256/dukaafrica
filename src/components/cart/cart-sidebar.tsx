@@ -75,7 +75,7 @@ export function CartSidebar() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-10 w-10"
+                            className="h-11 w-11"
                             onClick={() => updateQuantity(item.productId, item.quantity - 1)}
                             disabled={item.quantity <= 1}
                             aria-label={`Decrease quantity of ${item.name}`}
@@ -86,7 +86,7 @@ export function CartSidebar() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-10 w-10"
+                            className="h-11 w-11"
                             onClick={() => updateQuantity(item.productId, item.quantity + 1)}
                             disabled={item.quantity >= item.maxQuantity}
                             aria-label={`Increase quantity of ${item.name}`}
@@ -99,7 +99,7 @@ export function CartSidebar() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-10 w-10 text-red-500 hover:text-red-600"
+                          className="h-11 w-11 text-red-500 hover:text-red-600"
                           onClick={() => removeItem(item.productId)}
                           aria-label={`Remove ${item.name} from cart`}
                         >

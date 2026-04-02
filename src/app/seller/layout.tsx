@@ -7,6 +7,11 @@ import { prisma } from '@/lib/db'
 export const metadata: Metadata = {
   title: 'Seller Center - DuukaAfrica | Start Selling Today',
   description: 'Join DuukaAfrica as a seller. Set up your store, list products, manage orders, and reach millions of buyers across East Africa with secure escrow payments.',
+  openGraph: {
+    title: 'Seller Center - DuukaAfrica',
+    description: 'Start selling on DuukaAfrica. Reach millions of buyers across East Africa with secure escrow payments.',
+    type: 'website',
+  },
 }
 
 export default async function SellerLayout({

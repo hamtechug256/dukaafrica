@@ -4,6 +4,17 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { MessageCircle, Mail, Phone, MapPin, Clock, ChevronRight } from 'lucide-react'
+import { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'Help Center - DuukaAfrica | FAQs & Support',
+  description: 'Get help with your DuukaAfrica orders, payments, shipping, and account. Find answers to frequently asked questions or contact our support team.',
+  openGraph: {
+    title: 'Help Center - DuukaAfrica',
+    description: 'Find answers to common questions or contact our support team.',
+    type: 'website',
+  },
+}
 
 export default function HelpPage() {
   const faqs = [

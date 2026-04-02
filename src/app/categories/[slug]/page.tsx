@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db'
 import { notFound } from 'next/navigation'
 import { Prisma } from '@prisma/client'
+import { Metadata } from 'next'
 import { CategoryFiltersClient } from './category-filters-client'
 import { Header } from '@/components/layout/header'
 import { Footer } from '@/components/layout/footer'
@@ -112,6 +113,22 @@ async function getCategoryProducts(categoryId: string, searchParams: Record<stri
       totalPages: Math.ceil(total / limit),
       total,
       hasMore: page * limit < total,
+    },
+  }
+}
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params
+  const category = await getCategory(slug)
+  if (!category) return { title: 'Category Not Found' }
+
+  return {
+    title: `${category.name} - DuukaAfrica | Shop ${category.name} Online`,
+    description: category.description || `Browse the best ${category.name} products on DuukaAfrica. Shop from verified sellers across East Africa with secure payments.`,
+    openGraph: {
+      title: `${category.name} - DuukaAfrica`,
+      description: category.description || `Shop ${category.name} products on DuukaAfrica.`,
+      type: 'website',
     },
   }
 }
