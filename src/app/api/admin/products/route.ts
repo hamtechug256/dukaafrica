@@ -151,10 +151,11 @@ export async function GET(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error('Error fetching admin products:', error)
+    console.error('[Admin Products] GET failed:', error)
     return NextResponse.json({ 
       error: 'Failed to fetch products',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: error instanceof Error ? error.message : 'Unknown error',
+      code: (error as any)?.code || null,
     }, { status: 500 })
   }
 }

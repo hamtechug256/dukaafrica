@@ -18,6 +18,7 @@ const isPublicRoute = createRouteMatcher([
   '/api/stores(.*)',
   '/api/search(.*)',
   '/api/homepage(.*)', // Homepage public APIs (featured, flash-sales, categories, stats, featured-sellers)
+  '/api/health(.*)', // Health check endpoint
   '/admin/login(.*)', // Admin login page must be public
   '/api/admin/security(.*)', // Security API for rate limiting
   // SECURITY FIX: Debug endpoint removed from public routes

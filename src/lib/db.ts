@@ -24,18 +24,32 @@ const softDeleteFilter = <T>(args: T): T => {
   return args
 }
 
-export const prisma = basePrisma.$extends({
-  query: {
-    product: {
-      findMany({ args, query }) { return query(softDeleteFilter(args)) },
-      findFirst({ args, query }) { return query(softDeleteFilter(args)) },
-      findUnique({ args, query }) { return query(softDeleteFilter(args)) },
-      count({ args, query }) { return query(softDeleteFilter(args)) },
-      aggregate({ args, query }) { return query(softDeleteFilter(args)) },
-      groupBy({ args, query }) { return query(softDeleteFilter(args)) },
+// Build the extended Prisma client with soft-delete filter.
+// Wrapped in try/catch so that if the $extends() API has issues at runtime,
+// we fall back to the raw Prisma client instead of crashing all queries.
+let extendedPrisma: any
+try {
+  extendedPrisma = basePrisma.$extends({
+    query: {
+      product: {
+        findMany({ args, query }) { return query(softDeleteFilter(args)) },
+        findFirst({ args, query }) { return query(softDeleteFilter(args)) },
+        findUnique({ args, query }) { return query(softDeleteFilter(args)) },
+        count({ args, query }) { return query(softDeleteFilter(args)) },
+        aggregate({ args, query }) { return query(softDeleteFilter(args)) },
+        groupBy({ args, query }) { return query(softDeleteFilter(args)) },
+      },
     },
-  },
-}) as any as PrismaClient
+  })
+} catch (error) {
+  console.error('[DB] Failed to create extended Prisma client, falling back to raw client:', error)
+  extendedPrisma = basePrisma
+}
+
+export const prisma = extendedPrisma as any as PrismaClient
+
+// Export raw base client for health checks and diagnostics (bypasses extensions)
+export { basePrisma }
 
 // Also export as db for backward compatibility
 export const db = prisma
