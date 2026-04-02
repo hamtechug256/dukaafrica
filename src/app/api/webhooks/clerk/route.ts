@@ -37,8 +37,19 @@ interface ClerkWebhookEvent {
 }
 
 export async function POST(req: Request) {
-  // Quick response for missing webhook secret
+  // Get body early for dev-mode bypass
+  const payload = await req.json()
+  const body = JSON.stringify(payload)
+
+  // Quick response for missing webhook secret — allow in development
   if (!WEBHOOK_SECRET) {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('[CLERK-WEBHOOK] CLERK_WEBHOOK_SECRET not set — skipping verification (development mode)')
+      // Process the unverified event in dev mode
+      const evt = payload as ClerkWebhookEvent
+      await handleClerkEvent(evt)
+      return NextResponse.json({ success: true, processed: evt.type, devMode: true })
+    }
     console.error('Missing CLERK_WEBHOOK_SECRET')
     return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
   }
@@ -53,10 +64,6 @@ export async function POST(req: Request) {
   if (!svix_id || !svix_timestamp || !svix_signature) {
     return NextResponse.json({ error: 'Missing svix headers' }, { status: 400 })
   }
-
-  // Get body
-  const payload = await req.json()
-  const body = JSON.stringify(payload)
 
   // Verify webhook
   const wh = new Webhook(WEBHOOK_SECRET)
@@ -73,6 +80,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Webhook verification failed' }, { status: 400 })
   }
 
+  await handleClerkEvent(evt)
+
+  // Return immediately - don't wait for any additional processing
+  return NextResponse.json({ success: true, processed: evt.type })
+}
+
+async function handleClerkEvent(evt: ClerkWebhookEvent) {
   const { id, email_addresses, phone_numbers, first_name, last_name, image_url, unsafe_metadata } = evt.data
   const email = email_addresses[0]?.email_address
   const phone = phone_numbers?.[0]?.phone_number
@@ -166,7 +180,4 @@ export async function POST(req: Request) {
     default:
       console.log(`Unhandled webhook event: ${evt.type}`)
   }
-
-  // Return immediately - don't wait for any additional processing
-  return NextResponse.json({ success: true, processed: evt.type })
 }
