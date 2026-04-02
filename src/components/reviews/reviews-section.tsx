@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { safeParseImages } from '@/lib/helpers'
 import { useUser, SignInButton } from '@clerk/nextjs'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -44,6 +45,15 @@ interface Review {
   }
 }
 
+interface ReviewStats {
+  averageRating: number
+  totalReviews: number
+  distribution: Record<number, number>
+  userCanReview?: boolean
+  userOrderId?: string | null
+  userAlreadyReviewed?: boolean
+}
+
 interface ReviewsSectionProps {
   productId: string
   productRating: number
@@ -57,7 +67,7 @@ async function fetchReviews(productId: string, page: number = 1) {
   return res.json()
 }
 
-async function submitReview(data: { productId: string; rating: number; title: string; comment: string; images: string[] }) {
+async function submitReview(data: { productId: string; orderId: string | null; rating: number; title: string; comment: string; images: string[] }) {
   const res = await fetch('/api/reviews', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -115,14 +125,14 @@ function StarRating({ rating, onRate, size = 'md' }: {
 }
 
 function ReviewCard({ review, onHelpful }: { review: Review; onHelpful?: () => void }) {
-  const images = review.images ? JSON.parse(review.images) : []
+  const images = safeParseImages(review.images)
   
   return (
     <div className="border-b pb-6 last:border-0">
       <div className="flex items-start gap-4">
         <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center shrink-0">
           {review.user.avatar ? (
-            <img src={review.user.avatar} alt="" className="w-full h-full rounded-full object-cover" />
+            <img src={review.user.avatar} alt={review.user.name ? `${review.user.name}'s avatar` : 'User avatar'} className="w-full h-full rounded-full object-cover" />
           ) : (
             <span className="font-medium text-sm">{review.user.name?.[0] || '?'}</span>
           )}
@@ -155,7 +165,7 @@ function ReviewCard({ review, onHelpful }: { review: Review; onHelpful?: () => v
             <div className="flex gap-2 mt-3 flex-wrap">
               {images.slice(0, 4).map((img: string, idx: number) => (
                 <div key={idx} className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100">
-                  <img src={img} alt="" className="w-full h-full object-cover" />
+                  <img src={img} alt={`Review photo ${idx + 1}`} className="w-full h-full object-cover" />
                 </div>
               ))}
               {images.length > 4 && (
@@ -190,7 +200,7 @@ export function ReviewsSection({ productId, productRating, reviewCount, initialR
   const { data, isLoading } = useQuery({
     queryKey: ['reviews', productId],
     queryFn: () => fetchReviews(productId),
-    initialData: { reviews: initialReviews, stats: { averageRating: productRating, totalReviews: reviewCount, distribution: {} } },
+    initialData: { reviews: initialReviews, stats: { averageRating: productRating, totalReviews: reviewCount, distribution: {} as Record<number, number> } },
   })
 
   const submitMutation = useMutation({
@@ -206,7 +216,7 @@ export function ReviewsSection({ productId, productRating, reviewCount, initialR
   })
 
   const reviews = data?.reviews || []
-  const stats = data?.stats || { averageRating: 0, totalReviews: 0, distribution: {} }
+  const stats: ReviewStats = data?.stats || { averageRating: 0, totalReviews: 0, distribution: {} }
 
   const handleSubmit = () => {
     if (rating === 0) {
@@ -215,6 +225,7 @@ export function ReviewsSection({ productId, productRating, reviewCount, initialR
     }
     submitMutation.mutate({
       productId,
+      orderId: stats.userOrderId || null,
       rating,
       title,
       comment,
@@ -278,7 +289,24 @@ export function ReviewsSection({ productId, productRating, reviewCount, initialR
       {/* Write Review Button */}
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold">Customer Reviews</h3>
-        {isSignedIn ? (
+        {!isSignedIn ? (
+          <SignInButton mode="modal">
+            <Button variant="outline">
+              <MessageSquare className="w-4 h-4 mr-2" />
+              Sign in to Review
+            </Button>
+          </SignInButton>
+        ) : stats.userAlreadyReviewed ? (
+          <Badge variant="secondary" className="text-sm">
+            <CheckCircle className="w-3 h-3 mr-1" />
+            You already reviewed this product
+          </Badge>
+        ) : !stats.userCanReview ? (
+          <Badge variant="outline" className="text-sm text-gray-500">
+            <MessageSquare className="w-3 h-3 mr-1" />
+            Only verified purchasers can review
+          </Badge>
+        ) : (
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
               <Button>
@@ -347,7 +375,7 @@ export function ReviewsSection({ productId, productRating, reviewCount, initialR
                     <div className="flex gap-2 flex-wrap mt-2">
                       {imageUrls.map((url, idx) => (
                         <div key={idx} className="relative w-16 h-16 rounded-lg overflow-hidden bg-gray-100">
-                          <img src={url} alt="" className="w-full h-full object-cover" />
+                          <img src={url} alt="Review image preview" className="w-full h-full object-cover" />
                           <button
                             type="button"
                             onClick={() => removeImage(idx)}
@@ -382,13 +410,6 @@ export function ReviewsSection({ productId, productRating, reviewCount, initialR
               </DialogFooter>
             </DialogContent>
           </Dialog>
-        ) : (
-          <SignInButton mode="modal">
-            <Button variant="outline">
-              <MessageSquare className="w-4 h-4 mr-2" />
-              Sign in to Review
-            </Button>
-          </SignInButton>
         )}
       </div>
 

@@ -36,7 +36,6 @@ async function ensureAdmin(userId: string) {
         updatedAt: new Date(),
       }
     })
-    console.log(`✅ Created user: ${email} with role: ${user.role}`)
     return user
   }
 
@@ -46,7 +45,6 @@ async function ensureAdmin(userId: string) {
       where: { id: user.id },
       data: { role: 'SUPER_ADMIN', updatedAt: new Date() }
     })
-    console.log(`✅ Auto-promoted to SUPER_ADMIN: ${email}`)
     return user
   }
 
@@ -66,7 +64,6 @@ export async function GET() {
     const user = await ensureAdmin(userId)
 
     if (!user || (user.role !== 'ADMIN' && user.role !== 'SUPER_ADMIN')) {
-      console.log(`[ADMIN CATEGORIES] ACCESS DENIED for ${user?.email} with role ${user?.role}`)
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 

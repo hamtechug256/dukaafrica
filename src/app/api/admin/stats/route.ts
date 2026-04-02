@@ -44,7 +44,6 @@ async function ensureAdmin(userId: string) {
         updatedAt: new Date(),
       }
     })
-    console.log(`✅ Created user: ${email} with role: ${user.role}`)
     return user
   }
 
@@ -54,7 +53,6 @@ async function ensureAdmin(userId: string) {
       where: { id: user.id },
       data: { role: 'SUPER_ADMIN', updatedAt: new Date() }
     })
-    console.log(`✅ Auto-promoted to SUPER_ADMIN: ${email}`)
     return user
   }
 
@@ -72,19 +70,13 @@ export async function GET() {
     // Ensure user exists and is promoted if needed
     const user = await ensureAdmin(userId)
 
-    // Logging - do NOT log sensitive email lists
-    console.log(`[ADMIN STATS] User role check: ${user?.role}`)
-
     // Check if user is admin
     if (!user || (user.role !== 'ADMIN' && user.role !== 'SUPER_ADMIN')) {
-      console.log(`[ADMIN STATS] ACCESS DENIED for user with role ${user?.role}`)
       // SECURITY: Return generic error - do NOT leak email, role, or config info
       return NextResponse.json({ 
         error: 'Access denied',
       }, { status: 403 })
     }
-
-    console.log(`[ADMIN STATS] ACCESS GRANTED for ${user.email}`)
 
     // Get stats
     const [

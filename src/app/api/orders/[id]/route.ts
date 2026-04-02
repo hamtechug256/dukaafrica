@@ -62,6 +62,14 @@ export async function GET(
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
+    // Protect sensitive fields: only buyer sees own email, only admin sees clerkId
+    if (!isAdmin && !isBuyer) {
+      delete (order.User as Record<string, unknown>).email
+    }
+    if (!isAdmin) {
+      delete (order.User as Record<string, unknown>).clerkId
+    }
+
     // Return order with appropriate visibility
     return NextResponse.json({
       order,
@@ -98,12 +106,15 @@ export async function PUT(
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
+    // Determine admin status before query for conditional field selection
+    const isAdmin = ['ADMIN', 'SUPER_ADMIN'].includes(user.role)
+
     // Fetch order
     const order = await prisma.order.findUnique({
       where: { id },
       include: {
         Store: { select: { id: true, User: { select: { clerkId: true } } } },
-        User: { select: { id: true, email: true, firstName: true } },
+        User: { select: { id: true, email: isAdmin, firstName: true } },
       },
     })
 
@@ -112,7 +123,6 @@ export async function PUT(
     }
 
     // Check access rights
-    const isAdmin = ['ADMIN', 'SUPER_ADMIN'].includes(user.role)
     const isSeller = order.Store?.User?.clerkId === userId
 
     if (!isAdmin && !isSeller) {

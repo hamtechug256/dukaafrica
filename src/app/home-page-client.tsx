@@ -33,7 +33,7 @@ export default function HomePage() {
       <Header />
 
       {/* Main Content */}
-      <main className="flex-1">
+      <main id="main-content" className="flex-1">
         {/* Hero Section */}
         <HeroSection />
 

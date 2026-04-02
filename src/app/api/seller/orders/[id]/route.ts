@@ -186,13 +186,37 @@ export async function PUT(
       notes 
     } = body
 
-    // SECURITY: Validate allowed status transitions for sellers
-    const SELLER_ALLOWED_STATUSES = ['CONFIRMED', 'PROCESSING', 'SHIPPED', 'OUT_FOR_DELIVERY']
-    if (status && !SELLER_ALLOWED_STATUSES.includes(status)) {
-      return NextResponse.json(
-        { error: `Sellers cannot set order status to '${status}'. Only buyer confirmation or admin can mark orders as DELIVERED.` },
-        { status: 403 }
-      )
+    // SECURITY: Enforce sequential status transitions for sellers
+    // Sellers cannot skip steps — must go CONFIRMED → PROCESSING → SHIPPED → OUT_FOR_DELIVERY
+    const SELLER_TRANSITIONS: Record<string, string[]> = {
+      'PENDING': ['CONFIRMED'],
+      'CONFIRMED': ['PROCESSING'],
+      'PROCESSING': ['SHIPPED'],
+      'SHIPPED': ['OUT_FOR_DELIVERY'],
+      'OUT_FOR_DELIVERY': [],
+      'DELIVERED': [],
+      'CANCELLED': [],
+    }
+
+    if (status) {
+      // Fetch current order status
+      const currentOrder = await prisma.order.findUnique({
+        where: { id: orderId },
+        select: { status: true },
+      })
+      if (!currentOrder) {
+        return NextResponse.json({ error: 'Order not found' }, { status: 404 })
+      }
+
+      const allowedNext = SELLER_TRANSITIONS[currentOrder.status] || []
+      if (!allowedNext.includes(status)) {
+        const currentLabel = currentOrder.status.replace(/_/g, ' ')
+        const targetLabel = status.replace(/_/g, ' ')
+        return NextResponse.json(
+          { error: `Cannot transition from ${currentLabel} to ${targetLabel}. Allowed: ${allowedNext.join(', ') || 'none'}` },
+          { status: 400 }
+        )
+      }
     }
 
     // Verify order contains items from this seller

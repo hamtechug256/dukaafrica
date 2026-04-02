@@ -31,8 +31,6 @@ export async function GET() {
     const email = clerkUser.emailAddresses?.[0]?.emailAddress?.toLowerCase() || ''
     const isSuperAdminEmail = SUPER_ADMIN_EMAILS.includes(email)
 
-    console.log(`[ROLE CHECK] Email: ${email}, IsSuperAdminEmail: ${isSuperAdminEmail}`)
-
     // Get Clerk user data
     const clerkFirstName = clerkUser.firstName || null
     const clerkLastName = clerkUser.lastName || null
@@ -80,7 +78,6 @@ export async function GET() {
         }
       })
 
-      console.log(`✅ [ROLE] Created user: ${email} with role: ${role}`)
     } else {
       // User exists - sync profile data from Clerk if needed
       // This ensures names are updated if user updates their Clerk profile
@@ -103,7 +100,6 @@ export async function GET() {
         // Handle super admin promotion
         if (isSuperAdminEmail && user.role !== 'SUPER_ADMIN') {
           updateData.role = 'SUPER_ADMIN'
-          console.log(`✅ [ROLE] Auto-promoted to SUPER_ADMIN: ${email}`)
         }
 
         user = await prisma.user.update({
@@ -120,15 +116,12 @@ export async function GET() {
           }
         })
 
-        console.log(`✅ [ROLE] Synced profile data for: ${email}`)
       }
     }
 
     const isAdmin = ['ADMIN', 'SUPER_ADMIN'].includes(user!.role)
     const isSuperAdmin = user!.role === 'SUPER_ADMIN'
     const isSeller = ['SELLER', 'ADMIN', 'SUPER_ADMIN'].includes(user!.role)
-
-    console.log(`[ROLE RESULT] ${email}: role=${user!.role}, isAdmin=${isAdmin}`)
 
     return NextResponse.json({
       authenticated: true,

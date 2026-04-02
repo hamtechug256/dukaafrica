@@ -44,47 +44,37 @@ export async function GET(request: NextRequest) {
 
     const store = user.Store
 
-    // Get order items for this store (orders are linked via OrderItems)
-    const orderItems = await prisma.orderItem.findMany({
+    // Aggregate total earnings from paid orders (single query instead of loading all items)
+    const totalEarningsResult = await prisma.order.aggregate({
       where: {
-        storeId: store.id
+        OrderItem: { some: { storeId: store.id } },
+        paymentStatus: 'PAID',
       },
-      include: {
-        Order: {
-          include: {
-            OrderItem: true
-          }
-        }
-      }
+      _sum: {
+        sellerProductEarnings: true,
+        sellerShippingAmount: true,
+      },
+      _count: true,
     })
 
-    // Extract unique orders from order items
-    const orderMap = new Map()
-    orderItems.forEach(item => {
-      if (!orderMap.has(item.orderId)) {
-        orderMap.set(item.orderId, item.Order)
-      }
+    // Aggregate pending balance (not delivered, within 48h window)
+    const pendingWindow = new Date(Date.now() - 48 * 60 * 60 * 1000)
+    const pendingResult = await prisma.order.aggregate({
+      where: {
+        OrderItem: { some: { storeId: store.id } },
+        status: { not: 'DELIVERED' },
+        createdAt: { gte: pendingWindow },
+      },
+      _sum: {
+        sellerProductEarnings: true,
+        sellerShippingAmount: true,
+      },
     })
-    const orders = Array.from(orderMap.values())
 
-    // Calculate earnings breakdown
-    let totalProductEarnings = 0
-    let totalShippingEarnings = 0
-    let pendingBalance = 0
-    let totalOrders = orders.length
-
-    orders.forEach((order: any) => {
-      totalProductEarnings += toNum(order.sellerProductEarnings)
-      totalShippingEarnings += toNum(order.sellerShippingAmount)
-      
-      // Check if order is in pending period (e.g., less than 48 hours old)
-      const orderAge = Date.now() - new Date(order.createdAt).getTime()
-      const pendingPeriod = 48 * 60 * 60 * 1000 // 48 hours
-      
-      if (orderAge < pendingPeriod && order.status !== 'DELIVERED') {
-        pendingBalance += toNum(order.sellerProductEarnings) + toNum(order.sellerShippingAmount)
-      }
-    })
+    const totalProductEarnings = toNum(totalEarningsResult._sum.sellerProductEarnings)
+    const totalShippingEarnings = toNum(totalEarningsResult._sum.sellerShippingAmount)
+    const totalOrders = totalEarningsResult._count
+    const pendingBalance = toNum(pendingResult._sum.sellerProductEarnings) + toNum(pendingResult._sum.sellerShippingAmount)
 
     // Get payouts
     const payouts = await prisma.sellerPayout.findMany({

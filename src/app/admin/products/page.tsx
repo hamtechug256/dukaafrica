@@ -53,10 +53,35 @@ import {
   ChevronLeft,
   ChevronRight,
   Filter,
-  TrendingUp,
   AlertTriangle,
+  Users,
+  Store,
+  ShoppingCart,
+  Settings,
+  BarChart3,
+  Shield,
+  Layers,
 } from 'lucide-react'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+import { MobileNav, DesktopSidebar, BottomNav } from '@/components/dashboard/mobile-nav'
+
+const sidebarLinks = [
+  { href: '/admin', icon: BarChart3, label: 'Dashboard' },
+  { href: '/admin/users', icon: Users, label: 'Users' },
+  { href: '/admin/categories', icon: Layers, label: 'Categories' },
+  { href: '/admin/stores', icon: Store, label: 'Stores' },
+  { href: '/admin/products', icon: Package, label: 'Products' },
+  { href: '/admin/orders', icon: ShoppingCart, label: 'Orders' },
+  { href: '/admin/disputes', icon: AlertTriangle, label: 'Disputes' },
+  { href: '/admin/escrow', icon: Shield, label: 'Escrow' },
+  { href: '/admin/settings', icon: Settings, label: 'Settings' },
+]
+
+async function fetchUserRole() {
+  const res = await fetch('/api/user/role')
+  return res.json()
+}
 
 async function fetchAdminProducts(page: number, status: string, search: string) {
   const params = new URLSearchParams({
@@ -92,6 +117,16 @@ async function deleteProduct(productId: string) {
 }
 
 export default function AdminProductsPage() {
+  const pathname = usePathname()
+
+  // Fetch user role for sidebar nav
+  const { data: roleData } = useQuery({
+    queryKey: ['user-role'],
+    queryFn: fetchUserRole,
+    retry: 1,
+    staleTime: 1000 * 60 * 5,
+  })
+
   const [page, setPage] = useState(1)
   const [status, setStatus] = useState('ALL')
   const [search, setSearch] = useState('')
@@ -173,105 +208,90 @@ export default function AdminProductsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
-      {/* Sidebar */}
-      <aside className="w-64 bg-white dark:bg-gray-800 border-r fixed left-0 top-0 h-full hidden lg:block">
-        <div className="p-6">
-          <h1 className="text-xl font-bold bg-gradient-to-r from-orange-500 to-green-500 bg-clip-text text-transparent">
-            DuukaAfrica
-          </h1>
-          <Badge variant="secondary" className="mt-1">Admin</Badge>
-        </div>
-        <nav className="px-4 space-y-1">
-          {[
-            { href: '/admin', icon: TrendingUp, label: 'Dashboard' },
-            { href: '/admin/users', icon: Package, label: 'Users' },
-            { href: '/admin/stores', icon: Package, label: 'Stores' },
-            { href: '/admin/products', icon: Package, label: 'Products' },
-            { href: '/admin/orders', icon: Package, label: 'Orders' },
-            { href: '/admin/settings', icon: Package, label: 'Settings' },
-          ].map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                link.href === '/admin/products'
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-              }`}
-            >
-              <link.icon className="w-5 h-5" />
-              {link.label}
-            </Link>
-          ))}
-        </nav>
-      </aside>
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex overflow-x-hidden">
+      {/* Desktop Sidebar - Hidden on mobile */}
+      <DesktopSidebar
+        title="DuukaAfrica"
+        badge="Admin"
+        navItems={sidebarLinks}
+        userEmail={roleData?.user?.email}
+        isSuperAdmin={roleData?.user?.isSuperAdmin}
+      />
 
       {/* Main Content */}
-      <main className="lg:ml-64">
+      <main className="flex-1 flex flex-col min-h-screen pb-16 md:pb-0">
         {/* Header */}
         <header className="bg-white dark:bg-gray-800 border-b sticky top-0 z-10">
-          <div className="px-6 py-4">
-            <h2 className="text-xl font-semibold">Products Management</h2>
-            <p className="text-sm text-gray-500">Manage and moderate all products on the platform</p>
+          <div className="px-4 md:px-6 py-4 flex items-center gap-3">
+            <MobileNav
+              title="DuukaAfrica"
+              badge="Admin"
+              navItems={sidebarLinks}
+              userType="admin"
+              userEmail={roleData?.user?.email}
+            />
+            <div className="min-w-0">
+              <h2 className="text-lg md:text-xl font-semibold">Products Management</h2>
+              <p className="text-sm text-gray-500 hidden sm:block">Manage and moderate all products on the platform</p>
+            </div>
           </div>
         </header>
 
-        <div className="p-6">
+        <div className="flex-1 p-4 md:p-6">
           {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 md:gap-4 mb-6">
             <Card className="cursor-pointer hover:border-primary transition-colors" onClick={() => setStatus('ALL')}>
               <CardContent className="pt-4">
                 <div className="flex items-center justify-between">
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-xs text-gray-500">Total</p>
-                    <p className="text-2xl font-bold">{Object.values(stats).reduce((a: number, b) => a + (b as number), 0) - (stats.pendingReview || 0)}</p>
+                    <p className="text-xl md:text-2xl font-bold">{Object.values(stats).reduce((a: number, b) => a + (b as number), 0) - (stats.pendingReview || 0)}</p>
                   </div>
-                  <Package className="w-5 h-5 text-gray-400" />
+                  <Package className="w-5 h-5 text-gray-400 shrink-0" />
                 </div>
               </CardContent>
             </Card>
             <Card className="cursor-pointer hover:border-green-500 transition-colors" onClick={() => setStatus('ACTIVE')}>
               <CardContent className="pt-4">
                 <div className="flex items-center justify-between">
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-xs text-gray-500">Active</p>
-                    <p className="text-2xl font-bold text-green-600">{stats.ACTIVE}</p>
+                    <p className="text-xl md:text-2xl font-bold text-green-600">{stats.ACTIVE}</p>
                   </div>
-                  <CheckCircle className="w-5 h-5 text-green-500" />
+                  <CheckCircle className="w-5 h-5 text-green-500 shrink-0" />
                 </div>
               </CardContent>
             </Card>
             <Card className="cursor-pointer hover:border-yellow-500 transition-colors" onClick={() => setStatus('DRAFT')}>
               <CardContent className="pt-4">
                 <div className="flex items-center justify-between">
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-xs text-gray-500">Draft</p>
-                    <p className="text-2xl font-bold text-yellow-600">{stats.DRAFT}</p>
+                    <p className="text-xl md:text-2xl font-bold text-yellow-600">{stats.DRAFT}</p>
                   </div>
-                  <Clock className="w-5 h-5 text-yellow-500" />
+                  <Clock className="w-5 h-5 text-yellow-500 shrink-0" />
                 </div>
               </CardContent>
             </Card>
             <Card className="cursor-pointer hover:border-red-500 transition-colors" onClick={() => setStatus('OUT_OF_STOCK')}>
               <CardContent className="pt-4">
                 <div className="flex items-center justify-between">
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-xs text-gray-500">Out of Stock</p>
-                    <p className="text-2xl font-bold text-red-600">{stats.OUT_OF_STOCK}</p>
+                    <p className="text-xl md:text-2xl font-bold text-red-600">{stats.OUT_OF_STOCK}</p>
                   </div>
-                  <AlertTriangle className="w-5 h-5 text-red-500" />
+                  <AlertTriangle className="w-5 h-5 text-red-500 shrink-0" />
                 </div>
               </CardContent>
             </Card>
             <Card className="cursor-pointer hover:border-orange-500 transition-colors border-orange-200">
               <CardContent className="pt-4">
                 <div className="flex items-center justify-between">
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-xs text-gray-500">Pending Review</p>
-                    <p className="text-2xl font-bold text-orange-600">{stats.pendingReview}</p>
+                    <p className="text-xl md:text-2xl font-bold text-orange-600">{stats.pendingReview}</p>
                   </div>
-                  <AlertCircle className="w-5 h-5 text-orange-500" />
+                  <AlertCircle className="w-5 h-5 text-orange-500 shrink-0" />
                 </div>
               </CardContent>
             </Card>
@@ -289,6 +309,7 @@ export default function AdminProductsPage() {
                     value={searchInput}
                     onChange={(e) => setSearchInput(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                    aria-label="Search products"
                   />
                 </div>
                 <Select value={status} onValueChange={(value) => { setStatus(value); setPage(1); }}>
@@ -322,6 +343,7 @@ export default function AdminProductsPage() {
                   <p className="text-gray-500">No products found</p>
                 </div>
               ) : (
+                <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -360,9 +382,9 @@ export default function AdminProductsPage() {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <div>
-                              <p className="text-sm font-medium">{product.store?.name}</p>
-                              <p className="text-xs text-gray-500">{product.store?.user?.email}</p>
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium truncate max-w-[120px] lg:max-w-none">{product.store?.name}</p>
+                              <p className="text-xs text-gray-500 truncate max-w-[140px] lg:max-w-none">{product.store?.user?.email}</p>
                             </div>
                           </TableCell>
                           <TableCell>
@@ -395,7 +417,7 @@ export default function AdminProductsPage() {
                           <TableCell className="text-right">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon">
+                                <Button variant="ghost" size="icon" aria-label={`Actions for ${product.name}`}>
                                   <MoreHorizontal className="w-4 h-4" />
                                 </Button>
                               </DropdownMenuTrigger>
@@ -458,6 +480,7 @@ export default function AdminProductsPage() {
                     })}
                   </TableBody>
                 </Table>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -470,6 +493,7 @@ export default function AdminProductsPage() {
                 size="icon"
                 disabled={page === 1}
                 onClick={() => setPage(page - 1)}
+                aria-label="Previous page"
               >
                 <ChevronLeft className="w-4 h-4" />
               </Button>
@@ -481,12 +505,16 @@ export default function AdminProductsPage() {
                 size="icon"
                 disabled={page === pagination.pages}
                 onClick={() => setPage(page + 1)}
+                aria-label="Next page"
               >
                 <ChevronRight className="w-4 h-4" />
               </Button>
             </div>
           )}
         </div>
+
+        {/* Bottom Navigation for Mobile */}
+        <BottomNav items={sidebarLinks} />
       </main>
 
       {/* Reject Dialog */}

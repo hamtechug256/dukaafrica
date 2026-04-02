@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
+import { sanitizeText } from '@/lib/sanitize'
 
 // POST /api/contact — Handle contact form submissions
 export async function POST(req: NextRequest) {
@@ -38,11 +39,11 @@ export async function POST(req: NextRequest) {
     // Store contact submission in database for admin dashboard access
     await prisma.contactSubmission.create({
       data: {
-        name: name.trim(),
-        email: email.trim().toLowerCase(),
-        subject: subject.trim(),
+        name: sanitizeText(name.trim()),
+        email: sanitizeText(email.trim().toLowerCase()),
+        subject: sanitizeText(subject.trim()),
         orderNumber: orderNumber?.trim() || null,
-        message: message.trim(),
+        message: sanitizeText(message.trim()),
         status: 'NEW',
         ip: ip !== 'unknown' ? ip : null,
       },

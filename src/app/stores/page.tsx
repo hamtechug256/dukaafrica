@@ -18,6 +18,11 @@ import Link from 'next/link'
 export const metadata: Metadata = {
   title: 'Stores - DuukaAfrica | Shop from Trusted Sellers',
   description: 'Browse verified stores and sellers on DuukaAfrica. Find trusted merchants across East Africa selling quality products.',
+  openGraph: {
+    title: 'Stores - DuukaAfrica | Shop from Trusted Sellers',
+    description: 'Browse verified stores and sellers on DuukaAfrica. Find trusted merchants across East Africa.',
+    type: 'website',
+  },
 }
 
 const COUNTRIES = [
