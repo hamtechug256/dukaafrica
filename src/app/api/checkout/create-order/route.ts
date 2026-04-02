@@ -192,7 +192,7 @@ export async function POST(req: Request) {
       }
       // Cap discount to subtotal (prevent negative totals)
       couponDiscount = Math.min(couponDiscount, serverSubtotal)
-      couponFreeShipping = dbCoupon.type === 'FREE_SHIPPING' || !!coupon.freeShipping
+      couponFreeShipping = dbCoupon.type === 'FREE_SHIPPING' || !!coupon?.freeShipping
     }
 
     // Calculate server-side total with coupon discount
