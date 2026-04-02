@@ -296,13 +296,26 @@ export default clerkMiddleware(async (auth, req) => {
     }
   }
 
-  // Handle admin routes (excluding admin/login which is public)
-  if (isAdminRoute(req) && !isAdminLoginRoute(req)) {
-    // Require authentication
+  // IMPORTANT: Handle API routes FIRST — return 401 JSON for unauthenticated API calls
+  // instead of HTML redirects which break fetch() calls
+  if (url.pathname.startsWith('/api/')) {
     if (!userId) {
-      // Record suspicious activity for unauthenticated admin access attempts
-      recordSuspiciousActivity(ip, 'Unauthenticated admin access attempt')
+      // For admin API routes, record suspicious activity
+      if (isAdminRoute(req) && !isAdminLoginRoute(req)) {
+        recordSuspiciousActivity(ip, 'Unauthenticated admin API access attempt')
+      }
+      return NextResponse.json(
+        { error: 'Unauthorized', message: 'Authentication required' },
+        { status: 401 }
+      )
+    }
+    return NextResponse.next()
+  }
 
+  // Handle admin page routes (non-API) — redirect to login page
+  if (isAdminRoute(req) && !isAdminLoginRoute(req)) {
+    if (!userId) {
+      recordSuspiciousActivity(ip, 'Unauthenticated admin access attempt')
       const adminLoginUrl = new URL('/admin/login', req.url)
       return NextResponse.redirect(adminLoginUrl)
     }
@@ -310,24 +323,13 @@ export default clerkMiddleware(async (auth, req) => {
     // We check the database role, not Clerk metadata
   }
 
-  // Handle seller routes
+  // Handle seller page routes (non-API) — redirect to sign-in
   if (isSellerRoute(req)) {
     if (!userId) {
       const signInUrl = new URL('/sign-in', req.url)
       signInUrl.searchParams.set('redirect_url', req.url)
       return NextResponse.redirect(signInUrl)
     }
-  }
-
-  // For API routes that require authentication, return 401 JSON instead of redirect
-  if (url.pathname.startsWith('/api/')) {
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'Unauthorized', message: 'Authentication required' },
-        { status: 401 }
-      )
-    }
-    return NextResponse.next()
   }
 
   // For all other routes (like dashboard, cart, etc.), require authentication
