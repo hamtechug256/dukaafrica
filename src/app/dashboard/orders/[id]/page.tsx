@@ -165,9 +165,11 @@ export default function OrderDetailPage() {
                   estimatedDelivery={order.estimatedDelivery ? new Date(order.estimatedDelivery).toLocaleDateString() : undefined}
                   statusHistory={[
                     { status: 'PENDING' as const, timestamp: order.createdAt },
+                    ...(order.confirmedAt ? [{ status: 'CONFIRMED' as const, timestamp: order.confirmedAt }] : []),
+                    ...(order.processedAt ? [{ status: 'PROCESSING' as const, timestamp: order.processedAt }] : []),
                     ...(order.shippedAt ? [{ status: 'SHIPPED' as const, timestamp: order.shippedAt }] : []),
                     ...(order.deliveredAt ? [{ status: 'DELIVERED' as const, timestamp: order.deliveredAt }] : []),
-                    ...(order.deliveryConfirmedAt ? [{ status: 'DELIVERED' as const, timestamp: order.deliveryConfirmedAt }] : []),
+                    ...(order.deliveryConfirmedAt ? [{ status: 'DELIVERED' as const, timestamp: order.deliveryConfirmedAt, note: 'Confirmed by buyer' }] : []),
                     ...(order.cancelledAt ? [{ status: 'CANCELLED' as const, timestamp: order.cancelledAt }] : []),
                   ]}
                 />

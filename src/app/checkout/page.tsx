@@ -95,9 +95,9 @@ export default function CheckoutPage() {
   // Phone validation patterns by country
   const PHONE_PATTERNS: Record<string, { pattern: RegExp; placeholder: string; label: string }> = {
     UGANDA: { pattern: /^(\+256|0)7[0-9]{8}$/, placeholder: '+256 7XX XXX XXX', label: 'Ugandan' },
-    KENYA:  { pattern: /^(\+254|0)7[0-9]{8}$/, placeholder: '+254 7XX XXX XXX', label: 'Kenyan' },
-    TANZANIA: { pattern: /^(\+255|0)6[0-9]{8}$/, placeholder: '+255 6XX XXX XXX', label: 'Tanzanian' },
-    RWANDA: { pattern: /^(\+250|0)7[0-9]{8}$/, placeholder: '+250 7XX XXX XXX', label: 'Rwandan' },
+    KENYA:  { pattern: /^(\+254|0)(7[0-9]{8}|1[01][0-9]{7})$/, placeholder: '+254 7XX XXX XXX', label: 'Kenyan' },
+    TANZANIA: { pattern: /^(\+255|0)(6[0-9]{8}|7[0-9]{8})$/, placeholder: '+255 6XX XXX XXX', label: 'Tanzanian' },
+    RWANDA: { pattern: /^(\+250|0)7[38][0-9]{7}$/, placeholder: '+250 7XX XXX XXX', label: 'Rwandan' },
   }
 
   function validatePhone(phone: string, country: string): string {
@@ -350,6 +350,7 @@ export default function CheckoutPage() {
                         id="country"
                         value={formData.country}
                         onChange={(e) => setFormData({ ...formData, country: e.target.value })}
+                        aria-label="Country"
                         className="w-full h-10 px-3 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800"
                       >
                         {countries.map((c) => (

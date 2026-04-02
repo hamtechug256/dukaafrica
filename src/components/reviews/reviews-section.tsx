@@ -132,7 +132,7 @@ function ReviewCard({ review, onHelpful }: { review: Review; onHelpful?: () => v
       <div className="flex items-start gap-4">
         <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center shrink-0">
           {review.user.avatar ? (
-            <img src={review.user.avatar} alt="" className="w-full h-full rounded-full object-cover" />
+            <img src={review.user.avatar} alt={review.user.name ? `${review.user.name}'s avatar` : 'User avatar'} className="w-full h-full rounded-full object-cover" />
           ) : (
             <span className="font-medium text-sm">{review.user.name?.[0] || '?'}</span>
           )}
@@ -165,7 +165,7 @@ function ReviewCard({ review, onHelpful }: { review: Review; onHelpful?: () => v
             <div className="flex gap-2 mt-3 flex-wrap">
               {images.slice(0, 4).map((img: string, idx: number) => (
                 <div key={idx} className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100">
-                  <img src={img} alt="" className="w-full h-full object-cover" />
+                  <img src={img} alt={`Review photo ${idx + 1}`} className="w-full h-full object-cover" />
                 </div>
               ))}
               {images.length > 4 && (
@@ -375,7 +375,7 @@ export function ReviewsSection({ productId, productRating, reviewCount, initialR
                     <div className="flex gap-2 flex-wrap mt-2">
                       {imageUrls.map((url, idx) => (
                         <div key={idx} className="relative w-16 h-16 rounded-lg overflow-hidden bg-gray-100">
-                          <img src={url} alt="" className="w-full h-full object-cover" />
+                          <img src={url} alt="Review image preview" className="w-full h-full object-cover" />
                           <button
                             type="button"
                             onClick={() => removeImage(idx)}

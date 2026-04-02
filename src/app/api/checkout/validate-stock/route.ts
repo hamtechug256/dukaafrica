@@ -34,9 +34,13 @@ export async function POST(request: NextRequest) {
     }> = []
     let allValid = true
 
-    for (const item of items) {
-      const product = await prisma.product.findUnique({
-        where: { id: item.productId },
+    // Batch-load all products and variants to avoid N+1 queries
+    const uniqueProductIds = [...new Set(items.map(i => i.productId))]
+    const uniqueVariantIds = [...new Set(items.map((i: any) => i.variantId).filter(Boolean))] as string[]
+
+    const [batchProducts, batchVariants] = await Promise.all([
+      prisma.product.findMany({
+        where: { id: { in: uniqueProductIds } },
         select: {
           id: true,
           name: true,
@@ -45,7 +49,20 @@ export async function POST(request: NextRequest) {
           allowBackorder: true,
           status: true,
         },
-      })
+      }),
+      uniqueVariantIds.length > 0
+        ? prisma.productVariant.findMany({
+            where: { id: { in: uniqueVariantIds } },
+            select: { id: true, quantity: true, isActive: true },
+          })
+        : (Promise.resolve([]) as Promise<{ id: string; quantity: number; isActive: boolean }[]>),
+    ])
+
+    const productMap = new Map(batchProducts.map(p => [p.id, p]))
+    const variantMap = new Map(batchVariants.map(v => [v.id, v]))
+
+    for (const item of items) {
+      const product = productMap.get(item.productId) ?? null
 
       if (!product) {
         validationResults.push({
@@ -70,10 +87,7 @@ export async function POST(request: NextRequest) {
 
       // Check variant stock if applicable
       if (item.variantId) {
-        const variant = await prisma.productVariant.findUnique({
-          where: { id: item.variantId },
-          select: { quantity: true, isActive: true },
-        })
+        const variant = variantMap.get(item.variantId) ?? null
 
         if (!variant || !variant.isActive) {
           validationResults.push({

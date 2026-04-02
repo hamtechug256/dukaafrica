@@ -168,12 +168,17 @@ export function OrderTimeline({
     return 'pending'
   }
 
-  const getStatusTimestamp = (status: OrderStatus): string | undefined => {
-    const historyItem = statusHistory.find((h) => h.status === status)
+  const getStatusTimestamp = (status: OrderStatus): { timestamp: string; note?: string } | undefined => {
+    // Use the last matching entry (deliveryConfirmedAt comes after deliveredAt)
+    const matchingItems = statusHistory.filter((h) => h.status === status)
+    const historyItem = matchingItems.length > 0 ? matchingItems[matchingItems.length - 1] : undefined
     if (historyItem) {
-      return typeof historyItem.timestamp === 'string'
-        ? historyItem.timestamp
-        : historyItem.timestamp.toISOString()
+      return {
+        timestamp: typeof historyItem.timestamp === 'string'
+          ? historyItem.timestamp
+          : historyItem.timestamp.toISOString(),
+        note: historyItem.note,
+      }
     }
     return undefined
   }
@@ -184,7 +189,9 @@ export function OrderTimeline({
         const stepStatus = getStepStatus(step.status)
         const config = statusConfig[step.status]
         const Icon = step.icon
-        const timestamp = getStatusTimestamp(step.status)
+        const tsInfo = getStatusTimestamp(step.status)
+        const timestamp = tsInfo?.timestamp
+        const note = tsInfo?.note
         const isLast = index === timelineSteps.length - 1
 
         return (
@@ -251,6 +258,7 @@ export function OrderTimeline({
                   <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
                     <Clock className="w-3 h-3" />
                     {new Date(timestamp).toLocaleString()}
+                    {note && <span className="ml-1 text-green-600 dark:text-green-400">({note})</span>}
                   </p>
                 )}
               </div>

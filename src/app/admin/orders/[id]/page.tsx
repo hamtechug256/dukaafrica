@@ -197,7 +197,7 @@ export default function AdminOrderDetailPage() {
                       <div key={index} className="flex gap-4">
                         <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
                           {item.product?.images?.[0] ? (
-                            <img src={item.product.images[0]} alt="" className="w-full h-full object-cover" />
+                            <img src={item.product.images[0]} alt={item.product?.name || 'Product'} className="w-full h-full object-cover" />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">
                               <Package className="w-6 h-6 text-gray-400" />

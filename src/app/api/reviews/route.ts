@@ -2,6 +2,7 @@ import { auth } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { sanitizeText } from '@/lib/sanitize'
 
 // GET reviews for a product
 export async function GET(req: Request) {
@@ -160,6 +161,10 @@ export async function POST(req: Request) {
     const body = await req.json()
     const { productId, orderId, rating, title, comment, images } = body
 
+    // Sanitize user-generated text to prevent stored XSS
+    const sanitizedTitle = title ? sanitizeText(title) : undefined
+    const sanitizedComment = comment ? sanitizeText(comment) : undefined
+
     // Validate required fields
     if (!productId || !rating || rating < 1 || rating > 5) {
       return NextResponse.json({ error: 'Invalid review data' }, { status: 400 })
@@ -242,8 +247,8 @@ export async function POST(req: Request) {
         productId,
         orderId,
         rating,
-        title,
-        comment,
+        title: sanitizedTitle,
+        comment: sanitizedComment,
         images: images ? JSON.stringify(images) : null,
         isVerified: true,
       },

@@ -4,14 +4,16 @@ import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
 import { prisma } from '@/lib/db'
 
-export const metadata: Metadata = {
-  title: 'Seller Center - DuukaAfrica | Start Selling Today',
-  description: 'Join DuukaAfrica as a seller. Set up your store, list products, manage orders, and reach millions of buyers across East Africa with secure escrow payments.',
-  openGraph: {
-    title: 'Seller Center - DuukaAfrica',
-    description: 'Start selling on DuukaAfrica. Reach millions of buyers across East Africa with secure escrow payments.',
-    type: 'website',
-  },
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    title: 'Seller Center - DuukaAfrica | Start Selling Today',
+    description: 'Join DuukaAfrica as a seller. Set up your store, list products, manage orders, and reach millions of buyers across East Africa with secure escrow payments.',
+    openGraph: {
+      title: 'Seller Center - DuukaAfrica',
+      description: 'Start selling on DuukaAfrica. Reach millions of buyers across East Africa with secure escrow payments.',
+      type: 'website',
+    },
+  }
 }
 
 export default async function SellerLayout({
@@ -56,7 +58,7 @@ export default async function SellerLayout({
 
   const role = dbUser?.role
   const hasStore = !!dbUser?.Store
-  const storeVerified = hasStore && dbUser!.Store!.verificationStatus === 'VERIFIED'
+  const storeVerified = hasStore && dbUser?.Store?.verificationStatus === 'VERIFIED'
   
   const isSeller = role === 'SELLER'
   const isAdmin = role === 'ADMIN' || role === 'SUPER_ADMIN'

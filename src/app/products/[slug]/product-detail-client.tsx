@@ -182,8 +182,15 @@ export function ProductDetailClient({ product, images, relatedProducts, flashSal
     ? Math.round(((displayComparePrice - displayPrice) / displayComparePrice) * 100)
     : 0
 
-  // Stock urgency - use flash sale stock if applicable
-  const availableStock = flashSale ? flashSale.remaining : product.quantity
+  // Stock urgency - use flash sale stock if applicable, otherwise use variant or product stock
+  const selectedVariantData = selectedVariant
+    ? product.variants.find((v) => v.id === selectedVariant)
+    : null
+  const availableStock = flashSale
+    ? flashSale.remaining
+    : selectedVariantData
+      ? selectedVariantData.quantity
+      : product.quantity
   const isLowStock = availableStock > 0 && availableStock <= 5
   const stockText = availableStock === 0 
     ? 'Out of Stock' 
@@ -558,8 +565,8 @@ export function ProductDetailClient({ product, images, relatedProducts, flashSal
                   </button>
                   <span className="w-16 text-center font-semibold text-lg">{quantity}</span>
                   <button
-                    onClick={() => setQuantity(Math.min(product.quantity, quantity + 1))}
-                    disabled={quantity >= product.quantity}
+                    onClick={() => setQuantity(Math.min(availableStock, quantity + 1))}
+                    disabled={quantity >= availableStock}
                     className="w-12 h-12 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 rounded-r-xl transition-colors disabled:opacity-50"
                     aria-label="Increase quantity"
                   >

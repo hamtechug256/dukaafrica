@@ -243,7 +243,7 @@ export function ReviewList({ productId, orderId, canReview, alreadyReviewed, rev
                     {review.user.avatar ? (
                       <img
                         src={review.user.avatar}
-                        alt=""
+                        alt={review.user.name ? `${review.user.name}'s avatar` : 'User avatar'}
                         className="w-full h-full object-cover"
                       />
                     ) : (
@@ -297,7 +297,7 @@ export function ReviewList({ productId, orderId, canReview, alreadyReviewed, rev
                           <img
                             key={idx}
                             src={img}
-                            alt=""
+                            alt={`Review photo ${idx + 1}`}
                             className="w-16 h-16 rounded object-cover"
                           />
                         ))}
