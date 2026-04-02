@@ -182,7 +182,7 @@ export function Header() {
                   <span className="font-bold text-lg">Duuka<span className="text-emerald-600">Africa</span></span>
                 </SheetTitle>
               </SheetHeader>
-              <nav className="p-4 space-y-1 overflow-y-auto flex-1">
+              <nav className="p-4 space-y-1 overflow-y-auto flex-1" aria-label="Mobile categories">
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 py-2">Categories</p>
                 {categories.map((cat) => (
                   <Link
@@ -236,7 +236,7 @@ export function Header() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
-              <Button type="submit" className="rounded-l-none bg-primary hover:bg-primary/90">
+              <Button type="submit" className="rounded-l-none bg-primary hover:bg-primary/90" aria-label="Search products">
                 <Search className="h-4 w-4" />
               </Button>
             </form>
@@ -245,17 +245,17 @@ export function Header() {
           {/* Right Actions */}
           <div className="flex items-center gap-2 lg:gap-4">
             {/* Wishlist */}
-            <Link href="/dashboard/wishlist" className="hidden sm:flex flex-col items-center text-sm hover:text-primary">
+            <Link href="/dashboard/wishlist" className="hidden sm:flex flex-col items-center text-sm hover:text-primary" aria-label="Wishlist">
               <Heart className="h-5 w-5" />
               <span className="hidden lg:inline text-xs">Wishlist</span>
             </Link>
 
             {/* Cart */}
-            <Link href="/cart" className="flex items-center justify-center min-h-[44px] min-w-[44px] text-sm hover:text-primary relative">
+            <Link href="/cart" className="flex items-center justify-center min-h-[44px] min-w-[44px] text-sm hover:text-primary relative" aria-label={cartCount > 0 ? `Cart with ${cartCount} items` : 'Cart'}>
               <ShoppingCart className="h-5 w-5" />
               <span className="hidden lg:inline text-xs">Cart</span>
               {cartCount > 0 && (
-                <Badge className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-[10px] bg-primary text-white">
+                <Badge className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-[10px] bg-primary text-white" aria-hidden="true">
                   {cartCount > 99 ? '99+' : cartCount}
                 </Badge>
               )}
@@ -268,7 +268,7 @@ export function Header() {
               </div>
             ) : !isSignedIn ? (
               <SignInButton mode="modal">
-                <Button variant="ghost" className="flex items-center justify-center min-h-[44px] min-w-[44px]">
+                <Button variant="ghost" className="flex items-center justify-center min-h-[44px] min-w-[44px]" aria-label="Sign In">
                   <User className="h-5 w-5" />
                   <span className="hidden lg:inline text-xs">Sign In</span>
                 </Button>
@@ -329,7 +329,7 @@ export function Header() {
       </div>
 
       {/* Categories Nav */}
-      <nav className="border-t bg-gray-50 hidden md:block">
+      <nav className="border-t bg-gray-50 hidden md:block" aria-label="Product categories">
         <div className="container">
           <ul className="flex items-center gap-6 py-2 text-sm overflow-x-auto">
             {categories.map((cat) => (

@@ -339,7 +339,7 @@ export default function CheckoutPage() {
                         onChange={(e) => { setFormData({ ...formData, phone: e.target.value }); setPhoneError('') }}
                         placeholder={PHONE_PATTERNS[formData.country]?.placeholder || '+256 7XX XXX XXX'}
                       />
-                      {phoneError && <p className="text-xs text-red-500 mt-1">{phoneError}</p>}
+                      {phoneError && <p className="text-xs text-red-500 mt-1" role="alert">{phoneError}</p>}
                       <p className="text-xs text-gray-500 mt-1">
                         Seller will call this number for bus delivery coordination
                       </p>
@@ -456,7 +456,7 @@ export default function CheckoutPage() {
                 </CardHeader>
                 <CardContent>
                   {isCalculatingShipping ? (
-                    <div className="flex items-center justify-center py-8">
+                    <div className="flex items-center justify-center py-8" role="status">
                       <Loader2 className="w-8 h-8 animate-spin text-primary" />
                       <span className="ml-2">Calculating shipping...</span>
                     </div>
@@ -600,7 +600,7 @@ export default function CheckoutPage() {
                           value={paymentPhone}
                           onChange={(e) => { setPaymentPhone(e.target.value); setPaymentPhoneError('') }}
                         />
-                        {paymentPhoneError && <p className="text-xs text-red-500 mt-1">{paymentPhoneError}</p>}
+                        {paymentPhoneError && <p className="text-xs text-red-500 mt-1" role="alert">{paymentPhoneError}</p>}
                         <p className="text-xs text-gray-500 mt-1">
                           Enter the phone number linked to your {paymentMethod?.provider} account
                         </p>
@@ -726,7 +726,7 @@ export default function CheckoutPage() {
                     <div key={item.productId} className="flex items-center gap-3">
                       <div className="w-12 h-12 bg-gray-100 rounded overflow-hidden">
                         {item.image ? (
-                          <img src={item.image} alt="" className="w-full h-full object-cover" />
+                          <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
                             <Package className="w-4 h-4 text-gray-300" />

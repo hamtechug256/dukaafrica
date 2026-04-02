@@ -255,7 +255,7 @@ export function ProductDetailClient({ product, images, relatedProducts, flashSal
       {/* Breadcrumb */}
       <div className="bg-white dark:bg-gray-800 border-b sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
-          <nav className="flex items-center gap-2 text-sm overflow-x-auto">
+          <nav className="flex items-center gap-2 text-sm overflow-x-auto" aria-label="Breadcrumb">
             <Link href="/" className="text-gray-500 hover:text-orange-500 whitespace-nowrap">Home</Link>
             <ChevronDown className="w-3 h-3 text-gray-400 rotate-[-90deg]" />
             {product.category && (
@@ -316,6 +316,7 @@ export function ProductDetailClient({ product, images, relatedProducts, flashSal
                     className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 dark:bg-gray-800/90 shadow-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white dark:hover:bg-gray-700"
                     onClick={(e) => { e.stopPropagation(); setSelectedImage(Math.max(0, selectedImage - 1)); }}
                     disabled={selectedImage === 0}
+                    aria-label="Previous image"
                   >
                     <ChevronLeft className="w-5 h-5" />
                   </button>
@@ -323,6 +324,7 @@ export function ProductDetailClient({ product, images, relatedProducts, flashSal
                     className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 dark:bg-gray-800/90 shadow-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white dark:hover:bg-gray-700"
                     onClick={(e) => { e.stopPropagation(); setSelectedImage(Math.min(images.length - 1, selectedImage + 1)); }}
                     disabled={selectedImage === images.length - 1}
+                    aria-label="Next image"
                   >
                     <ChevronRight className="w-5 h-5" />
                   </button>
@@ -349,7 +351,7 @@ export function ProductDetailClient({ product, images, relatedProducts, flashSal
                         : 'border-gray-200 dark:border-gray-700 hover:border-orange-300'
                     }`}
                   >
-                    <img src={image} alt="" className="w-full h-full object-cover" />
+                    <img src={image} alt={`${product.name} view ${index + 1}`} className="w-full h-full object-cover" />
                   </button>
                 ))}
               </div>
@@ -550,6 +552,7 @@ export function ProductDetailClient({ product, images, relatedProducts, flashSal
                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
                     disabled={quantity <= 1}
                     className="w-12 h-12 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 rounded-l-xl transition-colors disabled:opacity-50"
+                    aria-label="Decrease quantity"
                   >
                     <Minus className="w-5 h-5" />
                   </button>
@@ -558,6 +561,7 @@ export function ProductDetailClient({ product, images, relatedProducts, flashSal
                     onClick={() => setQuantity(Math.min(product.quantity, quantity + 1))}
                     disabled={quantity >= product.quantity}
                     className="w-12 h-12 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 rounded-r-xl transition-colors disabled:opacity-50"
+                    aria-label="Increase quantity"
                   >
                     <Plus className="w-5 h-5" />
                   </button>
@@ -606,6 +610,7 @@ export function ProductDetailClient({ product, images, relatedProducts, flashSal
                 variant="outline" 
                 className="h-14 w-14 relative"
                 onClick={handleShare}
+                aria-label="Share product"
               >
                 {shareSuccess ? (
                   <Check className="w-5 h-5 text-green-500" />
@@ -691,7 +696,7 @@ export function ProductDetailClient({ product, images, relatedProducts, flashSal
                       Visit Store
                     </Button>
                   </Link>
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" aria-label="Contact seller">
                     <MessageCircle className="w-4 h-4" />
                   </Button>
                 </div>
@@ -870,6 +875,7 @@ export function ProductDetailClient({ product, images, relatedProducts, flashSal
           <button 
             className="absolute top-4 right-4 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center"
             onClick={() => setShowLightbox(false)}
+            aria-label="Close image preview"
           >
             <X className="w-6 h-6 text-white" />
           </button>
@@ -884,12 +890,14 @@ export function ProductDetailClient({ product, images, relatedProducts, flashSal
               <button
                 className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center"
                 onClick={(e) => { e.stopPropagation(); setSelectedImage(Math.max(0, selectedImage - 1)); }}
+                aria-label="Previous image"
               >
                 <ChevronLeft className="w-6 h-6 text-white" />
               </button>
               <button
                 className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center"
                 onClick={(e) => { e.stopPropagation(); setSelectedImage(Math.min(images.length - 1, selectedImage + 1)); }}
+                aria-label="Next image"
               >
                 <ChevronRight className="w-6 h-6 text-white" />
               </button>

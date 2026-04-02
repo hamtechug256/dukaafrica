@@ -78,6 +78,7 @@ export function CartSidebar() {
                             className="h-10 w-10"
                             onClick={() => updateQuantity(item.productId, item.quantity - 1)}
                             disabled={item.quantity <= 1}
+                            aria-label={`Decrease quantity of ${item.name}`}
                           >
                             <Minus className="w-4 h-4" />
                           </Button>
@@ -88,6 +89,7 @@ export function CartSidebar() {
                             className="h-10 w-10"
                             onClick={() => updateQuantity(item.productId, item.quantity + 1)}
                             disabled={item.quantity >= item.maxQuantity}
+                            aria-label={`Increase quantity of ${item.name}`}
                           >
                             <Plus className="w-4 h-4" />
                           </Button>
@@ -99,6 +101,7 @@ export function CartSidebar() {
                           size="icon"
                           className="h-10 w-10 text-red-500 hover:text-red-600"
                           onClick={() => removeItem(item.productId)}
+                          aria-label={`Remove ${item.name} from cart`}
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>

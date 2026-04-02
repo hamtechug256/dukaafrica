@@ -309,6 +309,7 @@ export default function AdminProductsPage() {
                     value={searchInput}
                     onChange={(e) => setSearchInput(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                    aria-label="Search products"
                   />
                 </div>
                 <Select value={status} onValueChange={(value) => { setStatus(value); setPage(1); }}>
@@ -416,7 +417,7 @@ export default function AdminProductsPage() {
                           <TableCell className="text-right">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon">
+                                <Button variant="ghost" size="icon" aria-label={`Actions for ${product.name}`}>
                                   <MoreHorizontal className="w-4 h-4" />
                                 </Button>
                               </DropdownMenuTrigger>
@@ -492,6 +493,7 @@ export default function AdminProductsPage() {
                 size="icon"
                 disabled={page === 1}
                 onClick={() => setPage(page - 1)}
+                aria-label="Previous page"
               >
                 <ChevronLeft className="w-4 h-4" />
               </Button>
@@ -503,6 +505,7 @@ export default function AdminProductsPage() {
                 size="icon"
                 disabled={page === pagination.pages}
                 onClick={() => setPage(page + 1)}
+                aria-label="Next page"
               >
                 <ChevronRight className="w-4 h-4" />
               </Button>
