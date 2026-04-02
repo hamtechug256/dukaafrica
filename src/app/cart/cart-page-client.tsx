@@ -13,7 +13,7 @@ import { useState } from 'react'
 
 export default function CartPageClient() {
   const { items, removeItem, updateQuantity, getSubtotal, getTotalSavings, getItemsByStore, clearCart } = useCartStore()
-  const { couponCode: appliedCouponCode, discount: appliedDiscount, setCouponCode, setDiscount, clearAll: clearCheckout } = useCheckoutStore()
+  const { couponCode: appliedCouponCode, discount: appliedDiscount, setCouponCode, setDiscount } = useCheckoutStore()
   const [couponCode, setCouponCodeInput] = useState(appliedCouponCode || '')
   const [couponLoading, setCouponLoading] = useState(false)
   const [couponError, setCouponError] = useState('')
