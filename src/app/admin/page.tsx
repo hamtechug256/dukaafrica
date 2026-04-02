@@ -29,6 +29,7 @@ import {
 } from 'lucide-react'
 import { AccessDeniedPage } from '@/components/admin/access-denied-page'
 import { MobileNav, DesktopSidebar, BottomNav } from '@/components/dashboard/mobile-nav'
+import { Skeleton } from '@/components/ui/skeleton'
 
 const sidebarLinks = [
   { href: '/admin', icon: BarChart3, label: 'Dashboard' },
@@ -127,7 +128,7 @@ export default function AdminDashboard() {
 
   // Admin Dashboard
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex">
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex overflow-x-hidden">
       {/* Desktop Sidebar - Hidden on mobile */}
       <DesktopSidebar
         title="DuukaAfrica"
@@ -172,11 +173,15 @@ export default function AdminDashboard() {
             <Card>
               <CardContent className="pt-4 md:pt-6">
                 <div className="flex items-center justify-between">
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">Total Users</p>
-                    <p className="text-xl md:text-3xl font-bold">{stats?.users?.total || 0}</p>
+                    {statsLoading ? (
+                      <Skeleton className="h-7 md:h-9 w-16 mt-1" />
+                    ) : (
+                      <p className="text-xl md:text-3xl font-bold">{stats?.users?.total || 0}</p>
+                    )}
                   </div>
-                  <div className="p-2 md:p-3 bg-blue-50 dark:bg-blue-950/30 rounded-full">
+                  <div className="p-2 md:p-3 bg-blue-50 dark:bg-blue-950/30 rounded-full shrink-0">
                     <Users className="w-5 h-5 md:w-6 md:h-6 text-blue-500" />
                   </div>
                 </div>
@@ -186,11 +191,15 @@ export default function AdminDashboard() {
             <Card>
               <CardContent className="pt-4 md:pt-6">
                 <div className="flex items-center justify-between">
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">Active Stores</p>
-                    <p className="text-xl md:text-3xl font-bold">{stats?.stores?.active || 0}</p>
+                    {statsLoading ? (
+                      <Skeleton className="h-7 md:h-9 w-16 mt-1" />
+                    ) : (
+                      <p className="text-xl md:text-3xl font-bold">{stats?.stores?.active || 0}</p>
+                    )}
                   </div>
-                  <div className="p-2 md:p-3 bg-green-50 dark:bg-green-950/30 rounded-full">
+                  <div className="p-2 md:p-3 bg-green-50 dark:bg-green-950/30 rounded-full shrink-0">
                     <Store className="w-5 h-5 md:w-6 md:h-6 text-green-500" />
                   </div>
                 </div>
@@ -200,11 +209,15 @@ export default function AdminDashboard() {
             <Card>
               <CardContent className="pt-4 md:pt-6">
                 <div className="flex items-center justify-between">
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">Total Products</p>
-                    <p className="text-xl md:text-3xl font-bold">{stats?.products?.total || 0}</p>
+                    {statsLoading ? (
+                      <Skeleton className="h-7 md:h-9 w-16 mt-1" />
+                    ) : (
+                      <p className="text-xl md:text-3xl font-bold">{stats?.products?.total || 0}</p>
+                    )}
                   </div>
-                  <div className="p-2 md:p-3 bg-purple-50 dark:bg-purple-950/30 rounded-full">
+                  <div className="p-2 md:p-3 bg-purple-50 dark:bg-purple-950/30 rounded-full shrink-0">
                     <Package className="w-5 h-5 md:w-6 md:h-6 text-purple-500" />
                   </div>
                 </div>
@@ -214,11 +227,15 @@ export default function AdminDashboard() {
             <Card>
               <CardContent className="pt-4 md:pt-6">
                 <div className="flex items-center justify-between">
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">Revenue</p>
-                    <p className="text-lg md:text-3xl font-bold">UGX {(stats?.revenue?.total || 0).toLocaleString()}</p>
+                    {statsLoading ? (
+                      <Skeleton className="h-7 md:h-9 w-24 mt-1" />
+                    ) : (
+                      <p className="text-lg md:text-3xl font-bold truncate">UGX {(stats?.revenue?.total || 0).toLocaleString()}</p>
+                    )}
                   </div>
-                  <div className="p-2 md:p-3 bg-orange-50 dark:bg-orange-950/30 rounded-full">
+                  <div className="p-2 md:p-3 bg-orange-50 dark:bg-orange-950/30 rounded-full shrink-0">
                     <DollarSign className="w-5 h-5 md:w-6 md:h-6 text-orange-500" />
                   </div>
                 </div>
