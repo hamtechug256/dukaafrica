@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/db'
 import { Prisma } from '@prisma/client'
+import { canListMoreProducts } from '@/lib/seller-tiers'
 
 // Helper to safely convert Prisma Decimal to number
 function toNum(val: unknown): number {
@@ -82,6 +83,23 @@ export async function POST(request: NextRequest) {
 
     if (!store) {
       return NextResponse.json({ error: 'Store not found' }, { status: 404 })
+    }
+
+    // Enforce product tier limit before processing batch
+    const currentProductCount = await prisma.product.count({
+      where: { storeId: store.id }
+    })
+    const productCheck = await canListMoreProducts(store, currentProductCount)
+    if (!productCheck.canList) {
+      return NextResponse.json({
+        error: 'Product limit reached',
+        details: {
+          maxProducts: productCheck.maxProducts,
+          currentCount: currentProductCount,
+          tier: store.verificationTier,
+          message: `Your ${store.verificationTier} tier allows a maximum of ${productCheck.maxProducts} products. Please upgrade your plan.`,
+        }
+      }, { status: 403 })
     }
 
     // Check content type to determine input format
@@ -245,10 +263,24 @@ export async function POST(request: NextRequest) {
       products: [] as { id: string; name: string; price: number }[],
     }
 
+    // Track remaining slots for tier limit enforcement
+    let remainingSlots = productCheck.remaining === -1 ? Infinity : productCheck.remaining
+
     // Process each product
     for (let i = 0; i < products.length; i++) {
       const product = products[i]
       const rowNum = i + 1
+
+      // Check tier limit before each product
+      if (remainingSlots <= 0) {
+        results.failed++
+        results.errors.push({
+          row: rowNum,
+          error: 'Product limit reached for your tier',
+          productName: product.name
+        })
+        continue
+      }
 
       try {
         // Validate required fields
@@ -303,6 +335,7 @@ export async function POST(request: NextRequest) {
           name: newProduct.name,
           price: toNum(newProduct.price),
         })
+        remainingSlots--
       } catch (error: any) {
         results.failed++
         results.errors.push({

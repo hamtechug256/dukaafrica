@@ -1,6 +1,7 @@
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { canListMoreProducts } from '@/lib/seller-tiers'
 
 // Generate unique slug
 function generateSlug(name: string): string {
@@ -81,6 +82,23 @@ export async function POST(req: Request) {
 
     if (!store) {
       return NextResponse.json({ error: 'Store not found' }, { status: 404 })
+    }
+
+    // Enforce product tier limit (STARTER=10, VERIFIED=100, PREMIUM=unlimited)
+    const currentProductCount = await prisma.product.count({
+      where: { storeId: store.id }
+    })
+    const productCheck = await canListMoreProducts(store, currentProductCount)
+    if (!productCheck.canList) {
+      return NextResponse.json({
+        error: 'Product limit reached',
+        details: {
+          maxProducts: productCheck.maxProducts,
+          currentCount: currentProductCount,
+          tier: store.verificationTier,
+          message: `Your ${store.verificationTier} tier allows a maximum of ${productCheck.maxProducts} products. Please upgrade your plan to list more.`,
+        }
+      }, { status: 403 })
     }
 
     const body = await req.json()
