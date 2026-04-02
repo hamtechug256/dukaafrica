@@ -1,3 +1,4 @@
+import { Metadata } from 'next'
 import { prisma } from '@/lib/db'
 import { ProductGrid } from './product-grid'
 import { ProductFilters } from './product-filters'
@@ -6,6 +7,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Header } from '@/components/layout/header'
 import { Footer } from '@/components/layout/footer'
 import { Prisma } from '@prisma/client'
+
+export const metadata: Metadata = {
+  title: 'Products - DuukaAfrica | Shop Quality Products Online',
+  description: 'Browse thousands of products across electronics, fashion, home & living, and more on DuukaAfrica. Find the best deals from verified sellers in Uganda, Kenya, Tanzania, and Rwanda.',
+  keywords: 'products, online shopping, electronics, fashion, home, Uganda, Kenya, Tanzania, Rwanda, DuukaAfrica',
+}
 
 // Helper to safely convert Prisma Decimal to number
 function toNum(val: unknown): number {

@@ -38,9 +38,8 @@ export async function POST(request: NextRequest) {
     try {
       await prisma.escrowSettings.findFirst()
       escrowSettingsExists = true
-    } catch (e: any) {
+    } catch {
       // Table doesn't exist
-      console.log('EscrowSettings table does not exist yet')
     }
 
     // Check if PlatformReserve table exists
@@ -48,8 +47,7 @@ export async function POST(request: NextRequest) {
     try {
       await prisma.platformReserve.findFirst()
       platformReserveExists = true
-    } catch (e: any) {
-      console.log('PlatformReserve table does not exist yet')
+    } catch {
     }
 
     // Check if SellerTierConfig table exists
@@ -57,8 +55,7 @@ export async function POST(request: NextRequest) {
     try {
       await prisma.sellerTierConfig.findFirst()
       sellerTierConfigExists = true
-    } catch (e: any) {
-      console.log('SellerTierConfig table does not exist yet')
+    } catch {
     }
 
     // Check if EscrowTransaction table exists
@@ -66,8 +63,7 @@ export async function POST(request: NextRequest) {
     try {
       await prisma.escrowTransaction.findFirst()
       escrowTransactionExists = true
-    } catch (e: any) {
-      console.log('EscrowTransaction table does not exist yet')
+    } catch {
     }
 
     // If all tables exist, no need to sync

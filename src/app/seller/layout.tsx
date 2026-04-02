@@ -1,7 +1,13 @@
+import { Metadata } from 'next'
 import { auth } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
 import { prisma } from '@/lib/db'
+
+export const metadata: Metadata = {
+  title: 'Seller Center - DuukaAfrica | Start Selling Today',
+  description: 'Join DuukaAfrica as a seller. Set up your store, list products, manage orders, and reach millions of buyers across East Africa with secure escrow payments.',
+}
 
 export default async function SellerLayout({
   children,
