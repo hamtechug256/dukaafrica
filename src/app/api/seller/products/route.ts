@@ -1,7 +1,7 @@
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { canListMoreProducts } from '@/lib/seller-tiers'
+import { canListMoreProducts, getStoreTier } from '@/lib/seller-tiers'
 
 // Generate unique slug
 function generateSlug(name: string): string {
@@ -124,6 +124,20 @@ export async function POST(req: Request) {
       images,
       variants,
     } = body
+
+    // Enforce feature product tier permission
+    if (isFeatured) {
+      const tier = await getStoreTier(store)
+      if (!tier.canFeatureProducts) {
+        return NextResponse.json({
+          error: 'Featured products require VERIFIED or PREMIUM tier',
+          details: {
+            currentTier: store.verificationTier,
+            message: 'Please upgrade your plan to feature products on the homepage.',
+          }
+        }, { status: 403 })
+      }
+    }
 
     if (!name || !price) {
       return NextResponse.json({ error: 'Name and price are required' }, { status: 400 })
