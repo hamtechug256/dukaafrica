@@ -2,6 +2,7 @@ import { auth } from '@clerk/nextjs/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { Prisma } from '@prisma/client'
+import { getStoreTier } from '@/lib/seller-tiers'
 
 // Helper to safely convert Prisma Decimal to number
 function toNum(val: unknown): number {
@@ -140,7 +141,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // First find the user by clerkId
     const user = await prisma.user.findUnique({
       where: { clerkId: userId },
     })
@@ -149,13 +149,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    // Then find the store by userId
     const store = await prisma.store.findUnique({
       where: { userId: user.id },
     })
 
     if (!store) {
       return NextResponse.json({ error: 'Store not found' }, { status: 404 })
+    }
+
+    // Enforce tier feature flag — only VERIFIED and PREMIUM can create flash sales
+    const tier = await getStoreTier(store)
+    if (!tier.canCreateFlashSales) {
+      return NextResponse.json({
+        error: 'Flash sales require VERIFIED or PREMIUM seller tier',
+        details: {
+          currentTier: store.verificationTier,
+          message: 'Please complete verification to unlock flash sales.',
+        }
+      }, { status: 403 })
     }
 
     const body = await request.json()
