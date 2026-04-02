@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { safeParseImages } from '@/lib/helpers'
 import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -55,7 +56,7 @@ export function ProductCard({ product, showStore = true }: ProductCardProps) {
   const { addItem } = useCartStore()
   const { toast } = useToast()
 
-  const imagesArray = product.images ? JSON.parse(product.images) : []
+  const imagesArray = safeParseImages(product.images)
   const mainImage = imagesArray[0] || null
   const currency = product.currency || 'UGX'
 

@@ -5,6 +5,7 @@ import { CategoryFiltersClient } from './category-filters-client'
 import { Header } from '@/components/layout/header'
 import { Footer } from '@/components/layout/footer'
 import { DynamicIcon, getCategoryEmoji } from '@/components/ui/dynamic-icon'
+import { safeParseImages } from '@/lib/helpers'
 
 // Helper to safely convert Prisma Decimal to number
 function toNum(val: unknown): number {
@@ -197,7 +198,7 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
                     <div className="aspect-square bg-gray-100 dark:bg-gray-700 relative overflow-hidden">
                       {product.images ? (
                         <img
-                          src={JSON.parse(product.images)[0]}
+                          src={safeParseImages(product.images)[0]}
                           alt={product.name}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         />

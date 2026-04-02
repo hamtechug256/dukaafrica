@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { safeParseImages } from '@/lib/helpers'
 import { useUser, SignInButton } from '@clerk/nextjs'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -124,7 +125,7 @@ function StarRating({ rating, onRate, size = 'md' }: {
 }
 
 function ReviewCard({ review, onHelpful }: { review: Review; onHelpful?: () => void }) {
-  const images = review.images ? JSON.parse(review.images) : []
+  const images = safeParseImages(review.images)
   
   return (
     <div className="border-b pb-6 last:border-0">

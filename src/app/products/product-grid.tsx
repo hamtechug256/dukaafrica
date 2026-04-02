@@ -8,6 +8,7 @@ import { Heart, ShoppingCart, Star, Store, Check, Loader2 } from 'lucide-react'
 import { useCartStore } from '@/store/cart-store'
 import { useToast } from '@/hooks/use-toast'
 import { useState } from 'react'
+import { safeParseImages } from '@/lib/helpers'
 
 interface Product {
   id: string
@@ -75,7 +76,7 @@ function ProductCard({ product }: { product: Product }) {
     ? Math.round(((product.comparePrice - product.price) / product.comparePrice) * 100)
     : 0
 
-  const imagesArray = product.images ? JSON.parse(product.images) : []
+  const imagesArray = safeParseImages(product.images)
   const mainImage = imagesArray[0] || null
   const currency = product.currency || 'UGX'
 
