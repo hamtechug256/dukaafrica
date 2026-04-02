@@ -25,9 +25,9 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get user and their store - use explicit select for backward compatibility
+    // Get user and their store - use explicit select for backward compatibility (must be active)
     const user = await prisma.user.findUnique({
-      where: { clerkId: userId },
+      where: { clerkId: userId, isActive: true },
       select: {
         id: true,
         email: true,
@@ -143,9 +143,9 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get user and their store - use explicit select for backward compatibility
+    // Get user and their store - use explicit select for backward compatibility (must be active)
     const user = await prisma.user.findUnique({
-      where: { clerkId: userId },
+      where: { clerkId: userId, isActive: true },
       select: {
         id: true,
         email: true,

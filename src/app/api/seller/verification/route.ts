@@ -42,9 +42,9 @@ export async function POST(request: NextRequest) {
       physicalLocationUrl,
     } = body
 
-    // Get user and store - use explicit select for backward compatibility
+    // Get user and store - use explicit select for backward compatibility (must be active)
     const user = await prisma.user.findUnique({
-      where: { clerkId: userId },
+      where: { clerkId: userId, isActive: true },
       select: {
         id: true,
         Store: {
@@ -187,9 +187,9 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Use explicit select for backward compatibility with missing database columns
+    // Use explicit select for backward compatibility with missing database columns (must be active)
     const user = await prisma.user.findUnique({
-      where: { clerkId: userId },
+      where: { clerkId: userId, isActive: true },
       select: {
         id: true,
         Store: {

@@ -13,8 +13,8 @@ function generateSlug(name: string): string {
   return `${base}-${random}`
 }
 
-// GET - Fetch seller's products
-export async function GET() {
+// GET - Fetch seller's products (paginated)
+export async function GET(req: Request) {
   try {
     const { userId } = await auth()
 
@@ -22,9 +22,19 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // First find the user by clerkId
+    // Parse pagination params
+    const { searchParams } = new URL(req.url)
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10))
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '20', 10)))
+    const skip = (page - 1) * limit
+
+    // Parse optional filters
+    const statusFilter = searchParams.get('status') || undefined
+    const searchFilter = searchParams.get('search') || undefined
+
+    // First find the user by clerkId (only active users)
     const user = await prisma.user.findUnique({
-      where: { clerkId: userId },
+      where: { clerkId: userId, isActive: true },
     })
 
     if (!user) {
@@ -40,17 +50,43 @@ export async function GET() {
       return NextResponse.json({ error: 'Store not found' }, { status: 404 })
     }
 
-    const products = await prisma.product.findMany({
-      where: { storeId: store.id },
-      include: {
-        Category: {
-          select: { id: true, name: true, slug: true },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-    })
+    // Build where clause with optional filters
+    const where: Record<string, any> = { storeId: store.id }
 
-    return NextResponse.json({ products })
+    if (statusFilter) {
+      where.status = statusFilter
+    }
+
+    if (searchFilter) {
+      where.OR = [
+        { name: { contains: searchFilter, mode: 'insensitive' } },
+        { description: { contains: searchFilter, mode: 'insensitive' } },
+        { sku: { contains: searchFilter, mode: 'insensitive' } },
+      ]
+    }
+
+    // Fetch products and total count in parallel
+    const [products, total] = await Promise.all([
+      prisma.product.findMany({
+        where,
+        include: {
+          Category: {
+            select: { id: true, name: true, slug: true },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      prisma.product.count({ where }),
+    ])
+
+    const pages = Math.ceil(total / limit)
+
+    return NextResponse.json({
+      products,
+      pagination: { page, limit, total, pages },
+    })
   } catch (error) {
     console.error('Error fetching products:', error)
     return NextResponse.json({ error: 'Failed to fetch products' }, { status: 500 })
@@ -66,9 +102,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // First find the user by clerkId
+    // First find the user by clerkId (must be active)
     const user = await prisma.user.findUnique({
-      where: { clerkId: userId },
+      where: { clerkId: userId, isActive: true },
     })
 
     if (!user) {
@@ -205,9 +241,9 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // First find the user by clerkId
+    // First find the user by clerkId (must be active)
     const user = await prisma.user.findUnique({
-      where: { clerkId: userId },
+      where: { clerkId: userId, isActive: true },
     })
 
     if (!user) {
@@ -328,9 +364,9 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // First find the user by clerkId
+    // First find the user by clerkId (must be active)
     const user = await prisma.user.findUnique({
-      where: { clerkId: userId },
+      where: { clerkId: userId, isActive: true },
     })
 
     if (!user) {

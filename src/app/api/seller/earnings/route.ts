@@ -29,9 +29,9 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Get user and store
+    // Get user and store (must be active)
     const user = await prisma.user.findUnique({
-      where: { clerkId: userId },
+      where: { clerkId: userId, isActive: true },
       include: { Store: true }
     })
 

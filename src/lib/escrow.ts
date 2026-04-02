@@ -7,6 +7,7 @@
 
 import { prisma } from '@/lib/db'
 import { getEscrowHoldDays, getCommissionRate } from './seller-tiers'
+import { Prisma } from '@prisma/client'
 
 // Escrow status types
 export type EscrowStatus = 'HELD' | 'RELEASED' | 'REFUNDED' | 'PARTIAL_REFUND' | 'DISPUTED'
@@ -595,40 +596,74 @@ export async function getEscrowSummary(): Promise<{
   heldTransactions: number
   avgHoldDays: number
 }> {
-  const transactions = await prisma.escrowTransaction.findMany()
-  
+  // Use groupBy to aggregate stats per status without loading all rows into memory
+  const grouped = await prisma.escrowTransaction.groupBy({
+    by: ['status'],
+    _sum: {
+      sellerAmount: true,
+      platformAmount: true,
+      reserveAmount: true,
+      refundAmount: true,
+    },
+    _count: true,
+  })
+
   let totalHeld = 0
   let totalReleased = 0
   let totalRefunded = 0
   let totalDisputed = 0
   let heldTransactions = 0
-  
-  for (const tx of transactions) {
-    switch (tx.status) {
+
+  for (const group of grouped) {
+    const toNum = (val: unknown) =>
+      val instanceof Prisma.Decimal ? val.toNumber() : typeof val === 'number' ? val : 0
+
+    switch (group.status) {
       case 'HELD':
-        totalHeld += tx.sellerAmount.toNumber()
-        heldTransactions++
+        totalHeld += toNum(group._sum.sellerAmount)
+        heldTransactions += group._count
         break
       case 'RELEASED':
-        totalReleased += tx.sellerAmount.toNumber()
+        totalReleased += toNum(group._sum.sellerAmount)
         break
       case 'REFUNDED':
       case 'PARTIAL_REFUND':
-        totalRefunded += tx.refundAmount?.toNumber() || 0
+        totalRefunded += toNum(group._sum.refundAmount)
         break
       case 'DISPUTED':
-        totalDisputed += tx.sellerAmount.toNumber()
+        totalDisputed += toNum(group._sum.sellerAmount)
         break
     }
   }
-  
+
+  // Calculate actual average hold days from RELEASED transactions
+  const releasedTxs = await prisma.escrowTransaction.findMany({
+    where: {
+      status: 'RELEASED',
+      releasedAt: { not: null },
+    },
+    select: {
+      heldAt: true,
+      releasedAt: true,
+    },
+  })
+
+  let avgHoldDays = 0
+  if (releasedTxs.length > 0) {
+    const totalDays = releasedTxs.reduce((sum, tx) => {
+      const diffMs = tx.releasedAt!.getTime() - tx.heldAt.getTime()
+      return sum + diffMs / (1000 * 60 * 60 * 24)
+    }, 0)
+    avgHoldDays = Math.round((totalDays / releasedTxs.length) * 10) / 10 // Round to 1 decimal
+  }
+
   return {
     totalHeld,
     totalReleased,
     totalRefunded,
     totalDisputed,
     heldTransactions,
-    avgHoldDays: 5 // Could calculate from actual data
+    avgHoldDays,
   }
 }
 
