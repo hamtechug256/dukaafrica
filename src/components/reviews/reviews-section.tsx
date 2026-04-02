@@ -44,6 +44,15 @@ interface Review {
   }
 }
 
+interface ReviewStats {
+  averageRating: number
+  totalReviews: number
+  distribution: Record<number, number>
+  userCanReview?: boolean
+  userOrderId?: string | null
+  userAlreadyReviewed?: boolean
+}
+
 interface ReviewsSectionProps {
   productId: string
   productRating: number
@@ -57,7 +66,7 @@ async function fetchReviews(productId: string, page: number = 1) {
   return res.json()
 }
 
-async function submitReview(data: { productId: string; rating: number; title: string; comment: string; images: string[] }) {
+async function submitReview(data: { productId: string; orderId: string | null; rating: number; title: string; comment: string; images: string[] }) {
   const res = await fetch('/api/reviews', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -190,7 +199,7 @@ export function ReviewsSection({ productId, productRating, reviewCount, initialR
   const { data, isLoading } = useQuery({
     queryKey: ['reviews', productId],
     queryFn: () => fetchReviews(productId),
-    initialData: { reviews: initialReviews, stats: { averageRating: productRating, totalReviews: reviewCount, distribution: {} } },
+    initialData: { reviews: initialReviews, stats: { averageRating: productRating, totalReviews: reviewCount, distribution: {} as Record<number, number> } },
   })
 
   const submitMutation = useMutation({
@@ -206,7 +215,7 @@ export function ReviewsSection({ productId, productRating, reviewCount, initialR
   })
 
   const reviews = data?.reviews || []
-  const stats = data?.stats || { averageRating: 0, totalReviews: 0, distribution: {} }
+  const stats: ReviewStats = data?.stats || { averageRating: 0, totalReviews: 0, distribution: {} }
 
   const handleSubmit = () => {
     if (rating === 0) {
@@ -215,6 +224,7 @@ export function ReviewsSection({ productId, productRating, reviewCount, initialR
     }
     submitMutation.mutate({
       productId,
+      orderId: stats.userOrderId || null,
       rating,
       title,
       comment,
@@ -278,7 +288,24 @@ export function ReviewsSection({ productId, productRating, reviewCount, initialR
       {/* Write Review Button */}
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold">Customer Reviews</h3>
-        {isSignedIn ? (
+        {!isSignedIn ? (
+          <SignInButton mode="modal">
+            <Button variant="outline">
+              <MessageSquare className="w-4 h-4 mr-2" />
+              Sign in to Review
+            </Button>
+          </SignInButton>
+        ) : stats.userAlreadyReviewed ? (
+          <Badge variant="secondary" className="text-sm">
+            <CheckCircle className="w-3 h-3 mr-1" />
+            You already reviewed this product
+          </Badge>
+        ) : !stats.userCanReview ? (
+          <Badge variant="outline" className="text-sm text-gray-500">
+            <MessageSquare className="w-3 h-3 mr-1" />
+            Only verified purchasers can review
+          </Badge>
+        ) : (
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
               <Button>
@@ -382,13 +409,6 @@ export function ReviewsSection({ productId, productRating, reviewCount, initialR
               </DialogFooter>
             </DialogContent>
           </Dialog>
-        ) : (
-          <SignInButton mode="modal">
-            <Button variant="outline">
-              <MessageSquare className="w-4 h-4 mr-2" />
-              Sign in to Review
-            </Button>
-          </SignInButton>
         )}
       </div>
 

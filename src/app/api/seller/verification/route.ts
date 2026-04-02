@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Guard: prevent re-verification of already verified sellers
-    if (store.verificationStatus === 'VERIFIED' || store.verificationStatus === 'PREMIUM') {
+    if (store.verificationStatus === 'VERIFIED') {
       return NextResponse.json({
         error: 'Already verified',
         details: { currentStatus: store.verificationStatus, message: 'Your store is already verified. Contact support if you need to make changes.' }
