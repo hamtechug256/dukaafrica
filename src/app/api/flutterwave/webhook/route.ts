@@ -221,23 +221,23 @@ async function handleSuccessfulTransfer(payload: any) {
     return
   }
 
-  // Update payout status
-  await prisma.sellerPayout.update({
-    where: { id: payout.id },
-    data: {
-      status: 'COMPLETED',
-      processedAt: new Date()
-    }
-  })
+  // IDEMPOTENCY: Skip if already processed
+  if (payout.status === 'COMPLETED') {
+    console.log(`Transfer ${reference} already processed, skipping`)
+    return
+  }
 
-  // Update store balance
-  await prisma.store.update({
-    where: { id: payout.storeId },
-    data: {
-      availableBalance: {
-        decrement: toNum(payout.amount)
-      }
-    }
+  // Update payout status + balance in a single transaction
+  await prisma.$transaction(async (tx) => {
+    await tx.sellerPayout.update({
+      where: { id: payout.id },
+      data: { status: 'COMPLETED', processedAt: new Date() }
+    })
+
+    await tx.store.update({
+      where: { id: payout.storeId },
+      data: { availableBalance: { decrement: toNum(payout.amount) } }
+    })
   })
 
   console.log(`Transfer ${reference} completed successfully`)

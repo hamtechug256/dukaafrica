@@ -203,14 +203,23 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 })
     }
 
-    // Prepare update data
-    const updateData: any = {
-      ...data,
-      images: data.images ? JSON.stringify(data.images) : null,
-      categoryId: data.categoryId || null,
-      hasVariants: hasVariants ?? false,
-      variantOptions: variantOptions ? JSON.stringify(variantOptions) : null,
+    // Prepare update data — whitelist ONLY seller-editable fields to prevent mass assignment
+    const ALLOWED_FIELDS = [
+      'name', 'description', 'shortDesc', 'price', 'comparePrice', 'costPrice', 'sku',
+      'quantity', 'lowStockThreshold', 'trackQuantity', 'allowBackorder',
+      'freeShipping', 'weight', 'length', 'width', 'height',
+      'images', 'categoryId', 'videos', 'variantOptions',
+    ]
+    const updateData: Record<string, any> = {}
+    for (const field of ALLOWED_FIELDS) {
+      if (field in data) {
+        updateData[field] = data[field]
+      }
     }
+    updateData.images = data.images ? JSON.stringify(data.images) : null
+    updateData.categoryId = data.categoryId || null
+    updateData.hasVariants = hasVariants ?? false
+    updateData.variantOptions = variantOptions ? JSON.stringify(variantOptions) : null
 
     // Handle submit for review
     if (submitForReview) {

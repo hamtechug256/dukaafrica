@@ -331,48 +331,85 @@ export async function refundEscrow(params: {
     }
     
     let totalRefunded = 0
-    
-    // Process each escrow
+
+    // Get order items for stock restoration
+    const order = await prisma.order.findUnique({
+      where: { id: params.orderId },
+      include: { OrderItem: true },
+    })
+
+    // Process each escrow within a transaction for atomicity
     for (const escrow of escrows) {
       const escrowSellerAmount = escrow.sellerAmount.toNumber()
       const isPartialRefund = params.refundAmount && params.refundAmount < escrowSellerAmount
       const refundAmount = params.refundAmount || escrowSellerAmount
-      
-      // Update escrow
-      await prisma.escrowTransaction.update({
-        where: { id: escrow.id },
-        data: {
-          status: isPartialRefund ? 'PARTIAL_REFUND' : 'REFUNDED',
-          refundAmount,
-          refundReason: params.refundReason,
-          refundedAt: new Date(),
-          refundedBy: params.refundedBy
-        }
-      })
-      
-      // Deduct from store's escrow balance
-      await prisma.store.update({
-        where: { id: escrow.storeId },
-        data: {
-          escrowBalance: { decrement: refundAmount },
-          disputedOrders: { increment: 1 }
-        }
-      })
-      
-      // If partial refund, release remaining to seller
-      if (isPartialRefund) {
-        const remainingAmount = escrowSellerAmount - refundAmount
-        await prisma.store.update({
-          where: { id: escrow.storeId },
+
+      await prisma.$transaction(async (tx) => {
+        // Update escrow status
+        await tx.escrowTransaction.update({
+          where: { id: escrow.id },
           data: {
-            pendingBalance: { increment: remainingAmount }
+            status: isPartialRefund ? 'PARTIAL_REFUND' : 'REFUNDED',
+            refundAmount,
+            refundReason: params.refundReason,
+            refundedAt: new Date(),
+            refundedBy: params.refundedBy
           }
         })
+
+        // Deduct from store's escrow balance
+        await tx.store.update({
+          where: { id: escrow.storeId },
+          data: {
+            escrowBalance: { decrement: refundAmount },
+            disputedOrders: { increment: 1 }
+          }
+        })
+
+        // If partial refund, release remaining to seller
+        if (isPartialRefund) {
+          const remainingAmount = escrowSellerAmount - refundAmount
+          await tx.store.update({
+            where: { id: escrow.storeId },
+            data: {
+              pendingBalance: { increment: remainingAmount }
+            }
+          })
+        }
+
+        // Restore platform reserve
+        const reserveAmount = escrow.reserveAmount?.toNumber() || 0
+        const restoreReserve = isPartialRefund
+          ? Math.round(reserveAmount * (refundAmount / escrowSellerAmount))
+          : reserveAmount
+        if (restoreReserve > 0) {
+          await tx.platformReserve.updateMany({
+            data: {
+              totalReserve: { decrement: restoreReserve },
+              availableReserve: { decrement: restoreReserve },
+              pendingRefunds: { increment: restoreReserve }
+            }
+          })
+        }
+      })
+
+      // Restore product stock for each order item
+      if (order && order.OrderItem) {
+        const orderItems = params.storeId
+          ? order.OrderItem.filter(i => i.storeId === escrow.storeId)
+          : order.OrderItem
+
+        for (const item of orderItems) {
+          await prisma.product.update({
+            where: { id: item.productId },
+            data: { quantity: { increment: item.quantity } }
+          })
+        }
       }
-      
+
       // Update delivery success rate
       await updateDeliverySuccessRate(escrow.storeId)
-      
+
       totalRefunded += refundAmount
     }
     
@@ -391,15 +428,15 @@ export async function refundEscrow(params: {
     }
     
     // Get buyer for notification
-    const order = await prisma.order.findUnique({
+    const buyerOrder = await prisma.order.findUnique({
       where: { id: params.orderId },
       select: { userId: true }
     })
     
-    if (order) {
+    if (buyerOrder) {
       await prisma.notification.create({
         data: {
-          userId: order.userId,
+          userId: buyerOrder.userId,
           type: 'REFUND_PROCESSED',
           title: 'Refund Processed',
           message: `Your refund has been processed.`,

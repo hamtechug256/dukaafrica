@@ -147,10 +147,19 @@ export async function POST(req: Request) {
 
     case 'user.deleted':
       try {
-        await prisma.user.delete({ where: { clerkId: id } })
-        console.log(`✅ User deleted: ${id}`)
+        // SOFT DELETE: Don't cascade-delete — deactivate user instead.
+        // Hard delete crashes if user has a store with escrow/payouts (Restrict constraints)
+        await prisma.user.update({
+          where: { clerkId: id },
+          data: {
+            isActive: false,
+            role: 'BUYER', // Downgrade from any role
+            email: `deleted_${Date.now()}_${email}`,
+          }
+        })
+        console.log(`✅ User soft-deleted: ${id}`)
       } catch (error) {
-        console.error('Error deleting user:', error)
+        console.error('Error soft-deleting user:', error)
       }
       break
 
