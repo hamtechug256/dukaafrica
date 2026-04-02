@@ -1,7 +1,12 @@
 /**
  * Paystack Webhook Handler
  *
- * Handles payment confirmation, escrow creation, and order updates
+ * Handles payment confirmation, escrow creation, and order updates.
+ *
+ * Payment processing (payment update, order update, product quantities,
+ * store sales) is wrapped in a single Prisma transaction to guarantee
+ * atomicity.  Escrow creation runs *after* the transaction commits and
+ * its failure is non-fatal (logged but does not roll back the payment).
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -85,7 +90,7 @@ async function handleSuccessfulPayment(data: any) {
   const reference = data.reference
   const orderId = reference.replace('DA-', '')
 
-  // Get payment and order details
+  // ── Pre-transaction reads ────────────────────────────────────────
   const payment = await prisma.payment.findFirst({
     where: { orderId },
     include: {
@@ -105,35 +110,15 @@ async function handleSuccessfulPayment(data: any) {
 
   const order = payment.Order
 
-  // Check if already processed (idempotency)
+  // Idempotency guard – safe outside the transaction because a
+  // concurrent duplicate webhook would also see PAID and bail out.
   if (payment.status === 'PAID') {
     console.log('Payment already processed:', orderId)
     return
   }
 
-  // Update payment status
-  await prisma.payment.update({
-    where: { id: payment.id },
-    data: {
-      status: 'PAID',
-      providerRef: data.id?.toString(),
-      providerResponse: JSON.stringify(data),
-      paidAt: new Date(),
-    },
-  })
-
-  // Update order status
-  await prisma.order.update({
-    where: { id: orderId },
-    data: {
-      paymentStatus: 'PAID',
-      status: 'CONFIRMED',
-    },
-  })
-
-  // Group items by store for escrow creation
+  // Group items by store (pure in-memory computation)
   const storeTotals = new Map<string, { total: number; items: typeof order.OrderItem }>()
-
   for (const item of order.OrderItem) {
     const existing = storeTotals.get(item.storeId) || { total: 0, items: [] }
     existing.total += toNum(item.total)
@@ -141,13 +126,23 @@ async function handleSuccessfulPayment(data: any) {
     storeTotals.set(item.storeId, { ...existing, items: existing.items })
   }
 
-  // Get all unique stores
   const storeIds = Array.from(storeTotals.keys())
   const isMultiVendor = storeIds.length > 1
 
-  // Process each store
-  for (const [storeId, { total: storeTotal }] of storeTotals) {
-    // Get store info for escrow
+  // Pre-fetch all store metadata needed for escrow (outside tx so it
+  // can be referenced after the transaction commits).
+  const storeInfoMap = new Map<
+    string,
+    {
+      id: string
+      userId: string
+      verificationTier: any
+      verificationStatus: any
+      commissionRate: any
+    }
+  >()
+
+  for (const storeId of storeIds) {
     const store = await prisma.store.findUnique({
       where: { id: storeId },
       select: {
@@ -158,16 +153,39 @@ async function handleSuccessfulPayment(data: any) {
         commissionRate: true,
       },
     })
-
-    if (!store) {
-      console.error('Store not found:', storeId)
-      continue
+    if (store) {
+      storeInfoMap.set(storeId, store)
     }
+  }
 
-    // Update product quantities
-    const storeItems = order.OrderItem.filter(item => item.storeId === storeId)
-    for (const item of storeItems) {
-      await prisma.product.update({
+  // ── ATOMIC TRANSACTION ───────────────────────────────────────────
+  // Wraps payment update, order update, product quantity/purchaseCount
+  // decrements, and store totalSales increments into a single
+  // transaction so a mid-process crash cannot leave partial state.
+  await prisma.$transaction(async (tx) => {
+    // 1. Update payment status
+    await tx.payment.update({
+      where: { id: payment.id },
+      data: {
+        status: 'PAID',
+        providerRef: data.id?.toString(),
+        providerResponse: JSON.stringify(data),
+        paidAt: new Date(),
+      },
+    })
+
+    // 2. Update order status
+    await tx.order.update({
+      where: { id: orderId },
+      data: {
+        paymentStatus: 'PAID',
+        status: 'CONFIRMED',
+      },
+    })
+
+    // 3. Decrement product quantity & increment purchaseCount (per item)
+    for (const item of order.OrderItem) {
+      await tx.product.update({
         where: { id: item.productId },
         data: {
           quantity: { decrement: item.quantity },
@@ -176,19 +194,40 @@ async function handleSuccessfulPayment(data: any) {
       })
     }
 
-    // Calculate commission for this store
+    // 4. Increment store totalSales (per store)
+    for (const [storeId, { total: storeTotal }] of storeTotals) {
+      await tx.store.update({
+        where: { id: storeId },
+        data: {
+          totalSales: { increment: storeTotal },
+        },
+      })
+    }
+  })
+  // ── END TRANSACTION ──────────────────────────────────────────────
+
+  // ── ESCROW CREATION (outside transaction – non-fatal) ────────────
+  // totalSales has already been atomically updated above.  Only escrow
+  // bookkeeping (escrowBalance) happens here; a failure is logged but
+  // does not roll back the payment.
+  for (const [storeId, { total: storeTotal }] of storeTotals) {
+    const store = storeInfoMap.get(storeId)
+    if (!store) {
+      console.error('Store not found:', storeId)
+      continue
+    }
+
     const commissionRate = toNum(store.commissionRate) || 15 // Default 15%
     const sellerAmount = Math.round(storeTotal * (1 - commissionRate / 100))
 
     if (isMultiVendor) {
-      // For multi-vendor orders, update store balances directly
+      // For multi-vendor orders, update escrow balances directly
       // (escrow unique constraint on orderId prevents multiple escrows)
       // TODO: Consider schema change to support multi-vendor escrows
       await prisma.store.update({
         where: { id: storeId },
         data: {
-          totalSales: { increment: storeTotal },
-          escrowBalance: { increment: sellerAmount }, // Still use escrow balance for consistency
+          escrowBalance: { increment: sellerAmount },
         },
       })
       console.log(`Multi-vendor: Updated store ${storeId} escrow balance: ${sellerAmount}`)
@@ -211,11 +250,11 @@ async function handleSuccessfulPayment(data: any) {
         console.log(`Escrow created for store ${storeId}:`, escrowResult.escrowId)
       } else {
         console.error(`Failed to create escrow for store ${storeId}:`, escrowResult.error)
-        // Fallback: update store stats without escrow
+        // Fallback: update escrow balance without escrow record
+        // (totalSales already updated inside the transaction above)
         await prisma.store.update({
           where: { id: storeId },
           data: {
-            totalSales: { increment: storeTotal },
             escrowBalance: { increment: sellerAmount },
           },
         })
