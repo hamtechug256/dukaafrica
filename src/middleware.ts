@@ -21,6 +21,7 @@ const isPublicRoute = createRouteMatcher([
   '/admin/login(.*)', // Admin login page must be public
   '/api/admin/security(.*)', // Security API for rate limiting
   // SECURITY FIX: Debug endpoint removed from public routes
+  '/api/health', // Health check endpoint (no auth needed for diagnostics)
   '/api/cron(.*)', // Cron endpoints use their own Bearer token auth
   '/api/payments/mpesa/callback(.*)', // M-Pesa callback (no auth from Safaricom)
   '/api/payments/airtel/callback(.*)', // Airtel Money callback (no auth from Airtel)
