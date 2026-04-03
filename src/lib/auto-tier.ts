@@ -13,7 +13,6 @@
 
 import { prisma } from '@/lib/db'
 import { getAllTierConfigs, type SellerTier } from './seller-tiers'
-import { Prisma } from '@prisma/client'
 
 export interface PromotionResult {
   storeId: string
@@ -175,12 +174,7 @@ async function promoteStore(
   store: { id: string; name: string; userId: string },
   tier: SellerTier
 ): Promise<void> {
-  const commissionRate =
-    tier.commissionRate instanceof Prisma.Decimal
-      ? tier.commissionRate.toNumber()
-      : typeof tier.commissionRate === 'number'
-        ? tier.commissionRate
-        : Number(tier.commissionRate) || 0
+  const commissionRate = tier.commissionRate
 
   // Update store tier and commission
   await prisma.store.update({
