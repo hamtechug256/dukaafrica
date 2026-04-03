@@ -3,6 +3,8 @@
 import { useState, Suspense } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useSearchParams } from 'next/navigation'
+import { Header } from '@/components/home/header'
+import { Footer } from '@/components/home/footer'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -274,8 +276,14 @@ function TrackOrderContent() {
 
 export default function TrackOrderPage() {
   return (
-    <Suspense fallback={<TrackOrderLoading />}>
-      <TrackOrderContent />
-    </Suspense>
+    <div className="min-h-screen flex flex-col bg-[oklch(0.99_0.005_85)] dark:bg-[oklch(0.12_0.02_45)]">
+      <Header />
+      <main className="flex-1">
+        <Suspense fallback={<TrackOrderLoading />}>
+          <TrackOrderContent />
+        </Suspense>
+      </main>
+      <Footer />
+    </div>
   )
 }

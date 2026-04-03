@@ -39,7 +39,7 @@ export function Footer() {
 
       {/* Main Footer */}
       <div className="container py-12">
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-8">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-8">
           {/* About */}
           <div className="col-span-2 lg:col-span-1">
             <Link href="/" className="flex items-center gap-2 mb-4">
@@ -55,16 +55,16 @@ export function Footer() {
               East Africa's Trusted Marketplace. Shop millions of products from verified sellers across East Africa.
             </p>
             <div className="flex gap-3">
-              <a href="#" className="w-9 h-9 rounded-full bg-gray-800 flex items-center justify-center hover:bg-primary transition-colors">
+              <a href="https://facebook.com/duukaafrica" className="w-9 h-9 rounded-full bg-gray-800 flex items-center justify-center hover:bg-primary transition-colors">
                 <Facebook className="h-4 w-4" />
               </a>
-              <a href="#" className="w-9 h-9 rounded-full bg-gray-800 flex items-center justify-center hover:bg-primary transition-colors">
+              <a href="https://twitter.com/duukaafrica" className="w-9 h-9 rounded-full bg-gray-800 flex items-center justify-center hover:bg-primary transition-colors">
                 <Twitter className="h-4 w-4" />
               </a>
-              <a href="#" className="w-9 h-9 rounded-full bg-gray-800 flex items-center justify-center hover:bg-primary transition-colors">
+              <a href="https://instagram.com/duukaafrica" className="w-9 h-9 rounded-full bg-gray-800 flex items-center justify-center hover:bg-primary transition-colors">
                 <Instagram className="h-4 w-4" />
               </a>
-              <a href="#" className="w-9 h-9 rounded-full bg-gray-800 flex items-center justify-center hover:bg-primary transition-colors">
+              <a href="https://youtube.com/duukaafrica" className="w-9 h-9 rounded-full bg-gray-800 flex items-center justify-center hover:bg-primary transition-colors">
                 <Youtube className="h-4 w-4" />
               </a>
             </div>
@@ -83,6 +83,15 @@ export function Footer() {
             </ul>
           </div>
 
+          {/* Company */}
+          <div>
+            <h4 className="font-semibold text-white mb-4">Company</h4>
+            <ul className="space-y-2 text-sm">
+              <li><Link href="/about" className="hover:text-white">About Us</Link></li>
+              <li><Link href="/contact" className="hover:text-white">Contact Us</Link></li>
+            </ul>
+          </div>
+
           {/* Customer Service */}
           <div>
             <h4 className="font-semibold text-white mb-4">Customer Service</h4>
@@ -91,7 +100,6 @@ export function Footer() {
               <li><Link href="/track-order" className="hover:text-white">Track Order</Link></li>
               <li><Link href="/returns" className="hover:text-white">Returns & Refunds</Link></li>
               <li><Link href="/shipping" className="hover:text-white">Shipping Info</Link></li>
-              <li><Link href="/contact" className="hover:text-white">Contact Us</Link></li>
             </ul>
           </div>
 
@@ -99,7 +107,7 @@ export function Footer() {
           <div>
             <h4 className="font-semibold text-white mb-4">Sell on DuukaAfrica</h4>
             <ul className="space-y-2 text-sm">
-              <li><Link href="/seller" className="hover:text-white">Start Selling</Link></li>
+              <li><Link href="/seller/register" className="hover:text-white">Start Selling</Link></li>
               <li><Link href="/seller/login" className="hover:text-white">Seller Login</Link></li>
               <li><Link href="/seller/guidelines" className="hover:text-white">Seller Guidelines</Link></li>
               <li><Link href="/seller/fees" className="hover:text-white">Fees & Pricing</Link></li>
