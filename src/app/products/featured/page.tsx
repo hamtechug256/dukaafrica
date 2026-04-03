@@ -1,5 +1,7 @@
 import { Metadata } from 'next'
 import { prisma } from '@/lib/db'
+import { Header } from '@/components/home/header'
+import { Footer } from '@/components/home/footer'
 import { FeaturedProductsClient } from './client'
 import { Prisma } from '@prisma/client'
 
@@ -107,5 +109,11 @@ export default async function FeaturedProductsPage() {
     console.error('[Featured Products] Failed to fetch featured products:', error)
   }
 
-  return <FeaturedProductsClient products={JSON.parse(JSON.stringify(products))} />
+  return (
+    <div className="min-h-screen bg-[oklch(0.99_0.005_85)] dark:bg-[oklch(0.12_0.02_45)]">
+      <Header />
+      <FeaturedProductsClient products={JSON.parse(JSON.stringify(products))} />
+      <Footer />
+    </div>
+  )
 }
