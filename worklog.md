@@ -184,3 +184,65 @@ Updated 7 files (5 pages + 2 parent server components) with oklch design tokens:
 - Replaced pagination buttons with oklch card styles
 
 All changes pass ESLint with zero new errors (pre-existing categories `react-hooks/error-boundaries` lint warnings are unrelated to styling changes).
+
+---
+## Task ID: 10-document-management
+### Agent: Main
+### Work Task
+Build document management frontend: FileUploader component, Admin Documents page, and dynamic Seller Resources page.
+
+### Work Summary
+Created 4 files (2 new, 2 modified) implementing the full document management frontend:
+
+**New: `src/components/ui/file-uploader.tsx`**
+- Reusable drag-and-drop file uploader component
+- Supports PDF, DOC, DOCX, XLSX, and image files
+- Configurable accept types, file size limits, and upload folder
+- Shows drag-and-drop zone with dashed border and upload progress indicator
+- Displays file name, size, and type after selection
+- Supports both click-to-browse and drag-and-drop
+- Uses `/api/upload` endpoint for actual upload
+- Shows success state with green CheckCircle card
+- Allows removing a selected file
+- Returns `{ url, publicId, bytes, fileName, type }` on successful upload
+- Controlled component with `onUploadComplete` and `value` props
+- Uses shadcn/ui Button, Card, Progress and lucide-react icons
+
+**New: `src/app/admin/documents/page.tsx`**
+- Full admin CRUD page for document management
+- Sidebar navigation matching the specified 13-link sidebar (Dashboard, Users, Stores, Products, Orders, Categories, Banners, Coupons, Documents, Moderation, Disputes, Escrow, Settings)
+- Responsive sidebar that collapses on mobile with hamburger menu toggle
+- Document table with columns: Title, Category, Audience, Type, Size, Downloads, Status, Featured, Date, Actions
+- Filters: search input, category select, audience select, published status select
+- Pagination with page controls and ellipsis for large page counts
+- Create/Edit dialog with all fields: title, description, category, audience, file type, sort order, file upload, published toggle, featured toggle
+- FileUploader integration for document upload
+- One-click toggle publish/featured actions
+- Delete confirmation AlertDialog with Cloudinary cleanup
+- Uses `useQuery`/`useMutation` from TanStack Query with query invalidation
+- Empty state with "Add Document" CTA
+- Loading state with spinner
+
+**Modified: `src/app/seller/resources/page.tsx`**
+- Completely rewritten to fetch real documents from `/api/documents?targetAudience=SELLERS`
+- Category tabs: All, Seller Guides, Pricing, Shipping, Marketing (filter by category param)
+- Each document card shows: file type icon (color-coded by type), title, description, file size, download count, category badge, date
+- Featured badge (yellow star) on featured documents
+- Download button: for PDFs/DOCs opens `/api/documents/[slug]` (increments count); for images opens preview
+- Empty state with contextual message per active tab
+- Error state with "Try Again" button
+- Loading skeletons matching card layout
+- Quick Links section: Seller Guidelines, Fee Structure, Help Center, Contact Us
+- Support CTA section at bottom with gradient card
+- Uses oklch design system throughout with framer-motion animations
+- Header/Footer from `@/components/home/`
+
+**Modified: `src/app/api/upload/route.ts`**
+- Extended to support DOC, DOCX, XLSX file types in addition to images and PDFs
+- Added MIME type allowlist with extension fallback for type detection
+- Document files uploaded as `raw` resource type to Cloudinary
+- File size validation: 25MB for documents, 10MB for images
+- Response includes `fileName` for all file types (not just PDFs)
+- Display type detection (PDF, DOC, DOCX, XLSX, IMAGE) based on MIME and extension
+
+All new files pass ESLint with zero errors. Commit: `ced6376` on branch `fix/10-document-management`.
