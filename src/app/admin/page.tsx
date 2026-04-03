@@ -30,18 +30,7 @@ import {
 import { AccessDeniedPage } from '@/components/admin/access-denied-page'
 import { MobileNav, DesktopSidebar, BottomNav } from '@/components/dashboard/mobile-nav'
 import { Skeleton } from '@/components/ui/skeleton'
-
-const sidebarLinks = [
-  { href: '/admin', icon: BarChart3, label: 'Dashboard' },
-  { href: '/admin/users', icon: Users, label: 'Users' },
-  { href: '/admin/categories', icon: Layers, label: 'Categories' },
-  { href: '/admin/stores', icon: Store, label: 'Stores' },
-  { href: '/admin/products', icon: Package, label: 'Products' },
-  { href: '/admin/orders', icon: ShoppingCart, label: 'Orders' },
-  { href: '/admin/disputes', icon: AlertTriangle, label: 'Disputes' },
-  { href: '/admin/escrow', icon: Shield, label: 'Escrow' },
-  { href: '/admin/settings', icon: Settings, label: 'Settings' },
-]
+import { adminNavItems } from '@/lib/admin-nav'
 
 async function fetchUserRole() {
   const res = await fetch('/api/user/role')
@@ -135,7 +124,7 @@ export default function AdminDashboard() {
       <DesktopSidebar
         title="DuukaAfrica"
         badge="Admin"
-        navItems={sidebarLinks}
+        navItems={adminNavItems}
         userEmail={roleData?.user?.email}
         isSuperAdmin={roleData?.user?.isSuperAdmin}
         onLogout={handleLogout}
@@ -151,7 +140,7 @@ export default function AdminDashboard() {
               <MobileNav
                 title="DuukaAfrica"
                 badge="Admin"
-                navItems={sidebarLinks}
+                navItems={adminNavItems}
                 userType="admin"
                 userEmail={roleData?.user?.email}
               />
@@ -331,7 +320,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Bottom Navigation for Mobile */}
-        <BottomNav items={sidebarLinks} />
+        <BottomNav items={adminNavItems} />
       </main>
     </div>
   )
