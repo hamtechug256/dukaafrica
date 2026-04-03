@@ -12,12 +12,10 @@ function createPrismaClient() {
   // support prepared statements by default. We disable them here.
   let connectionString = databaseUrl
 
-  // If using a pooled connection (port 6543 or contains 'pooler'), disable prepared statements
   const url = new URL(connectionString)
-  const isPooled = url.port === '6543' || url.hostname.includes('pooler')
 
-  // Always set pgbouncer=true for Neon serverless to disable prepared statements
-  // This is safe for direct connections too (it's a no-op there)
+  // Always set pgbouncer=true for Neon serverless to disable prepared statements.
+  // This is safe for direct connections too (it's a no-op there).
   if (!url.searchParams.has('pgbouncer')) {
     url.searchParams.set('pgbouncer', 'true')
     connectionString = url.toString()
@@ -35,31 +33,58 @@ function createPrismaClient() {
 
 const basePrisma = globalForPrisma.prisma ?? createPrismaClient()
 
+// Track whether the deletedAt column exists in the database.
+// If it doesn't exist (schema drift), we skip the soft-delete filter
+// to prevent all product queries from failing.
+let deletedAtColumnExists: boolean | null = null
+
+async function checkDeletedAtColumn(): Promise<boolean> {
+  if (deletedAtColumnExists !== null) return deletedAtColumnExists
+  try {
+    await basePrisma.$queryRaw`SELECT "deletedAt" FROM "Product" LIMIT 0`
+    deletedAtColumnExists = true
+  } catch {
+    deletedAtColumnExists = false
+  }
+  return deletedAtColumnExists
+}
+
 // Auto-filter soft-deleted products via Prisma Client Extension.
-// All read queries on Product will automatically exclude records where
-// deletedAt is set, unless the caller explicitly includes deletedAt
-// in their where clause (e.g., admin views with deletedAt: undefined).
+// Only applies the filter if the deletedAt column actually exists in the DB.
 const softDeleteFilter = <T>(args: T): T => {
   if (args && typeof args === 'object') {
-    // Always inject deletedAt filter, even when no 'where' clause was provided.
-    // This fixes groupBy/aggregate calls that omit 'where' from their args.
-    const where = (args as any).where || {}
-    if (!('deletedAt' in where)) {
-      ;(args as any).where = { ...where, deletedAt: null }
+    // Only inject deletedAt filter if the column exists in the database.
+    // This prevents crashes when the schema hasn't been synced yet.
+    if (deletedAtColumnExists === true) {
+      const where = (args as any).where || {}
+      if (!('deletedAt' in where)) {
+        ;(args as any).where = { ...where, deletedAt: null }
+      }
     }
   }
   return args
 }
 
+// Wrap each query method to check column existence before applying filter
+async function withSoftDeleteCheck<T>(
+  args: any,
+  queryFn: (args: any) => Promise<T>
+): Promise<T> {
+  if (deletedAtColumnExists === null) {
+    await checkDeletedAtColumn()
+  }
+  return queryFn(softDeleteFilter(args))
+}
+
 export const prisma = basePrisma.$extends({
   query: {
     product: {
-      findMany({ args, query }) { return query(softDeleteFilter(args)) },
-      findFirst({ args, query }) { return query(softDeleteFilter(args)) },
-      findUnique({ args, query }) { return query(softDeleteFilter(args)) },
-      count({ args, query }) { return query(softDeleteFilter(args)) },
-      aggregate({ args, query }) { return query(softDeleteFilter(args)) },
-      groupBy({ args, query }) { return query(softDeleteFilter(args)) },
+      findMany({ args, query }) { return withSoftDeleteCheck(args, query) },
+      findFirst({ args, query }) { return withSoftDeleteCheck(args, query) },
+      findUnique({ args, query }) { return withSoftDeleteCheck(args, query) },
+      count({ args, query }) { return withSoftDeleteCheck(args, query) },
+      aggregate({ args, query }) { return withSoftDeleteCheck(args, query) },
+      groupBy({ args, query }) { return withSoftDeleteCheck(args, query) },
     },
   },
 }) as any as PrismaClient
