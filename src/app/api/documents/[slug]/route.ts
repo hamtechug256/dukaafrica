@@ -30,6 +30,7 @@ export async function GET(
         thumbnailUrl: true,
         downloadCount: true,
         isFeatured: true,
+        isPublished: true,
         targetAudience: true,
         createdAt: true,
         updatedAt: true,
