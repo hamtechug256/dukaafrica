@@ -35,34 +35,7 @@ function createPrismaClient() {
 
 const basePrisma = globalForPrisma.prisma ?? createPrismaClient()
 
-// Auto-filter soft-deleted products via Prisma Client Extension.
-// All read queries on Product will automatically exclude records where
-// deletedAt is set, unless the caller explicitly includes deletedAt
-// in their where clause (e.g., admin views with deletedAt: undefined).
-const softDeleteFilter = <T>(args: T): T => {
-  if (args && typeof args === 'object') {
-    // Always inject deletedAt filter, even when no 'where' clause was provided.
-    // This fixes groupBy/aggregate calls that omit 'where' from their args.
-    const where = (args as any).where || {}
-    if (!('deletedAt' in where)) {
-      ;(args as any).where = { ...where, deletedAt: null }
-    }
-  }
-  return args
-}
-
-export const prisma = basePrisma.$extends({
-  query: {
-    product: {
-      findMany({ args, query }) { return query(softDeleteFilter(args)) },
-      findFirst({ args, query }) { return query(softDeleteFilter(args)) },
-      findUnique({ args, query }) { return query(softDeleteFilter(args)) },
-      count({ args, query }) { return query(softDeleteFilter(args)) },
-      aggregate({ args, query }) { return query(softDeleteFilter(args)) },
-      groupBy({ args, query }) { return query(softDeleteFilter(args)) },
-    },
-  },
-}) as any as PrismaClient
+export const prisma = basePrisma
 
 // Also export as db for backward compatibility
 export const db = prisma

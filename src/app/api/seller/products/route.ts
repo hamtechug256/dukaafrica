@@ -398,10 +398,10 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 })
     }
 
-    // Soft-delete: preserve data for existing orders/reviews
+    // Soft-delete: mark as inactive (status-based filtering)
     await prisma.product.update({
       where: { id },
-      data: { deletedAt: new Date(), status: 'INACTIVE' }
+      data: { status: 'INACTIVE' }
     })
 
     return NextResponse.json({ success: true })
