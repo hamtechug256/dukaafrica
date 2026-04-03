@@ -46,6 +46,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { FileUploader, type FileUploadData } from '@/components/ui/file-uploader'
+import { adminNavItems } from '@/lib/admin-nav'
 import {
   Plus,
   Loader2,
@@ -58,37 +59,11 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
-  TrendingUp,
-  Shield,
-  Package,
-  ShoppingBag,
-  FolderOpen,
-  Image,
   FileText,
-  Tag,
-  ShieldCheck,
-  AlertTriangle,
-  Lock,
-  Settings,
   Menu,
   X,
 } from 'lucide-react'
 
-const sidebarLinks = [
-  { href: '/admin', icon: TrendingUp, label: 'Dashboard' },
-  { href: '/admin/users', icon: Shield, label: 'Users' },
-  { href: '/admin/stores', icon: Package, label: 'Stores' },
-  { href: '/admin/products', icon: Package, label: 'Products' },
-  { href: '/admin/orders', icon: ShoppingBag, label: 'Orders' },
-  { href: '/admin/categories', icon: FolderOpen, label: 'Categories' },
-  { href: '/admin/banners', icon: Image, label: 'Banners' },
-  { href: '/admin/coupons', icon: Tag, label: 'Coupons' },
-  { href: '/admin/documents', icon: FileText, label: 'Documents' },
-  { href: '/admin/moderation', icon: ShieldCheck, label: 'Moderation' },
-  { href: '/admin/disputes', icon: AlertTriangle, label: 'Disputes' },
-  { href: '/admin/escrow', icon: Lock, label: 'Escrow' },
-  { href: '/admin/settings', icon: Settings, label: 'Settings' },
-]
 
 const CATEGORIES = [
   { value: 'GENERAL', label: 'General' },
@@ -384,7 +359,7 @@ export default function AdminDocumentsPage() {
           </Button>
         </div>
         <nav className="px-4 space-y-1 pb-6 max-h-[calc(100vh-120px)] overflow-y-auto">
-          {sidebarLinks.map((link) => (
+          {adminNavItems.map((link) => (
             <Link
               key={link.href}
               href={link.href}
