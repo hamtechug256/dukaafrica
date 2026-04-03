@@ -10,6 +10,7 @@
 import { auth } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { evaluateAndPromoteStores } from '@/lib/auto-tier'
 
 export async function POST(
   req: Request,
@@ -174,6 +175,11 @@ export async function POST(
       // Non-fatal: notification failure should not break the response
       console.error('Failed to create delivery confirmation notification (non-fatal):', notifError)
     }
+
+    // Non-blocking: evaluate stores for auto-tier promotion after delivery confirmation
+    evaluateAndPromoteStores().catch((err) => {
+      console.error('[CONFIRM-DELIVERY] Auto-tier evaluation failed (non-fatal):', err)
+    })
 
     return NextResponse.json({
       success: true,
