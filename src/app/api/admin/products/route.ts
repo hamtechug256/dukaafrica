@@ -278,10 +278,10 @@ export async function DELETE(request: NextRequest) {
         where: { id: productId },
       })
     } else {
-      // Soft-delete: preserve data for existing orders/reviews
+      // Soft-delete: mark as inactive (status-based filtering)
       await prisma.product.update({
         where: { id: productId },
-        data: { deletedAt: new Date(), status: 'INACTIVE' }
+        data: { status: 'INACTIVE' }
       })
     }
 
