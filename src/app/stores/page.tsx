@@ -1,5 +1,7 @@
 import { Metadata } from 'next'
 import { prisma } from '@/lib/db'
+import { Header } from '@/components/home/header'
+import { Footer } from '@/components/home/footer'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -113,17 +115,18 @@ export default async function StoresPage({
   const countryInfo = COUNTRIES.find(c => c.id === country) || COUNTRIES[0]
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-[oklch(0.99_0.005_85)] dark:bg-[oklch(0.12_0.02_45)]">
+      <Header />
       {/* Header */}
-      <div className="bg-white dark:bg-gray-800 border-b">
+      <div className="bg-white dark:bg-[oklch(0.15_0.02_45)] border-b border-[oklch(0.94_0.01_85)] dark:border-[oklch(0.22_0.02_45)]">
         <div className="container mx-auto px-4 py-8">
           <div className="flex items-center gap-3 mb-4">
             <Store className="w-8 h-8 text-primary" />
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+            <h1 className="text-3xl font-bold text-[oklch(0.15_0.02_45)] dark:text-white">
               Browse Stores
             </h1>
           </div>
-          <p className="text-gray-600 dark:text-gray-400 max-w-2xl">
+          <p className="text-[oklch(0.55_0.02_45)] dark:text-[oklch(0.65_0.01_85)] max-w-2xl">
             Discover verified sellers and trusted stores across East Africa. 
             Shop with confidence from trusted merchants in the region.
           </p>
@@ -131,13 +134,13 @@ export default async function StoresPage({
       </div>
 
       {/* Filters */}
-      <div className="bg-white dark:bg-gray-800 border-b sticky top-0 z-10">
+      <div className="bg-white dark:bg-[oklch(0.15_0.02_45)] border-b border-[oklch(0.94_0.01_85)] dark:border-[oklch(0.22_0.02_45)] sticky top-0 z-10">
         <div className="container mx-auto px-4 py-4">
           <div className="flex flex-col md:flex-row gap-4">
             {/* Search */}
             <div className="flex-1">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[oklch(0.7_0.01_85)] dark:text-[oklch(0.55_0.01_85)]" />
                 <form>
                   <Input
                     type="search"
@@ -163,7 +166,7 @@ export default async function StoresPage({
                   className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-colors ${
                     country === c.id
                       ? 'bg-primary text-primary-foreground'
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                      : 'bg-[oklch(0.95_0.01_85)] dark:bg-[oklch(0.2_0.02_45)] text-[oklch(0.15_0.02_45)] dark:text-[oklch(0.85_0.01_85)] hover:bg-gray-200 dark:hover:bg-gray-600'
                   }`}
                 >
                   <span className="mr-1">{c.flag}</span>
@@ -179,13 +182,13 @@ export default async function StoresPage({
       <div className="container mx-auto px-4 py-8">
         {/* Results count */}
         <div className="flex items-center justify-between mb-6">
-          <p className="text-gray-600 dark:text-gray-400">
+          <p className="text-[oklch(0.55_0.02_45)] dark:text-[oklch(0.65_0.01_85)]">
             {total === 0 ? (
               'No stores found'
             ) : (
               <>
-                Showing <span className="font-medium text-gray-900 dark:text-white">{stores.length}</span> of{' '}
-                <span className="font-medium text-gray-900 dark:text-white">{total.toLocaleString()}</span> stores
+                Showing <span className="font-medium text-[oklch(0.15_0.02_45)] dark:text-white">{stores.length}</span> of{' '}
+                <span className="font-medium text-[oklch(0.15_0.02_45)] dark:text-white">{total.toLocaleString()}</span> stores
                 {country !== 'ALL' && (
                   <span className="ml-1">in {countryInfo.flag} {countryInfo.name}</span>
                 )}
@@ -197,11 +200,11 @@ export default async function StoresPage({
         {/* Stores Grid */}
         {stores.length === 0 ? (
           <div className="text-center py-16">
-            <Store className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+            <Store className="w-16 h-16 text-[oklch(0.8_0.01_85)] dark:text-[oklch(0.45_0.01_85)] mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-[oklch(0.15_0.02_45)] dark:text-white mb-2">
               No stores found
             </h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-4">
+            <p className="text-[oklch(0.55_0.02_45)] dark:text-[oklch(0.65_0.01_85)] mb-4">
               {query 
                 ? `No stores match "${query}". Try a different search term.`
                 : 'No stores have been registered yet. Check back soon!'}
@@ -218,7 +221,7 @@ export default async function StoresPage({
               <Link key={store.id} href={`/stores/${store.slug}`}>
                 <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer group overflow-hidden">
                   {/* Store Banner */}
-                  <div className="relative h-24 bg-gradient-to-r from-orange-400 to-green-500">
+                  <div className="relative h-24 bg-gradient-to-r from-[oklch(0.6_0.2_35)] to-[oklch(0.55_0.15_140)]">
                     {store.banner ? (
                       <img 
                         src={store.banner} 
@@ -228,7 +231,7 @@ export default async function StoresPage({
                     ) : null}
                     {/* Store Logo Overlay */}
                     <div className="absolute -bottom-8 left-4">
-                      <div className="w-16 h-16 rounded-lg border-4 border-white dark:border-gray-800 bg-white dark:bg-gray-700 overflow-hidden shadow-lg">
+                      <div className="w-16 h-16 rounded-lg border-4 border-white dark:border-[oklch(0.15_0.02_45)] bg-white dark:bg-[oklch(0.2_0.02_45)] overflow-hidden shadow-lg">
                         {store.logo ? (
                           <img 
                             src={store.logo} 
@@ -237,7 +240,7 @@ export default async function StoresPage({
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
-                            <Store className="w-8 h-8 text-gray-400" />
+                            <Store className="w-8 h-8 text-[oklch(0.7_0.01_85)] dark:text-[oklch(0.55_0.01_85)]" />
                           </div>
                         )}
                       </div>
@@ -247,10 +250,10 @@ export default async function StoresPage({
                   <CardContent className="p-4 pt-12">
                     {/* Store Info */}
                     <div className="mb-3">
-                      <h3 className="font-semibold text-gray-900 dark:text-white truncate group-hover:text-primary transition-colors">
+                      <h3 className="font-semibold text-[oklch(0.15_0.02_45)] dark:text-white truncate group-hover:text-primary transition-colors">
                         {store.name}
                       </h3>
-                      <div className="flex items-center gap-1 text-sm text-gray-500 mt-1">
+                      <div className="flex items-center gap-1 text-sm text-[oklch(0.55_0.02_45)] dark:text-[oklch(0.65_0.01_85)] mt-1">
                         <MapPin className="w-3 h-3" />
                         <span>{store.city ? `${store.city}, ` : ''}{store.country}</span>
                       </div>
@@ -258,7 +261,7 @@ export default async function StoresPage({
 
                     {/* Description */}
                     {store.description && (
-                      <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 mb-3">
+                      <p className="text-sm text-[oklch(0.55_0.02_45)] dark:text-[oklch(0.65_0.01_85)] line-clamp-2 mb-3">
                         {store.description}
                       </p>
                     )}
@@ -266,7 +269,7 @@ export default async function StoresPage({
                     {/* Stats */}
                     <div className="flex items-center justify-between text-sm">
                       <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-1 text-gray-500">
+                        <div className="flex items-center gap-1 text-[oklch(0.55_0.02_45)] dark:text-[oklch(0.65_0.01_85)]">
                           <Package className="w-4 h-4" />
                           <span>{store._count.Product}</span>
                         </div>
@@ -274,11 +277,11 @@ export default async function StoresPage({
                           <div className="flex items-center gap-1 text-yellow-500">
                             <Star className="w-4 h-4 fill-current" />
                             <span>{store.avgRating}</span>
-                            <span className="text-gray-400">({store.reviewCount})</span>
+                            <span className="text-[oklch(0.7_0.01_85)] dark:text-[oklch(0.55_0.01_85)]">({store.reviewCount})</span>
                           </div>
                         )}
                       </div>
-                      <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-primary group-hover:translate-x-1 transition-all" />
+                      <ChevronRight className="w-4 h-4 text-[oklch(0.7_0.01_85)] dark:text-[oklch(0.55_0.01_85)] group-hover:text-primary group-hover:translate-x-1 transition-all" />
                     </div>
 
                     {/* Badge for new stores */}
@@ -309,7 +312,7 @@ export default async function StoresPage({
                 <Button variant="outline">Previous</Button>
               </Link>
             )}
-            <span className="flex items-center px-4 text-gray-600">
+            <span className="flex items-center px-4 text-[oklch(0.55_0.02_45)] dark:text-[oklch(0.65_0.01_85)]">
               Page {page} of {totalPages}
             </span>
             {page < totalPages && (
@@ -328,7 +331,7 @@ export default async function StoresPage({
       </div>
 
       {/* Become a Seller CTA */}
-      <div className="bg-gradient-to-r from-orange-500 to-green-500 text-white">
+      <div className="bg-gradient-to-r from-[oklch(0.6_0.2_35)] to-[oklch(0.55_0.15_140)] text-white">
         <div className="container mx-auto px-4 py-12">
           <div className="max-w-2xl mx-auto text-center">
             <Store className="w-12 h-12 mx-auto mb-4 opacity-90" />
@@ -340,7 +343,7 @@ export default async function StoresPage({
               Set up your store in minutes and start selling today.
             </p>
             <Link href="/seller/register">
-              <Button size="lg" variant="secondary" className="bg-white text-gray-900 hover:bg-gray-100">
+              <Button size="lg" variant="secondary" className="bg-white text-[oklch(0.15_0.02_45)] hover:bg-gray-100">
                 Create Your Free Store
                 <ChevronRight className="w-4 h-4 ml-2" />
               </Button>
@@ -348,6 +351,7 @@ export default async function StoresPage({
           </div>
         </div>
       </div>
+      <Footer />
     </div>
   )
 }

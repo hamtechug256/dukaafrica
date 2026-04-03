@@ -58,7 +58,7 @@ export function ProductFilters({ categories, searchParams }: ProductFiltersProps
               className={`flex items-center gap-2 text-sm ${
                 searchParams.category === category.slug
                   ? 'text-primary font-medium'
-                  : 'text-gray-600 dark:text-gray-400 hover:text-primary'
+                  : 'text-[oklch(0.55_0.02_45)] dark:text-[oklch(0.65_0.01_85)] hover:text-primary'
               }`}
             >
               {category.icon ? (
@@ -72,7 +72,7 @@ export function ProductFilters({ categories, searchParams }: ProductFiltersProps
           {searchParams.category && (
             <Link
               href="/products"
-              className="text-sm text-red-500 hover:text-red-600"
+              className="text-sm text-[oklch(0.6_0.2_35)] hover:text-[oklch(0.55_0.2_35)]"
             >
               Clear category
             </Link>
@@ -93,7 +93,7 @@ export function ProductFilters({ categories, searchParams }: ProductFiltersProps
               className="w-full"
               defaultValue={searchParams.minPrice}
             />
-            <span className="text-gray-400">-</span>
+            <span className="text-[oklch(0.65_0.01_85)]">-</span>
             <Input
               type="number"
               placeholder="Max"
@@ -116,7 +116,7 @@ export function ProductFilters({ categories, searchParams }: ProductFiltersProps
           {['4 & above', '3 & above', '2 & above'].map((rating) => (
             <div key={rating} className="flex items-center gap-2">
               <Checkbox id={rating} />
-              <Label htmlFor={rating} className="text-sm text-gray-600 dark:text-gray-400">
+              <Label htmlFor={rating} className="text-sm text-[oklch(0.55_0.02_45)] dark:text-[oklch(0.65_0.01_85)]">
                 {rating} ⭐
               </Label>
             </div>
@@ -132,13 +132,13 @@ export function ProductFilters({ categories, searchParams }: ProductFiltersProps
         <CardContent className="space-y-3">
           <div className="flex items-center gap-2">
             <Checkbox id="in-stock" />
-            <Label htmlFor="in-stock" className="text-sm text-gray-600 dark:text-gray-400">
+            <Label htmlFor="in-stock" className="text-sm text-[oklch(0.55_0.02_45)] dark:text-[oklch(0.65_0.01_85)]">
               In Stock
             </Label>
           </div>
           <div className="flex items-center gap-2">
             <Checkbox id="on-sale" />
-            <Label htmlFor="on-sale" className="text-sm text-gray-600 dark:text-gray-400">
+            <Label htmlFor="on-sale" className="text-sm text-[oklch(0.55_0.02_45)] dark:text-[oklch(0.65_0.01_85)]">
               On Sale
             </Label>
           </div>
