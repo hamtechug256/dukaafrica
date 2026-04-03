@@ -1,6 +1,8 @@
 import { Metadata } from 'next'
 import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
+import { Header } from '@/components/home/header'
+import { Footer } from '@/components/home/footer'
 import { 
   ShoppingCart, 
   Users, 
@@ -56,9 +58,11 @@ const countries = [
 
 export default function AboutPage() {
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen flex flex-col bg-[oklch(0.99_0.005_85)] dark:bg-[oklch(0.12_0.02_45)]">
+      <Header />
+      <main className="flex-1">
       {/* Hero */}
-      <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-700 text-white">
+      <div className="text-white" style={{ background: 'linear-gradient(135deg, oklch(0.6 0.2 35), oklch(0.55 0.18 40), oklch(0.55 0.15 140))' }}>  
         <div className="container mx-auto px-4 py-16">
           <div className="max-w-3xl mx-auto text-center">
             <h1 className="text-4xl md:text-5xl font-bold mb-6">
@@ -155,7 +159,7 @@ export default function AboutPage() {
       </div>
 
       {/* Mission */}
-      <div className="bg-gradient-to-r from-primary to-emerald-600 text-white py-16">
+      <div className="text-white py-16" style={{ background: 'linear-gradient(135deg, oklch(0.55 0.15 140), oklch(0.6 0.2 35))' }}>  
         <div className="container mx-auto px-4 text-center">
           <h2 className="text-3xl font-bold mb-4">Our Mission</h2>
           <p className="text-xl max-w-2xl mx-auto text-white/90">
@@ -165,7 +169,7 @@ export default function AboutPage() {
       </div>
 
       {/* Seller-First CTA */}
-      <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-700 text-white py-20">
+      <div className="text-white py-20" style={{ background: 'linear-gradient(135deg, oklch(0.6 0.2 35), oklch(0.55 0.18 40), oklch(0.55 0.15 140))' }}>  
         <div className="container mx-auto px-4">
           <div className="max-w-3xl mx-auto text-center">
             {/* Badge */}
@@ -230,6 +234,8 @@ export default function AboutPage() {
           </div>
         </div>
       </div>
+      </main>
+      <Footer />
     </div>
   )
 }
