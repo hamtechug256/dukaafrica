@@ -4,8 +4,8 @@ import { Prisma } from '@prisma/client'
 import { Metadata } from 'next'
 import { Suspense } from 'react'
 import { CategoryFiltersClient } from './category-filters-client'
-import { Header } from '@/components/layout/header'
-import { Footer } from '@/components/layout/footer'
+import { Header } from '@/components/home/header'
+import { Footer } from '@/components/home/footer'
 import { DynamicIcon, getCategoryEmoji } from '@/components/ui/dynamic-icon'
 import { safeParseImages } from '@/lib/helpers'
 
@@ -174,13 +174,13 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
     }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
+    <div className="min-h-screen flex flex-col bg-[oklch(0.99_0.005_85)] dark:bg-[oklch(0.12_0.02_45)]">
       <Header />
       
       <main className="flex-1">
         {/* Category Header */}
-        <div className="bg-gradient-to-r from-orange-500 to-green-500 text-white">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="bg-gradient-to-r from-[oklch(0.6_0.2_35)] to-[oklch(0.55_0.15_140)] text-white">
+          <div className="container mx-auto px-4 py-12">
             <div className="flex items-center gap-4">
               {category.image ? (
                 <img src={category.image} alt={category.name} className="w-16 h-16 rounded-xl object-cover" />
@@ -209,9 +209,9 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
         </div>
 
         {/* Products */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="container mx-auto px-4 py-8">
           {/* Filter Bar — wrapped in Suspense for useSearchParams() */}
-          <Suspense fallback={<div className="h-12 bg-gray-200 rounded-lg animate-pulse mb-6" />}>
+          <Suspense fallback={<div className="h-12 bg-[oklch(0.95_0.01_85)] dark:bg-[oklch(0.18_0.02_45)] rounded-lg animate-pulse mb-6" />}>
             <CategoryFiltersClient
               categorySlug={slug}
               currentSort={sp.sort || 'newest'}
@@ -229,8 +229,8 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
               {products.map((product: any) => (
                 <a key={product.id} href={`/products/${product.slug}`} className="group">
-                  <div className="bg-white dark:bg-gray-800 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-all">
-                    <div className="aspect-square bg-gray-100 dark:bg-gray-700 relative overflow-hidden">
+                  <div className="bg-white dark:bg-[oklch(0.15_0.02_45)] rounded-xl overflow-hidden border border-[oklch(0.94_0.01_85)] dark:border-[oklch(0.22_0.02_45)] hover:shadow-lg transition-all">
+                    <div className="aspect-square bg-[oklch(0.95_0.01_85)] dark:bg-[oklch(0.18_0.02_45)] relative overflow-hidden">
                       {product.images ? (
                         <img
                           src={safeParseImages(product.images)[0]}
@@ -238,20 +238,20 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-gray-400">
+                        <div className="w-full h-full flex items-center justify-center text-[oklch(0.7_0.01_85)] dark:text-[oklch(0.55_0.01_85)]">
                           <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                           </svg>
                         </div>
                       )}
                       {product.comparePrice && product.comparePrice > product.price && (
-                        <div className="absolute top-2 left-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+                        <div className="absolute top-2 left-2 bg-[oklch(0.6_0.2_35)] text-white text-xs font-bold px-2 py-1 rounded-full">
                           -{Math.round(((product.comparePrice - product.price) / product.comparePrice) * 100)}%
                         </div>
                       )}
                     </div>
                     <div className="p-3">
-                      <h3 className="text-sm font-medium text-gray-900 dark:text-white line-clamp-2 group-hover:text-orange-500 transition-colors">
+                      <h3 className="text-sm font-medium text-[oklch(0.15_0.02_45)] dark:text-white line-clamp-2 group-hover:text-[oklch(0.6_0.2_35)] transition-colors">
                         {product.name}
                       </h3>
                       <div className="flex items-center gap-1 mt-1">
@@ -260,14 +260,14 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
                             Verified
                           </span>
                         )}
-                        <span className="text-xs text-gray-500 truncate">{product.store?.name}</span>
+                        <span className="text-xs text-[oklch(0.55_0.02_45)] dark:text-[oklch(0.65_0.01_85)] truncate">{product.store?.name}</span>
                       </div>
                       <div className="flex items-center gap-2 mt-2">
-                        <span className="text-sm font-bold text-gray-900 dark:text-white">
+                        <span className="text-sm font-bold text-[oklch(0.15_0.02_45)] dark:text-white">
                           UGX {product.price.toLocaleString()}
                         </span>
                         {product.comparePrice && product.comparePrice > product.price && (
-                          <span className="text-xs text-gray-400 line-through">
+                          <span className="text-xs text-[oklch(0.65_0.01_85)] line-through">
                             UGX {product.comparePrice.toLocaleString()}
                           </span>
                         )}
@@ -275,8 +275,8 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
                       {product.rating > 0 && (
                         <div className="flex items-center gap-1 mt-1">
                           <span className="text-yellow-400 text-xs">★</span>
-                          <span className="text-xs text-gray-500">{product.rating.toFixed(1)}</span>
-                          <span className="text-xs text-gray-400">({product.reviewCount})</span>
+                          <span className="text-xs text-[oklch(0.55_0.02_45)] dark:text-[oklch(0.65_0.01_85)]">{product.rating.toFixed(1)}</span>
+                          <span className="text-xs text-[oklch(0.65_0.01_85)]">({product.reviewCount})</span>
                         </div>
                       )}
                     </div>
@@ -286,11 +286,11 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
             </div>
           ) : (
             <div className="text-center py-16">
-              <svg className="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-16 h-16 mx-auto text-[oklch(0.8_0.01_85)] dark:text-[oklch(0.45_0.01_85)] mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white">No products found</h3>
-              <p className="text-gray-500 mt-1">Try adjusting your search or filters</p>
+              <h3 className="text-lg font-medium text-[oklch(0.15_0.02_45)] dark:text-white">No products found</h3>
+              <p className="text-[oklch(0.55_0.02_45)] dark:text-[oklch(0.65_0.01_85)] mt-1">Try adjusting your search or filters</p>
             </div>
           )}
 
@@ -310,7 +310,7 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
                     className={`px-4 py-2 rounded-lg font-medium transition-colors ${
                       pageNum === pagination.page
                         ? 'bg-primary text-white'
-                        : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                        : 'bg-white dark:bg-[oklch(0.15_0.02_45)] text-[oklch(0.15_0.02_45)] dark:text-[oklch(0.85_0.01_85)] hover:bg-gray-100 dark:hover:bg-gray-700 border border-[oklch(0.94_0.01_85)] dark:border-[oklch(0.22_0.02_45)]'
                     }`}
                   >
                     {pageNum}
@@ -318,12 +318,12 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
                 )
               })}
               {pagination.totalPages > 5 && (
-                <span className="px-4 py-2 text-gray-500">...</span>
+                <span className="px-4 py-2 text-[oklch(0.55_0.02_45)] dark:text-[oklch(0.65_0.01_85)]">...</span>
               )}
               {pagination.totalPages > 5 && (
                 <a
                   href={`/categories/${slug}?page=${pagination.totalPages}${sp.sort ? `&sort=${sp.sort}` : ''}${sp.search ? `&search=${sp.search}` : ''}`}
-                  className="px-4 py-2 rounded-lg font-medium bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  className="px-4 py-2 rounded-lg font-medium bg-white dark:bg-[oklch(0.15_0.02_45)] text-[oklch(0.15_0.02_45)] dark:text-[oklch(0.85_0.01_85)] hover:bg-gray-100 dark:hover:bg-gray-700 border border-[oklch(0.94_0.01_85)] dark:border-[oklch(0.22_0.02_45)]"
                 >
                   {pagination.totalPages}
                 </a>
