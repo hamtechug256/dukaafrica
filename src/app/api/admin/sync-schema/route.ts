@@ -1,10 +1,10 @@
 /**
  * API: Sync Database Schema
- * 
+ *
  * POST /api/admin/sync-schema
- * 
+ *
  * Run this once to sync the Prisma schema to the database
- * This creates any missing tables (EscrowSettings, PlatformReserve, etc.)
+ * This creates any missing tables (EscrowSettings, PlatformReserve, Document, etc.)
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -26,6 +26,25 @@ async function checkAdminAccess() {
   }
 }
 
+// Helper to check if a table exists
+async function tableExists(tableName: string): Promise<boolean> {
+  try {
+    await prisma.$queryRawUnsafe(`SELECT 1 FROM "${tableName}" LIMIT 1`)
+    return true
+  } catch {
+    return false
+  }
+}
+
+// Helper to safely create an index
+async function safeCreateIndex(indexName: string, sql: string) {
+  try {
+    await prisma.$executeRawUnsafe(sql)
+  } catch {
+    // Index might already exist — ignore
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const admin = await checkAdminAccess()
@@ -33,58 +52,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
-    // Check if EscrowSettings table exists by trying to query it
-    let escrowSettingsExists = false
-    try {
-      await prisma.escrowSettings.findFirst()
-      escrowSettingsExists = true
-    } catch {
-      // Table doesn't exist
-    }
-
-    // Check if PlatformReserve table exists
-    let platformReserveExists = false
-    try {
-      await prisma.platformReserve.findFirst()
-      platformReserveExists = true
-    } catch {
-    }
-
-    // Check if SellerTierConfig table exists
-    let sellerTierConfigExists = false
-    try {
-      await prisma.sellerTierConfig.findFirst()
-      sellerTierConfigExists = true
-    } catch {
-    }
-
-    // Check if EscrowTransaction table exists
-    let escrowTransactionExists = false
-    try {
-      await prisma.escrowTransaction.findFirst()
-      escrowTransactionExists = true
-    } catch {
-    }
-
-    // If all tables exist, no need to sync
-    if (escrowSettingsExists && platformReserveExists && sellerTierConfigExists && escrowTransactionExists) {
-      return NextResponse.json({
-        success: true,
-        message: 'All tables already exist. No sync needed.',
-        tables: {
-          escrowSettings: 'exists',
-          platformReserve: 'exists',
-          sellerTierConfig: 'exists',
-          escrowTransaction: 'exists'
-        }
-      })
-    }
-
-    // Try to create the missing tables using raw SQL
     const results: Array<{ table: string; status: string; message?: string }> = []
 
-    // Create EscrowSettings table if missing
-    if (!escrowSettingsExists) {
+    // ─────────────────────────────────────────
+    // 1. EscrowSettings
+    // ─────────────────────────────────────────
+    if (!(await tableExists('EscrowSettings'))) {
       try {
         await prisma.$executeRawUnsafe(`
           CREATE TABLE IF NOT EXISTS "EscrowSettings" (
@@ -107,13 +80,34 @@ export async function POST(request: NextRequest) {
           );
         `)
         results.push({ table: 'EscrowSettings', status: 'created' })
+        // Seed default row
+        try {
+          await prisma.escrowSettings.create({
+            data: {
+              id: 'default',
+              defaultEscrowDays: 7,
+              starterEscrowDays: 7,
+              verifiedEscrowDays: 5,
+              premiumEscrowDays: 3,
+              starterCommissionRate: 15,
+              verifiedCommissionRate: 10,
+              premiumCommissionRate: 8,
+              autoReleaseEnabled: true,
+              autoReleaseHour: 0,
+              disputeResolutionDays: 7,
+              minWithdrawalAmount: 50000,
+            }
+          })
+        } catch { /* ignore duplicate */ }
       } catch (e: any) {
         results.push({ table: 'EscrowSettings', status: 'error', message: e.message })
       }
     }
 
-    // Create PlatformReserve table if missing
-    if (!platformReserveExists) {
+    // ─────────────────────────────────────────
+    // 2. PlatformReserve
+    // ─────────────────────────────────────────
+    if (!(await tableExists('PlatformReserve'))) {
       try {
         await prisma.$executeRawUnsafe(`
           CREATE TABLE IF NOT EXISTS "PlatformReserve" (
@@ -129,13 +123,20 @@ export async function POST(request: NextRequest) {
           );
         `)
         results.push({ table: 'PlatformReserve', status: 'created' })
+        try {
+          await prisma.platformReserve.create({
+            data: { id: 'default', totalReserve: 0, availableReserve: 0, pendingRefunds: 0, currency: 'UGX', reservePercent: 10, minReserve: 500000 }
+          })
+        } catch { /* ignore */ }
       } catch (e: any) {
         results.push({ table: 'PlatformReserve', status: 'error', message: e.message })
       }
     }
 
-    // Create SellerTierConfig table if missing
-    if (!sellerTierConfigExists) {
+    // ─────────────────────────────────────────
+    // 3. SellerTierConfig
+    // ─────────────────────────────────────────
+    if (!(await tableExists('SellerTierConfig'))) {
       try {
         await prisma.$executeRawUnsafe(`
           CREATE TABLE IF NOT EXISTS "SellerTierConfig" (
@@ -169,38 +170,19 @@ export async function POST(request: NextRequest) {
             CONSTRAINT "SellerTierConfig_pkey" PRIMARY KEY ("id")
           );
         `)
-        // Add unique constraint for tierName
-        try {
-          await prisma.$executeRawUnsafe(`
-            CREATE UNIQUE INDEX IF NOT EXISTS "SellerTierConfig_tierName_key" ON "SellerTierConfig"("tierName");
-          `)
-        } catch (e) {
-          // Index might already exist
-        }
-        // Add index for isActive
-        try {
-          await prisma.$executeRawUnsafe(`
-            CREATE INDEX IF NOT EXISTS "SellerTierConfig_isActive_idx" ON "SellerTierConfig"("isActive");
-          `)
-        } catch (e) {
-          // Index might already exist
-        }
-        // Add index for order
-        try {
-          await prisma.$executeRawUnsafe(`
-            CREATE INDEX IF NOT EXISTS "SellerTierConfig_order_idx" ON "SellerTierConfig"("order");
-          `)
-        } catch (e) {
-          // Index might already exist
-        }
+        await safeCreateIndex('SellerTierConfig_tierName', `CREATE UNIQUE INDEX IF NOT EXISTS "SellerTierConfig_tierName_key" ON "SellerTierConfig"("tierName")`)
+        await safeCreateIndex('SellerTierConfig_isActive', `CREATE INDEX IF NOT EXISTS "SellerTierConfig_isActive_idx" ON "SellerTierConfig"("isActive")`)
+        await safeCreateIndex('SellerTierConfig_order', `CREATE INDEX IF NOT EXISTS "SellerTierConfig_order_idx" ON "SellerTierConfig"("order")`)
         results.push({ table: 'SellerTierConfig', status: 'created' })
       } catch (e: any) {
         results.push({ table: 'SellerTierConfig', status: 'error', message: e.message })
       }
     }
 
-    // Create EscrowTransaction table if missing
-    if (!escrowTransactionExists) {
+    // ─────────────────────────────────────────
+    // 4. EscrowTransaction
+    // ─────────────────────────────────────────
+    if (!(await tableExists('EscrowTransaction'))) {
       try {
         await prisma.$executeRawUnsafe(`
           CREATE TABLE IF NOT EXISTS "EscrowTransaction" (
@@ -230,85 +212,88 @@ export async function POST(request: NextRequest) {
             CONSTRAINT "EscrowTransaction_pkey" PRIMARY KEY ("id")
           );
         `)
-        // Add composite unique constraint for orderId + storeId (multi-vendor support)
-        try {
-          await prisma.$executeRawUnsafe(`
-            CREATE UNIQUE INDEX IF NOT EXISTS "EscrowTransaction_orderId_storeId_key" ON "EscrowTransaction"("orderId", "storeId");
-          `)
-        } catch (e) {}
-        // Add indexes
-        try {
-          await prisma.$executeRawUnsafe(`
-            CREATE INDEX IF NOT EXISTS "EscrowTransaction_status_idx" ON "EscrowTransaction"("status");
-          `)
-        } catch (e) {}
-        try {
-          await prisma.$executeRawUnsafe(`
-            CREATE INDEX IF NOT EXISTS "EscrowTransaction_releaseAt_idx" ON "EscrowTransaction"("releaseAt");
-          `)
-        } catch (e) {}
-        try {
-          await prisma.$executeRawUnsafe(`
-            CREATE INDEX IF NOT EXISTS "EscrowTransaction_storeId_idx" ON "EscrowTransaction"("storeId");
-          `)
-        } catch (e) {}
-        try {
-          await prisma.$executeRawUnsafe(`
-            CREATE INDEX IF NOT EXISTS "EscrowTransaction_buyerId_idx" ON "EscrowTransaction"("buyerId");
-          `)
-        } catch (e) {}
-        try {
-          await prisma.$executeRawUnsafe(`
-            CREATE INDEX IF NOT EXISTS "EscrowTransaction_orderId_idx" ON "EscrowTransaction"("orderId");
-          `)
-        } catch (e) {}
+        await safeCreateIndex('ET_orderId_storeId', `CREATE UNIQUE INDEX IF NOT EXISTS "EscrowTransaction_orderId_storeId_key" ON "EscrowTransaction"("orderId", "storeId")`)
+        await safeCreateIndex('ET_status', `CREATE INDEX IF NOT EXISTS "EscrowTransaction_status_idx" ON "EscrowTransaction"("status")`)
+        await safeCreateIndex('ET_releaseAt', `CREATE INDEX IF NOT EXISTS "EscrowTransaction_releaseAt_idx" ON "EscrowTransaction"("releaseAt")`)
+        await safeCreateIndex('ET_storeId', `CREATE INDEX IF NOT EXISTS "EscrowTransaction_storeId_idx" ON "EscrowTransaction"("storeId")`)
+        await safeCreateIndex('ET_buyerId', `CREATE INDEX IF NOT EXISTS "EscrowTransaction_buyerId_idx" ON "EscrowTransaction"("buyerId")`)
+        await safeCreateIndex('ET_orderId', `CREATE INDEX IF NOT EXISTS "EscrowTransaction_orderId_idx" ON "EscrowTransaction"("orderId")`)
         results.push({ table: 'EscrowTransaction', status: 'created' })
       } catch (e: any) {
         results.push({ table: 'EscrowTransaction', status: 'error', message: e.message })
       }
     }
 
-    // Create default EscrowSettings if created
-    if (!escrowSettingsExists) {
+    // ─────────────────────────────────────────
+    // 5. Document (Document/Resource Management)
+    // ─────────────────────────────────────────
+    if (!(await tableExists('Document'))) {
       try {
-        await prisma.escrowSettings.create({
-          data: {
-            id: 'default',
-            defaultEscrowDays: 7,
-            starterEscrowDays: 7,
-            verifiedEscrowDays: 5,
-            premiumEscrowDays: 3,
-            starterCommissionRate: 15,
-            verifiedCommissionRate: 10,
-            premiumCommissionRate: 8,
-            autoReleaseEnabled: true,
-            autoReleaseHour: 0,
-            disputeResolutionDays: 7,
-            minWithdrawalAmount: 50000,
-          }
-        })
-      } catch (e) {
-        // Ignore
+        await prisma.$executeRawUnsafe(`
+          CREATE TABLE IF NOT EXISTS "Document" (
+            "id" TEXT NOT NULL,
+            "title" TEXT NOT NULL,
+            "description" TEXT,
+            "slug" TEXT NOT NULL,
+            "category" TEXT NOT NULL DEFAULT 'GENERAL',
+            "fileType" TEXT NOT NULL DEFAULT 'PDF',
+            "fileSize" INTEGER NOT NULL DEFAULT 0,
+            "fileUrl" TEXT NOT NULL,
+            "fileKey" TEXT,
+            "thumbnailUrl" TEXT,
+            "downloadCount" INTEGER NOT NULL DEFAULT 0,
+            "isPublished" BOOLEAN NOT NULL DEFAULT false,
+            "isFeatured" BOOLEAN NOT NULL DEFAULT false,
+            "targetAudience" TEXT NOT NULL DEFAULT 'ALL',
+            "sortOrder" INTEGER NOT NULL DEFAULT 0,
+            "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            "updatedAt" TIMESTAMP(3) NOT NULL,
+            "createdBy" TEXT,
+            "updatedBy" TEXT,
+            CONSTRAINT "Document_pkey" PRIMARY KEY ("id")
+          );
+        `)
+        // Indexes
+        await safeCreateIndex('Doc_slug', `CREATE UNIQUE INDEX IF NOT EXISTS "Document_slug_key" ON "Document"("slug")`)
+        await safeCreateIndex('Doc_category', `CREATE INDEX IF NOT EXISTS "Document_category_idx" ON "Document"("category")`)
+        await safeCreateIndex('Doc_isPublished', `CREATE INDEX IF NOT EXISTS "Document_isPublished_idx" ON "Document"("isPublished")`)
+        await safeCreateIndex('Doc_targetAudience', `CREATE INDEX IF NOT EXISTS "Document_targetAudience_idx" ON "Document"("targetAudience")`)
+        await safeCreateIndex('Doc_isFeatured', `CREATE INDEX IF NOT EXISTS "Document_isFeatured_idx" ON "Document"("isFeatured")`)
+        await safeCreateIndex('Doc_sortOrder', `CREATE INDEX IF NOT EXISTS "Document_sortOrder_idx" ON "Document"("sortOrder")`)
+        await safeCreateIndex('Doc_createdAt', `CREATE INDEX IF NOT EXISTS "Document_createdAt_idx" ON "Document"("createdAt")`)
+        results.push({ table: 'Document', status: 'created' })
+      } catch (e: any) {
+        results.push({ table: 'Document', status: 'error', message: e.message })
       }
     }
 
-    // Create default PlatformReserve if created
-    if (!platformReserveExists) {
-      try {
-        await prisma.platformReserve.create({
-          data: {
-            id: 'default',
-            totalReserve: 0,
-            availableReserve: 0,
-            pendingRefunds: 0,
-            currency: 'UGX',
-            reservePercent: 10,
-            minReserve: 500000,
-          }
-        })
-      } catch (e) {
-        // Ignore
+    // ─────────────────────────────────────────
+    // 6. Add Document FK column to User table
+    // ─────────────────────────────────────────
+    try {
+      // Check if createdBy column exists on User table
+      const colExists = await prisma.$queryRawUnsafe(`
+        SELECT column_name FROM information_schema.columns
+        WHERE table_name = 'User' AND column_name = 'createdBy'
+      `) as any[]
+
+      if (!colExists || colExists.length === 0) {
+        await prisma.$executeRawUnsafe(`
+          ALTER TABLE "User" ADD COLUMN "createdBy" TEXT;
+        `)
+        // Add foreign key constraint
+        try {
+          await prisma.$executeRawUnsafe(`
+            ALTER TABLE "Document" ADD CONSTRAINT "Document_createdBy_fkey"
+              FOREIGN KEY ("createdBy") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+          `)
+        } catch {
+          // Constraint might already exist
+        }
+        results.push({ table: 'User', status: 'altered', message: 'Added createdBy column' })
       }
+    } catch (e: any) {
+      results.push({ table: 'User', status: 'skipped', message: `Could not check/alter User table: ${e.message}` })
     }
 
     return NextResponse.json({
@@ -334,36 +319,20 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
-    const tables = {
-      escrowSettings: false,
-      platformReserve: false,
-      sellerTierConfig: false,
-      escrowTransaction: false,
+    const tableNames = ['EscrowSettings', 'PlatformReserve', 'SellerTierConfig', 'EscrowTransaction', 'Document']
+    const tables: Record<string, boolean> = {}
+
+    for (const name of tableNames) {
+      try {
+        tables[name] = await tableExists(name)
+      } catch {
+        tables[name] = false
+      }
     }
-
-    try {
-      await prisma.escrowSettings.findFirst()
-      tables.escrowSettings = true
-    } catch (e) {}
-
-    try {
-      await prisma.platformReserve.findFirst()
-      tables.platformReserve = true
-    } catch (e) {}
-
-    try {
-      await prisma.sellerTierConfig.findFirst()
-      tables.sellerTierConfig = true
-    } catch (e) {}
-
-    try {
-      await prisma.escrowTransaction.findFirst()
-      tables.escrowTransaction = true
-    } catch (e) {}
 
     return NextResponse.json({
       tables,
-      allExist: tables.escrowSettings && tables.platformReserve && tables.sellerTierConfig && tables.escrowTransaction
+      allExist: Object.values(tables).every(Boolean)
     })
   } catch (error) {
     return NextResponse.json({ error: 'Failed to check tables' }, { status: 500 })
