@@ -54,29 +54,11 @@ import {
   ChevronRight,
   Filter,
   AlertTriangle,
-  Users,
-  Store,
-  ShoppingCart,
-  Settings,
-  BarChart3,
-  Shield,
-  Layers,
 } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { MobileNav, DesktopSidebar, BottomNav } from '@/components/dashboard/mobile-nav'
-
-const sidebarLinks = [
-  { href: '/admin', icon: BarChart3, label: 'Dashboard' },
-  { href: '/admin/users', icon: Users, label: 'Users' },
-  { href: '/admin/categories', icon: Layers, label: 'Categories' },
-  { href: '/admin/stores', icon: Store, label: 'Stores' },
-  { href: '/admin/products', icon: Package, label: 'Products' },
-  { href: '/admin/orders', icon: ShoppingCart, label: 'Orders' },
-  { href: '/admin/disputes', icon: AlertTriangle, label: 'Disputes' },
-  { href: '/admin/escrow', icon: Shield, label: 'Escrow' },
-  { href: '/admin/settings', icon: Settings, label: 'Settings' },
-]
+import { adminNavItems } from '@/lib/admin-nav'
 
 async function fetchUserRole() {
   const res = await fetch('/api/user/role')
@@ -213,7 +195,7 @@ export default function AdminProductsPage() {
       <DesktopSidebar
         title="DuukaAfrica"
         badge="Admin"
-        navItems={sidebarLinks}
+        navItems={adminNavItems}
         userEmail={roleData?.user?.email}
         isSuperAdmin={roleData?.user?.isSuperAdmin}
       />
@@ -226,7 +208,7 @@ export default function AdminProductsPage() {
             <MobileNav
               title="DuukaAfrica"
               badge="Admin"
-              navItems={sidebarLinks}
+              navItems={adminNavItems}
               userType="admin"
               userEmail={roleData?.user?.email}
             />
@@ -514,7 +496,7 @@ export default function AdminProductsPage() {
         </div>
 
         {/* Bottom Navigation for Mobile */}
-        <BottomNav items={sidebarLinks} />
+        <BottomNav items={adminNavItems} />
       </main>
 
       {/* Reject Dialog */}

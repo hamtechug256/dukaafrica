@@ -18,6 +18,8 @@ import {
   FileText,
   Image,
   Tag,
+  Award,
+  Flag,
 } from 'lucide-react'
 
 export interface NavItem {
@@ -38,5 +40,7 @@ export const adminNavItems: NavItem[] = [
   { href: '/admin/banners', icon: Image, label: 'Banners' },
   { href: '/admin/coupons', icon: Tag, label: 'Coupons' },
   { href: '/admin/documents', icon: FileText, label: 'Documents' },
+  { href: '/admin/tiers', icon: Award, label: 'Tiers' },
+  { href: '/admin/moderation', icon: Flag, label: 'Moderation' },
   { href: '/admin/settings', icon: Settings, label: 'Settings' },
 ]
