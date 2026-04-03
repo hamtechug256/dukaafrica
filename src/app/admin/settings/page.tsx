@@ -24,33 +24,18 @@ import {
   Truck,
   CreditCard,
   Coins,
-  Users,
-  Store,
-  Package,
-  ShoppingCart,
-  BarChart3,
-  Shield,
   Loader2,
   Save,
   CheckCircle,
   AlertCircle,
   RefreshCw,
+  Shield,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { AccessDeniedPage } from '@/components/admin/access-denied-page'
-
-const sidebarLinks = [
-  { href: '/admin', icon: BarChart3, label: 'Dashboard' },
-  { href: '/admin/users', icon: Users, label: 'Users' },
-  { href: '/admin/categories', icon: Settings, label: 'Categories' },
-  { href: '/admin/stores', icon: Store, label: 'Stores' },
-  { href: '/admin/products', icon: Package, label: 'Products' },
-  { href: '/admin/orders', icon: ShoppingCart, label: 'Orders' },
-  { href: '/admin/disputes', icon: AlertCircle, label: 'Disputes' },
-  { href: '/admin/escrow', icon: Shield, label: 'Escrow & Verification' },
-  { href: '/admin/settings', icon: Settings, label: 'Settings' },
-]
+import { MobileNav, DesktopSidebar, BottomNav } from '@/components/dashboard/mobile-nav'
+import { adminNavItems } from '@/lib/admin-nav'
 
 const COUNTRIES = ['UGANDA', 'KENYA', 'TANZANIA', 'RWANDA']
 
@@ -229,45 +214,32 @@ export default function AdminSettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex">
-      {/* Sidebar */}
-      <aside className="w-64 bg-white dark:bg-gray-800 border-r hidden md:block">
-        <div className="p-6">
-          <h1 className="text-xl font-bold bg-gradient-to-r from-orange-500 to-green-500 bg-clip-text text-transparent">
-            DuukaAfrica
-          </h1>
-          <Badge variant="secondary" className="mt-1">Admin</Badge>
-        </div>
-        <nav className="px-4 space-y-1">
-          {sidebarLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                link.href === '/admin/settings'
-                  ? 'bg-primary/10 text-primary font-medium'
-                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-              }`}
-            >
-              <link.icon className="w-5 h-5" />
-              {link.label}
-            </Link>
-          ))}
-        </nav>
-      </aside>
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex overflow-x-hidden">
+      {/* Desktop Sidebar - Hidden on mobile */}
+      <DesktopSidebar
+        title="DuukaAfrica"
+        badge="Admin"
+        navItems={adminNavItems}
+      />
 
       {/* Main Content */}
-      <main className="flex-1">
+      <main className="flex-1 flex flex-col min-h-screen pb-16 md:pb-0">
         {/* Header */}
         <header className="bg-white dark:bg-gray-800 border-b sticky top-0 z-10">
-          <div className="px-6 py-4 flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-semibold">Platform Settings</h2>
-              <p className="text-sm text-gray-500">Configure commission, shipping, payments, and more</p>
+          <div className="px-4 md:px-6 py-4 flex items-center gap-3">
+            <MobileNav
+              title="DuukaAfrica"
+              badge="Admin"
+              navItems={adminNavItems}
+              userType="admin"
+            />
+            <div className="min-w-0">
+              <h2 className="text-lg md:text-xl font-semibold">Platform Settings</h2>
+              <p className="text-sm text-gray-500 hidden sm:block">Configure commission, shipping, payments, and more</p>
             </div>
-            <div className="flex items-center gap-4">
-              <Shield className="w-5 h-5 text-green-500" />
-              <span className="text-sm text-gray-600 dark:text-gray-400">
+            <div className="ml-auto flex items-center gap-2">
+              <Shield className="w-5 h-5 text-green-500 hidden sm:block" />
+              <span className="text-sm text-gray-600 dark:text-gray-400 hidden sm:block">
                 {roleData?.user?.email || 'Admin'}
               </span>
             </div>
@@ -786,6 +758,9 @@ export default function AdminSettingsPage() {
             </TabsContent>
           </Tabs>
         </div>
+
+        {/* Bottom Navigation for Mobile */}
+        <BottomNav items={adminNavItems} />
       </main>
     </div>
   )

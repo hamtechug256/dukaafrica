@@ -46,6 +46,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { FileUploader, type FileUploadData } from '@/components/ui/file-uploader'
+import { MobileNav, DesktopSidebar, BottomNav } from '@/components/dashboard/mobile-nav'
 import { adminNavItems } from '@/lib/admin-nav'
 import {
   Plus,
@@ -60,8 +61,6 @@ import {
   ChevronLeft,
   ChevronRight,
   FileText,
-  Menu,
-  X,
 } from 'lucide-react'
 
 
@@ -174,7 +173,6 @@ export default function AdminDocumentsPage() {
   const [formData, setFormData] = useState<DocumentFormData>(defaultFormData)
   const [fileData, setFileData] = useState<FileUploadData | null>(null)
   const [existingFileUrl, setExistingFileUrl] = useState<string>('')
-  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('')
@@ -325,74 +323,29 @@ export default function AdminDocumentsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex">
-      {/* Mobile sidebar overlay */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-40 md:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      {/* Sidebar */}
-      <aside
-        className={`w-64 bg-white dark:bg-gray-800 border-r fixed md:static inset-y-0 left-0 z-50 transform transition-transform md:transform-none ${
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
-        }`}
-      >
-        <div className="p-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold bg-gradient-to-r from-orange-500 to-green-500 bg-clip-text text-transparent">
-              DuukaAfrica
-            </h1>
-            <Badge variant="secondary" className="mt-1">
-              Admin
-            </Badge>
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="md:hidden"
-            onClick={() => setSidebarOpen(false)}
-          >
-            <X className="w-5 h-5" />
-          </Button>
-        </div>
-        <nav className="px-4 space-y-1 pb-6 max-h-[calc(100vh-120px)] overflow-y-auto">
-          {adminNavItems.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              onClick={() => setSidebarOpen(false)}
-              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                link.href === '/admin/documents'
-                  ? 'bg-primary/10 text-primary font-medium'
-                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-              }`}
-            >
-              <link.icon className="w-5 h-5" />
-              {link.label}
-            </Link>
-          ))}
-        </nav>
-      </aside>
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex overflow-x-hidden">
+      {/* Desktop Sidebar - Hidden on mobile */}
+      <DesktopSidebar
+        title="DuukaAfrica"
+        badge="Admin"
+        navItems={adminNavItems}
+      />
 
       {/* Main Content */}
-      <main className="flex-1 min-w-0">
+      <main className="flex-1 flex flex-col min-h-screen pb-16 md:pb-0">
         <header className="bg-white dark:bg-gray-800 border-b sticky top-0 z-10">
           <div className="px-4 sm:px-6 py-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="md:hidden"
-                onClick={() => setSidebarOpen(true)}
-              >
-                <Menu className="w-5 h-5" />
-              </Button>
+              {/* Mobile Menu */}
+              <MobileNav
+                title="DuukaAfrica"
+                badge="Admin"
+                navItems={adminNavItems}
+                userType="admin"
+              />
               <div>
-                <h2 className="text-xl font-semibold">Document Management</h2>
-                <p className="text-sm text-gray-500">
+                <h2 className="text-lg md:text-xl font-semibold">Document Management</h2>
+                <p className="text-sm text-gray-500 hidden sm:block">
                   Manage seller resources, guides, and documents
                 </p>
               </div>
@@ -716,6 +669,9 @@ export default function AdminDocumentsPage() {
             </>
           )}
         </div>
+
+        {/* Bottom Navigation for Mobile */}
+        <BottomNav items={adminNavItems} />
       </main>
 
       {/* Create/Edit Dialog */}
