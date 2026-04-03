@@ -171,7 +171,7 @@ function meetsTierRequirements(
  * Promote a store to a new tier: update tier, commission rate, and notify the seller.
  */
 async function promoteStore(
-  store: { id: string; name: string; userId: string },
+  store: { id: string; name: string; userId: string; verificationTier: string },
   tier: SellerTier
 ): Promise<void> {
   const commissionRate = tier.commissionRate
