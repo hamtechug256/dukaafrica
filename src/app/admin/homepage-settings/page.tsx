@@ -782,7 +782,7 @@ export default function AdminHomepageSettingsPage() {
 
                   <div className="bg-green-50 dark:bg-green-950/30 p-4 rounded-lg">
                     <p className="text-sm text-gray-600 dark:text-gray-400">
-                      <strong>Tip:</strong> Use emojis like &#x1F6E1;&#xFE0F; (shield), &#x2705; (check), &#xD83D;&#xDCB3; (card).
+                      <strong>Tip:</strong> Use emojis like 🛡️ (shield), ✅ (check), 💳 (card).
                       Copy from your OS emoji picker. These appear in the compact bar below the hero.
                     </p>
                   </div>
