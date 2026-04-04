@@ -84,6 +84,8 @@ export function StoresSection() {
                     src={store.banner} 
                     alt={store.name}
                     className="w-full h-full object-cover"
+                    loading="lazy"
+                    decoding="async"
                   />
                   {/* Logo */}
                   <div className="absolute -bottom-8 left-4">
@@ -92,6 +94,8 @@ export function StoresSection() {
                         src={store.logo} 
                         alt={store.name}
                         className="w-full h-full object-cover"
+                        loading="lazy"
+                        decoding="async"
                       />
                     </div>
                   </div>

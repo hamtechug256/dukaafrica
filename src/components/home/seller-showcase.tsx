@@ -206,6 +206,8 @@ export function SellerShowcase() {
                             src={seller.banner}
                             alt={seller.name}
                             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                            loading="lazy"
+                            decoding="async"
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
@@ -225,6 +227,8 @@ export function SellerShowcase() {
                                 src={seller.logo}
                                 alt={seller.name}
                                 className="w-full h-full object-cover"
+                                loading="lazy"
+                                decoding="async"
                               />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center bg-[oklch(0.55_0.15_140/20%)]">

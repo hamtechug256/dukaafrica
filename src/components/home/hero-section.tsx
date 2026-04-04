@@ -319,6 +319,8 @@ export function HeroSection() {
                     src={slides[currentSlide].image}
                     alt="Featured Product"
                     className="w-full h-full object-cover"
+                    loading="lazy"
+                    decoding="async"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
                   <div className="absolute bottom-4 left-4 right-4">

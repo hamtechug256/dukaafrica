@@ -258,6 +258,8 @@ export function FlashSales() {
                       src={product.image}
                       alt={product.name}
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                      loading="lazy"
+                      decoding="async"
                     />
                     {/* Discount Badge */}
                     {product.discount > 0 && (

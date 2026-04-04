@@ -371,7 +371,7 @@ export function Header() {
                                 >
                                   <div className="w-12 h-12 rounded-lg bg-gray-100 dark:bg-gray-800 overflow-hidden flex-shrink-0">
                                     {product.image ? (
-                                      <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
+                                      <img src={product.image} alt={product.name} className="w-full h-full object-cover" loading="lazy" decoding="async" />
                                     ) : (
                                       <div className="w-full h-full flex items-center justify-center">
                                         <Package className="w-5 h-5 text-gray-400" />
@@ -430,7 +430,7 @@ export function Header() {
                                 >
                                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[oklch(0.6_0.2_35)] to-[oklch(0.55_0.15_140)] flex items-center justify-center text-white font-bold">
                                     {store.logo ? (
-                                      <img src={store.logo} alt={store.name} className="w-full h-full rounded-full object-cover" />
+                                      <img src={store.logo} alt={store.name} className="w-full h-full rounded-full object-cover" loading="lazy" decoding="async" />
                                     ) : (
                                       store.name[0].toUpperCase()
                                     )}
