@@ -1,9 +1,20 @@
-import { Header } from '@/components/layout/header'
-import { Footer } from '@/components/layout/footer'
+import { Header } from '@/components/home/header'
+import { Footer } from '@/components/home/footer'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { MessageCircle, Mail, Phone, MapPin, Clock, ChevronRight } from 'lucide-react'
+import { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'Help Center - DuukaAfrica | FAQs & Support',
+  description: 'Get help with your DuukaAfrica orders, payments, shipping, and account. Find answers to frequently asked questions or contact our support team.',
+  openGraph: {
+    title: 'Help Center - DuukaAfrica',
+    description: 'Find answers to common questions or contact our support team.',
+    type: 'website',
+  },
+}
 
 export default function HelpPage() {
   const faqs = [
@@ -30,12 +41,12 @@ export default function HelpPage() {
   ]
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
+    <div className="min-h-screen flex flex-col bg-[oklch(0.99_0.005_85)] dark:bg-[oklch(0.12_0.02_45)]">
       <Header />
       
       <main className="flex-1">
         {/* Hero Section */}
-        <div className="bg-gradient-to-r from-primary to-emerald-600 text-white py-16">
+        <div className="text-white py-16" style={{ background: 'linear-gradient(135deg, oklch(0.6 0.2 35), oklch(0.55 0.18 40), oklch(0.55 0.15 140))' }}>  
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
             <h1 className="text-4xl font-bold mb-4">How can we help you?</h1>
             <p className="text-xl text-white/80">Find answers to common questions or contact our support team</p>

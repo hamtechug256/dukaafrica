@@ -44,7 +44,6 @@ async function ensureAdmin(userId: string) {
         updatedAt: new Date(),
       }
     })
-    console.log(`✅ Created user: ${email} with role: ${user.role}`)
     return user
   }
 
@@ -54,7 +53,6 @@ async function ensureAdmin(userId: string) {
       where: { id: user.id },
       data: { role: 'SUPER_ADMIN', updatedAt: new Date() }
     })
-    console.log(`✅ Auto-promoted to SUPER_ADMIN: ${email}`)
     return user
   }
 
@@ -72,21 +70,15 @@ export async function GET() {
     // Ensure user exists and is promoted if needed
     const user = await ensureAdmin(userId)
 
-    // Logging - do NOT log sensitive email lists
-    console.log(`[ADMIN STATS] User role check: ${user?.role}`)
-
     // Check if user is admin
     if (!user || (user.role !== 'ADMIN' && user.role !== 'SUPER_ADMIN')) {
-      console.log(`[ADMIN STATS] ACCESS DENIED for user with role ${user?.role}`)
       // SECURITY: Return generic error - do NOT leak email, role, or config info
       return NextResponse.json({ 
         error: 'Access denied',
       }, { status: 403 })
     }
 
-    console.log(`[ADMIN STATS] ACCESS GRANTED for ${user.email}`)
-
-    // Get stats
+    // Get stats — each query is independent, failures return 0
     const [
       totalUsers,
       newUsersThisMonth,
@@ -98,35 +90,37 @@ export async function GET() {
       totalOrders,
       todayOrders,
       disputedOrders,
-      totalRevenue,
-      lastMonthRevenue,
     ] = await Promise.all([
-      prisma.user.count(),
+      prisma.user.count().catch(() => 0),
       prisma.user.count({
         where: {
           createdAt: {
             gte: new Date(new Date().setDate(1))
           }
         }
-      }),
-      prisma.store.count(),
-      prisma.store.count({ where: { isActive: true } }),
-      prisma.store.count({ where: { isVerified: false } }),
-      prisma.product.count(),
-      prisma.product.count({ where: { status: 'ACTIVE' } }),
-      prisma.order.count(),
+      }).catch(() => 0),
+      prisma.store.count().catch(() => 0),
+      prisma.store.count({ where: { isActive: true } }).catch(() => 0),
+      prisma.store.count({ where: { isVerified: false } }).catch(() => 0),
+      prisma.product.count().catch(() => 0),
+      prisma.product.count({ where: { status: 'ACTIVE' } }).catch(() => 0),
+      prisma.order.count().catch(() => 0),
       prisma.order.count({
         where: {
           createdAt: {
             gte: new Date(new Date().setHours(0, 0, 0, 0))
           }
         }
-      }),
-      prisma.order.count({ where: { status: 'RETURNED' } }),
+      }).catch(() => 0),
+      prisma.order.count({ where: { status: 'RETURNED' } }).catch(() => 0),
+    ])
+
+    // Revenue queries may fail if Payment table has issues — return 0 gracefully
+    const [totalRevenue, lastMonthRevenue, currentMonthRevenue] = await Promise.all([
       prisma.payment.aggregate({
         where: { status: 'PAID' },
         _sum: { amount: true }
-      }),
+      }).catch(() => ({ _sum: { amount: null } })),
       prisma.payment.aggregate({
         where: {
           status: 'PAID',
@@ -136,18 +130,17 @@ export async function GET() {
           }
         },
         _sum: { amount: true }
-      }),
+      }).catch(() => ({ _sum: { amount: null } })),
+      prisma.payment.aggregate({
+        where: {
+          status: 'PAID',
+          paidAt: {
+            gte: new Date(new Date().setDate(1))
+          }
+        },
+        _sum: { amount: true }
+      }).catch(() => ({ _sum: { amount: null } })),
     ])
-
-    const currentMonthRevenue = await prisma.payment.aggregate({
-      where: {
-        status: 'PAID',
-        paidAt: {
-          gte: new Date(new Date().setDate(1))
-        }
-      },
-      _sum: { amount: true }
-    })
 
     const revenueGrowth = lastMonthRevenue._sum.amount 
       ? (toNum(currentMonthRevenue._sum.amount) - toNum(lastMonthRevenue._sum.amount)) / (toNum(lastMonthRevenue._sum.amount) || 1)

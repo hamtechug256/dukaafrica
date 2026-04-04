@@ -123,20 +123,20 @@ export function FlashSalesClient({ products: initialProducts }: FlashSalesClient
 
   if (initialProducts.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+      <div className="min-h-screen bg-[oklch(0.99_0.005_85)] dark:bg-[oklch(0.12_0.02_45)]">
+        <div className="container mx-auto px-4 py-16">
           <div className="text-center">
-            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center mx-auto mb-6">
+            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-[oklch(0.6_0.2_35)] to-[oklch(0.55_0.15_140)] flex items-center justify-center mx-auto mb-6">
               <Flame className="w-12 h-12 text-white" />
             </div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+            <h1 className="text-3xl font-bold text-[oklch(0.15_0.02_45)] dark:text-white mb-4">
               No Active Flash Sales
             </h1>
-            <p className="text-gray-600 dark:text-gray-400 mb-8 max-w-md mx-auto">
+            <p className="text-[oklch(0.55_0.02_45)] dark:text-[oklch(0.65_0.01_85)] mb-8 max-w-md mx-auto">
               There are no flash sales running at the moment. Check back soon for amazing deals!
             </p>
             <Link href="/products">
-              <Button className="bg-gradient-to-r from-orange-500 to-green-500 hover:from-orange-600 hover:to-green-600">
+              <Button className="bg-gradient-to-r from-[oklch(0.6_0.2_35)] to-[oklch(0.55_0.15_140)] hover:from-[oklch(0.55_0.2_35)] hover:to-[oklch(0.5_0.15_140)]">
                 Browse All Products
               </Button>
             </Link>
@@ -147,10 +147,10 @@ export function FlashSalesClient({ products: initialProducts }: FlashSalesClient
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-[oklch(0.99_0.005_85)] dark:bg-[oklch(0.12_0.02_45)]">
       {/* Hero Banner */}
-      <div className="bg-gradient-to-r from-red-500 to-orange-500 text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <div className="bg-gradient-to-r from-[oklch(0.6_0.2_35)] to-[oklch(0.55_0.15_140)] text-white">
+        <div className="container mx-auto px-4 py-12">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
             <div>
               <div className="flex items-center gap-3 mb-3">
@@ -183,17 +183,17 @@ export function FlashSalesClient({ products: initialProducts }: FlashSalesClient
       </div>
 
       {/* Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="container mx-auto px-4 py-8">
         {/* Filters Bar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-          <p className="text-gray-600 dark:text-gray-400">
-            Showing <span className="font-semibold text-gray-900 dark:text-white">{initialProducts.length}</span> flash deals
+          <p className="text-[oklch(0.55_0.02_45)] dark:text-[oklch(0.65_0.01_85)]">
+            Showing <span className="font-semibold text-[oklch(0.15_0.02_45)] dark:text-white">{initialProducts.length}</span> flash deals
           </p>
           <div className="flex items-center gap-3">
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              className="px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+              className="px-4 py-2 rounded-lg border border-[oklch(0.94_0.01_85)] dark:border-[oklch(0.22_0.02_45)] bg-white dark:bg-[oklch(0.15_0.02_45)] text-[oklch(0.15_0.02_45)] dark:text-white focus:outline-none focus:ring-2 focus:ring-[oklch(0.6_0.2_35)]"
             >
               <option value="popular">Most Popular</option>
               <option value="ending-soon">Ending Soon</option>
@@ -220,7 +220,7 @@ export function FlashSalesClient({ products: initialProducts }: FlashSalesClient
                 transition={{ delay: index * 0.05 }}
               >
                 <Link href={`/products/${product.slug}`}>
-                  <div className="group bg-white dark:bg-gray-800 rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                  <div className="group bg-white dark:bg-[oklch(0.15_0.02_45)] rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border border-[oklch(0.94_0.01_85)] dark:border-[oklch(0.22_0.02_45)]">
                     {/* Image */}
                     <div className="relative aspect-square overflow-hidden">
                       <img
@@ -230,7 +230,7 @@ export function FlashSalesClient({ products: initialProducts }: FlashSalesClient
                       />
                       
                       {/* Discount Badge */}
-                      <div className="absolute top-3 left-3 bg-gradient-to-r from-red-500 to-orange-500 text-white px-3 py-1.5 rounded-full text-sm font-bold shadow-lg">
+                      <div className="absolute top-3 left-3 bg-gradient-to-r from-[oklch(0.6_0.2_35)] to-[oklch(0.55_0.15_140)] text-white px-3 py-1.5 rounded-full text-sm font-bold shadow-lg">
                         -{product.flashSaleDiscount}% OFF
                       </div>
 
@@ -250,7 +250,7 @@ export function FlashSalesClient({ products: initialProducts }: FlashSalesClient
                         </div>
                         <div className="h-2 bg-white/30 rounded-full overflow-hidden">
                           <div 
-                            className="h-full bg-gradient-to-r from-orange-500 to-red-500 rounded-full"
+                            className="h-full bg-gradient-to-r from-[oklch(0.6_0.2_35)] to-[oklch(0.55_0.15_140)] rounded-full"
                             style={{ width: `${soldPercent}%` }}
                           />
                         </div>
@@ -260,7 +260,7 @@ export function FlashSalesClient({ products: initialProducts }: FlashSalesClient
                     {/* Info */}
                     <div className="p-4">
                       {/* Store */}
-                      <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 mb-2">
+                      <div className="flex items-center gap-1.5 text-xs text-[oklch(0.55_0.02_45)] dark:text-[oklch(0.65_0.01_85)] mb-2">
                         <span>{product.store.name}</span>
                         {product.store.isVerified && (
                           <CheckCircle className="w-3.5 h-3.5 text-blue-500" />
@@ -268,7 +268,7 @@ export function FlashSalesClient({ products: initialProducts }: FlashSalesClient
                       </div>
 
                       {/* Name */}
-                      <h3 className="font-semibold text-gray-900 dark:text-white line-clamp-2 mb-2 group-hover:text-orange-500 transition-colors">
+                      <h3 className="font-semibold text-[oklch(0.15_0.02_45)] dark:text-white line-clamp-2 mb-2 group-hover:text-[oklch(0.6_0.2_35)] transition-colors">
                         {product.name}
                       </h3>
 
@@ -276,10 +276,10 @@ export function FlashSalesClient({ products: initialProducts }: FlashSalesClient
                       {product.rating > 0 && (
                         <div className="flex items-center gap-1 mb-2">
                           <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                          <span className="text-sm font-medium text-gray-900 dark:text-white">
+                          <span className="text-sm font-medium text-[oklch(0.15_0.02_45)] dark:text-white">
                             {product.rating.toFixed(1)}
                           </span>
-                          <span className="text-xs text-gray-500">
+                          <span className="text-xs text-[oklch(0.55_0.02_45)] dark:text-[oklch(0.65_0.01_85)]">
                             ({product.reviewCount})
                           </span>
                         </div>
@@ -287,18 +287,18 @@ export function FlashSalesClient({ products: initialProducts }: FlashSalesClient
 
                       {/* Price */}
                       <div className="flex items-baseline gap-2 mb-3">
-                        <span className="text-xl font-bold text-red-500">
+                        <span className="text-xl font-bold text-[oklch(0.6_0.2_35)]">
                           UGX {product.flashSalePrice.toLocaleString()}
                         </span>
-                        <span className="text-sm text-gray-400 line-through">
+                        <span className="text-sm text-[oklch(0.65_0.01_85)] line-through">
                           UGX {product.price.toLocaleString()}
                         </span>
                       </div>
 
                       {/* Timer */}
                       {product.flashSaleEnd && (
-                        <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                          <Clock className="w-4 h-4 text-red-500" />
+                        <div className="flex items-center gap-2 text-sm text-[oklch(0.55_0.02_45)] dark:text-[oklch(0.65_0.01_85)]">
+                          <Clock className="w-4 h-4 text-[oklch(0.6_0.2_35)]" />
                           <span>Ends in:</span>
                           <CountdownTimer endDate={product.flashSaleEnd} />
                         </div>

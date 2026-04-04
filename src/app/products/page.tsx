@@ -1,11 +1,53 @@
+import { Metadata } from 'next'
+import { Suspense } from 'react'
 import { prisma } from '@/lib/db'
 import { ProductGrid } from './product-grid'
 import { ProductFilters } from './product-filters'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Header } from '@/components/layout/header'
-import { Footer } from '@/components/layout/footer'
+import { Header } from '@/components/home/header'
+import { Footer } from '@/components/home/footer'
 import { Prisma } from '@prisma/client'
+
+interface ProductsPageProps {
+  searchParams: Promise<{
+    q?: string
+    category?: string
+    minPrice?: string
+    maxPrice?: string
+    sort?: string
+    page?: string
+  }>
+}
+
+export async function generateMetadata({ searchParams }: ProductsPageProps): Promise<Metadata> {
+  const params = await searchParams
+
+  const title = params.q
+    ? `"${params.q}" - Search Results | DuukaAfrica`
+    : params.category
+    ? `${params.category.charAt(0).toUpperCase() + params.category.slice(1)} Products | DuukaAfrica`
+    : 'Products - DuukaAfrica | Shop Quality Products Online'
+
+  const description = params.q
+    ? `Search results for "${params.q}" on DuukaAfrica. Browse and buy quality products from verified sellers across Uganda, Kenya, Tanzania, and Rwanda.`
+    : params.category
+    ? `Browse ${params.category} products on DuukaAfrica. Find the best deals from verified sellers across East Africa with secure escrow payments.`
+    : 'Browse thousands of products across electronics, fashion, home & living, and more on DuukaAfrica. Find the best deals from verified sellers in Uganda, Kenya, Tanzania, and Rwanda.'
+
+  return {
+    title,
+    description,
+    keywords: params.q
+      ? `${params.q}, search, products, DuukaAfrica, online shopping, East Africa`
+      : 'products, online shopping, electronics, fashion, home, Uganda, Kenya, Tanzania, Rwanda, DuukaAfrica',
+    openGraph: {
+      title,
+      description,
+      type: 'website',
+    },
+  }
+}
 
 // Helper to safely convert Prisma Decimal to number
 function toNum(val: unknown): number {
@@ -131,46 +173,49 @@ async function getCategories() {
   })
 }
 
-interface ProductsPageProps {
-  searchParams: Promise<{
-    q?: string
-    category?: string
-    minPrice?: string
-    maxPrice?: string
-    sort?: string
-    page?: string
-  }>
-}
-
 export default async function ProductsPage({ searchParams }: ProductsPageProps) {
   const resolvedSearchParams = await searchParams
-  const [{ products, pagination }, categories] = await Promise.all([
-    getProducts(resolvedSearchParams),
-    getCategories(),
-  ])
+
+  let products: Awaited<ReturnType<typeof getProducts>>['products'] = []
+  let pagination: Awaited<ReturnType<typeof getProducts>>['pagination'] = { page: 1, totalPages: 0, total: 0, hasMore: false }
+  let categories: Awaited<ReturnType<typeof getCategories>> = []
+
+  try {
+    const results = await Promise.all([
+      getProducts(resolvedSearchParams),
+      getCategories(),
+    ])
+    products = results[0].products
+    pagination = results[0].pagination
+    categories = results[1]
+  } catch (error) {
+    console.error('[Products Page] Failed to fetch data:', error)
+  }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
+    <div className="min-h-screen flex flex-col bg-[oklch(0.99_0.005_85)] dark:bg-[oklch(0.12_0.02_45)]">
       <Header />
       
       <main className="flex-1">
         {/* Header */}
-        <div className="bg-white dark:bg-gray-800 border-b">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+        <div className="bg-white dark:bg-[oklch(0.15_0.02_45)] border-b border-[oklch(0.94_0.01_85)] dark:border-[oklch(0.22_0.02_45)]">
+          <div className="container mx-auto px-4 py-6">
+            <h1 className="text-2xl font-bold text-[oklch(0.15_0.02_45)] dark:text-white">
               {resolvedSearchParams.q ? `Search results for "${resolvedSearchParams.q}"` : 'All Products'}
             </h1>
-            <p className="text-gray-600 dark:text-gray-400 mt-1">
+            <p className="text-[oklch(0.55_0.02_45)] dark:text-[oklch(0.65_0.01_85)] mt-1">
               {pagination.total.toLocaleString()} products found
             </p>
           </div>
         </div>
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="container mx-auto px-4 py-8">
           <div className="flex flex-col lg:flex-row gap-8">
-            {/* Filters Sidebar */}
+            {/* Filters Sidebar — wrapped in Suspense for useSearchParams() */}
             <aside className="lg:w-64 flex-shrink-0">
-              <ProductFilters categories={categories} searchParams={resolvedSearchParams} />
+              <Suspense fallback={<div className="space-y-4 animate-pulse"><div className="h-40 bg-[oklch(0.92_0.01_85)] dark:bg-[oklch(0.22_0.02_45)] rounded-lg" /><div className="h-32 bg-[oklch(0.92_0.01_85)] dark:bg-[oklch(0.22_0.02_45)] rounded-lg" /></div>}>
+                <ProductFilters categories={categories} searchParams={resolvedSearchParams} />
+              </Suspense>
             </aside>
 
             {/* Product Grid */}
@@ -205,7 +250,11 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
                       size="sm"
                       asChild
                     >
-                      <a href={`/products?page=${p}&${new URLSearchParams(resolvedSearchParams as any).toString()}`}>
+                      <a href={`/products?page=${p}&${new URLSearchParams(
+                        Object.fromEntries(
+                          Object.entries(resolvedSearchParams).filter(([_, v]) => v !== undefined)
+                        )
+                      ).toString()}`}>
                         {p}
                       </a>
                     </Button>

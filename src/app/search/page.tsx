@@ -1,5 +1,7 @@
 import { Metadata } from 'next'
 import { prisma } from '@/lib/db'
+import { Header } from '@/components/home/header'
+import { Footer } from '@/components/home/footer'
 
 export const metadata: Metadata = {
   title: 'Search Products - DuukaAfrica',
@@ -96,7 +98,7 @@ async function searchProducts(query: string, page: number = 1) {
 }
 
 // Get trending searches
-async function getTrendingSearches() {
+function getTrendingSearches() {
   // In a real app, this would be based on actual search data
   return [
     { term: 'iPhone 15', count: 1250 },
@@ -119,16 +121,24 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   const query = q || ''
   const pageNum = parseInt(page || '1')
 
-  const [{ products, pagination }, trendingSearches] = await Promise.all([
-    searchProducts(query, pageNum),
-    getTrendingSearches(),
-  ])
+  let products: any[] = []
+  let pagination = { page: 1, totalPages: 0, total: 0, hasMore: false }
+  let trendingSearches = getTrendingSearches()
+
+  try {
+    const result = await searchProducts(query, pageNum)
+    products = result.products
+    pagination = result.pagination
+  } catch (error) {
+    console.error('[Search Page] searchProducts failed:', error)
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-[oklch(0.99_0.005_85)] dark:bg-[oklch(0.12_0.02_45)]">
+      <Header />
       {/* Search Header */}
-      <div className="bg-white dark:bg-gray-800 border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="bg-white dark:bg-[oklch(0.15_0.02_45)] border-b border-[oklch(0.94_0.01_85)] dark:border-[oklch(0.22_0.02_45)]">
+        <div className="container mx-auto px-4 py-6">
           <form action="/search" method="get" className="max-w-2xl mx-auto">
             <div className="relative">
               <Input
@@ -138,21 +148,21 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                 defaultValue={query}
                 className="w-full h-14 pl-12 pr-4 text-lg rounded-xl"
               />
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[oklch(0.7_0.01_85)] dark:text-[oklch(0.55_0.01_85)]" />
             </div>
           </form>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="container mx-auto px-4 py-8">
         {query ? (
           <>
             {/* Search Results */}
             <div className="mb-6">
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+              <h1 className="text-2xl font-bold text-[oklch(0.15_0.02_45)] dark:text-white">
                 Search results for "{query}"
               </h1>
-              <p className="text-gray-600 dark:text-gray-400 mt-1">
+              <p className="text-[oklch(0.55_0.02_45)] dark:text-[oklch(0.65_0.01_85)] mt-1">
                 {pagination.total.toLocaleString()} products found
               </p>
             </div>
@@ -173,7 +183,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                           className={`px-4 py-2 rounded-lg font-medium transition-colors ${
                             p === pageNum
                               ? 'bg-primary text-white'
-                              : 'bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700'
+                              : 'bg-white dark:bg-[oklch(0.15_0.02_45)] hover:bg-gray-100 dark:hover:bg-gray-700 border border-[oklch(0.94_0.01_85)] dark:border-[oklch(0.22_0.02_45)]'
                           }`}
                         >
                           {p}
@@ -186,10 +196,10 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
             ) : (
               <div className="text-center py-16">
                 <div className="text-6xl mb-4">🔍</div>
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                <h3 className="text-xl font-semibold text-[oklch(0.15_0.02_45)] dark:text-white mb-2">
                   No results found
                 </h3>
-                <p className="text-gray-600 dark:text-gray-400 mb-6">
+                <p className="text-[oklch(0.55_0.02_45)] dark:text-[oklch(0.65_0.01_85)] mb-6">
                   Try different keywords or browse our categories
                 </p>
                 <a href="/categories">
@@ -206,7 +216,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
               <div className="mb-8">
                 <div className="flex items-center gap-2 mb-4">
                   <TrendingUp className="w-5 h-5 text-primary" />
-                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  <h2 className="text-lg font-semibold text-[oklch(0.15_0.02_45)] dark:text-white">
                     Trending Searches
                   </h2>
                 </div>
@@ -215,7 +225,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                     <a
                       key={item.term}
                       href={`/search?q=${encodeURIComponent(item.term)}`}
-                      className="px-4 py-2 bg-white dark:bg-gray-800 rounded-full text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors border border-gray-200 dark:border-gray-700"
+                      className="px-4 py-2 bg-white dark:bg-[oklch(0.15_0.02_45)] rounded-full text-sm font-medium text-[oklch(0.15_0.02_45)] dark:text-[oklch(0.85_0.01_85)] hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors border border-[oklch(0.94_0.01_85)] dark:border-[oklch(0.22_0.02_45)]"
                     >
                       {item.term}
                     </a>
@@ -226,12 +236,12 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
               {/* Recent Searches placeholder */}
               <div>
                 <div className="flex items-center gap-2 mb-4">
-                  <Clock className="w-5 h-5 text-gray-400" />
-                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  <Clock className="w-5 h-5 text-[oklch(0.7_0.01_85)] dark:text-[oklch(0.55_0.01_85)]" />
+                  <h2 className="text-lg font-semibold text-[oklch(0.15_0.02_45)] dark:text-white">
                     Recent Searches
                   </h2>
                 </div>
-                <p className="text-gray-500 text-sm">
+                <p className="text-[oklch(0.55_0.02_45)] dark:text-[oklch(0.65_0.01_85)] text-sm">
                   Your recent searches will appear here
                 </p>
               </div>
@@ -239,6 +249,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           </>
         )}
       </div>
+      <Footer />
     </div>
   )
 }

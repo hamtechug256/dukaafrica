@@ -61,61 +61,68 @@ export async function GET(request: NextRequest) {
       orderBy: { updatedAt: 'desc' },
     })
 
-    const chatsWithStore = await Promise.all(
-      chats.map(async (chat) => {
-        let product: {
-          id: string;
-          name: string;
-          images: string | null;
-          price: number;
-          currency: string;
-          slug: string;
-          Store: { id: string; name: string; slug: string };
-        } | null = null
-        let store: { id: string; name: string; slug: string } | null = null
+    // Batch-load all unique products to avoid N+1 queries
+    const uniqueProductIds = [...new Set(chats.map(c => c.productId).filter(Boolean))] as string[]
 
-        if (chat.productId) {
-          const productData = await prisma.product.findUnique({
-            where: { id: chat.productId },
-            select: {
-              id: true,
-              name: true,
-              images: true,
-              price: true,
-              currency: true,
-              slug: true,
-              Store: {
-                select: {
-                  id: true,
-                  name: true,
-                  slug: true,
-                },
+    const products = uniqueProductIds.length > 0
+      ? await prisma.product.findMany({
+          where: { id: { in: uniqueProductIds } },
+          select: {
+            id: true,
+            name: true,
+            images: true,
+            price: true,
+            currency: true,
+            slug: true,
+            Store: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
               },
             },
-          })
-          if (productData) {
-            product = {
-              ...productData,
-              price: productData.price instanceof Object && 'toNumber' in productData.price
-                ? (productData.price as any).toNumber()
-                : Number(productData.price),
-              Store: productData.Store,
-            }
+          },
+        })
+      : []
+
+    const productMap = new Map(products.map(p => [p.id, p]))
+
+    const chatsWithStore = chats.map((chat) => {
+      let product: {
+        id: string;
+        name: string;
+        images: string | null;
+        price: number;
+        currency: string;
+        slug: string;
+        Store: { id: string; name: string; slug: string };
+      } | null = null
+      let store: { id: string; name: string; slug: string } | null = null
+
+      if (chat.productId) {
+        const productData = productMap.get(chat.productId) ?? null
+        if (productData) {
+          product = {
+            ...productData,
+            price: productData.price instanceof Object && 'toNumber' in productData.price
+              ? (productData.price as any).toNumber()
+              : Number(productData.price),
+            Store: productData.Store,
           }
-          store = productData?.Store ?? null
         }
+        store = productData?.Store ?? null
+      }
 
-        const otherParticipant = chat.ChatParticipant.find((p) => p.userId !== user.id)
+      const otherParticipant = chat.ChatParticipant.find((p) => p.userId !== user.id)
 
-        return {
-          ...chat,
-          product,
-          store,
-          otherParticipant: otherParticipant?.User,
-          unreadCount: chat._count.Message,
-        }
-      })
-    )
+      return {
+        ...chat,
+        product,
+        store,
+        otherParticipant: otherParticipant?.User,
+        unreadCount: chat._count.Message,
+      }
+    })
 
     return NextResponse.json({ chats: chatsWithStore })
   } catch (error) {

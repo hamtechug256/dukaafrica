@@ -12,6 +12,7 @@
 import { auth } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { sanitizeText } from '@/lib/sanitize'
 
 export async function POST(
   req: Request,
@@ -77,6 +78,9 @@ export async function POST(
       }, { status: 400 })
     }
 
+    // Sanitize message content to prevent stored XSS
+    const sanitizedMessage = sanitizeText(message.trim())
+
     // Only admins can set isInternal
     const shouldBeInternal = isAdmin && isInternal
 
@@ -85,7 +89,7 @@ export async function POST(
       data: {
         disputeId: id,
         userId: user.id,
-        message: message.trim(),
+        message: sanitizedMessage,
         attachments: attachments ? JSON.stringify(attachments) : null,
         isAdmin,
         isInternal: shouldBeInternal,
@@ -96,7 +100,7 @@ export async function POST(
             id: true,
             firstName: true,
             lastName: true,
-            email: true,
+            email: isAdmin,
             avatar: true,
             role: true,
           },
@@ -248,7 +252,7 @@ export async function GET(
             id: true,
             firstName: true,
             lastName: true,
-            email: true,
+            email: isAdmin,
             avatar: true,
             role: true,
           },

@@ -200,6 +200,8 @@ model Order {
   waybillPhotoUrl  String? // Photo of bus receipt
   trackingNumber   String? // Tracking/waybill number
   shippedAt        DateTime? // When seller shipped
+  confirmedAt      DateTime? // When seller confirmed order
+  processedAt      DateTime? // When seller started processing
 
   // Delivery Confirmation
   deliveryPhotoUrl    String? // Photo buyer took on receipt
@@ -386,7 +388,6 @@ model Product {
   metaTitle          String?
   metaDesc           String?
   keywords           String?
-  deletedAt          DateTime?
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
   OrderItem          OrderItem[]
@@ -407,7 +408,6 @@ model Product {
   @@index([quantity])
   @@index([storeId, createdAt])
   @@index([isFlashSale, flashSaleStart])
-  @@index([deletedAt])
 }
 
 model ProductVariant {
@@ -680,6 +680,7 @@ model User {
   Review            Review[]
   Store             Store?
   Wishlist          Wishlist[]
+  Document     Document[]  @relation("DocumentCreator")
 
   @@unique([phone, country])
   @@index([country])
@@ -988,6 +989,46 @@ model BuyerProtectionClaim {
   @@index([buyerId])
   @@index([orderId])
   @@index([storeId])
+  @@index([createdAt])
+}
+
+// ============================================
+// CONTACT SUBMISSIONS
+// ============================================
+
+// ============================================
+// DOCUMENT / RESOURCE MANAGEMENT
+// ============================================
+
+model Document {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  slug        String   @unique
+  category    String   @default("GENERAL") // GENERAL, SELLER_GUIDE, PRICING, SHIPPING, MARKETING, LEGAL, FAQ
+  fileType    String   @default("PDF") // PDF, DOC, DOCX, XLSX, IMAGE
+  fileSize    Int      @default(0) // in bytes
+  fileUrl     String   // Cloudinary or storage URL
+  fileKey     String? // Public ID for deletion
+  thumbnailUrl String? // Preview image for documents
+  downloadCount Int    @default(0)
+  isPublished Boolean  @default(false) // Admin must publish before visible
+  isFeatured  Boolean  @default(false) // Show in featured section
+  targetAudience String @default("ALL") // ALL, SELLERS, BUYERS
+  sortOrder   Int      @default(0)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  createdBy   String?
+  updatedBy   String?
+  Creator     User?    @relation("DocumentCreator", fields: [createdBy], references: [id])
+
+  @@index([category])
+  @@index([isPublished])
+  @@index([targetAudience])
+  @@index([isFeatured])
+  @@index([sortOrder])
   @@index([createdAt])
 }
 

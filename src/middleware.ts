@@ -22,6 +22,7 @@ const isPublicRoute = createRouteMatcher([
   '/api/newsletter(.*)', // Newsletter subscription
   '/admin/login(.*)', // Admin login page must be public
   '/api/admin/security(.*)', // Security API for rate limiting
+  '/api/health', // Health check endpoint (no auth needed for diagnostics)
   '/api/cron(.*)', // Cron endpoints use their own Bearer token auth
   '/api/payments/mpesa/callback(.*)', // M-Pesa callback
   '/api/payments/airtel/callback(.*)', // Airtel Money callback
@@ -133,6 +134,23 @@ export default clerkMiddleware(async (auth, req) => {
     }
   }
 
+  // IMPORTANT: Handle API routes FIRST — return 401 JSON for unauthenticated API calls
+  // instead of HTML redirects which break fetch() calls
+  if (url.pathname.startsWith('/api/')) {
+    if (!userId) {
+      // For admin API routes, record suspicious activity
+      if (isAdminRoute(req) && !isAdminLoginRoute(req)) {
+        recordSuspiciousActivity(ip, 'Unauthenticated admin API access attempt')
+      }
+      return NextResponse.json(
+        { error: 'Unauthorized', message: 'Authentication required' },
+        { status: 401 }
+      )
+    }
+    return NextResponse.next()
+  }
+
+  // Handle admin page routes (non-API) — redirect to login page
   if (isAdminRoute(req) && !isAdminLoginRoute(req)) {
     if (!userId) {
       recordSuspiciousActivity(ip, 'Unauthenticated admin access attempt')
@@ -141,6 +159,7 @@ export default clerkMiddleware(async (auth, req) => {
     }
   }
 
+  // Handle seller page routes (non-API) — redirect to sign-in
   if (isSellerRoute(req)) {
     if (!userId) {
       const signInUrl = new URL('/sign-in', req.url)
@@ -149,16 +168,7 @@ export default clerkMiddleware(async (auth, req) => {
     }
   }
 
-  if (url.pathname.startsWith('/api/')) {
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'Unauthorized', message: 'Authentication required' },
-        { status: 401 },
-      )
-    }
-    return NextResponse.next()
-  }
-
+  // For all other routes (like dashboard, cart, etc.), require authentication
   if (!userId) {
     const signInUrl = new URL('/sign-in', req.url)
     signInUrl.searchParams.set('redirect_url', req.url)

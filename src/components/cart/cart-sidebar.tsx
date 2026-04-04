@@ -67,7 +67,7 @@ export function CartSidebar() {
                       {item.variantName && (
                         <p className="text-sm text-gray-500">{item.variantName}</p>
                       )}
-                      <p className="text-sm text-gray-500">{item.storeName}</p>
+                      <p className="text-sm text-gray-500 truncate max-w-[140px] sm:max-w-none">{item.storeName}</p>
                       
                       <div className="flex items-center gap-2 mt-2">
                         {/* Quantity Controls */}
@@ -75,21 +75,23 @@ export function CartSidebar() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8"
+                            className="h-11 w-11"
                             onClick={() => updateQuantity(item.productId, item.quantity - 1)}
                             disabled={item.quantity <= 1}
+                            aria-label={`Decrease quantity of ${item.name}`}
                           >
-                            <Minus className="w-3 h-3" />
+                            <Minus className="w-4 h-4" />
                           </Button>
                           <span className="w-8 text-center text-sm">{item.quantity}</span>
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8"
+                            className="h-11 w-11"
                             onClick={() => updateQuantity(item.productId, item.quantity + 1)}
                             disabled={item.quantity >= item.maxQuantity}
+                            aria-label={`Increase quantity of ${item.name}`}
                           >
-                            <Plus className="w-3 h-3" />
+                            <Plus className="w-4 h-4" />
                           </Button>
                         </div>
 
@@ -97,8 +99,9 @@ export function CartSidebar() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 text-red-500 hover:text-red-600"
+                          className="h-11 w-11 text-red-500 hover:text-red-600"
                           onClick={() => removeItem(item.productId)}
+                          aria-label={`Remove ${item.name} from cart`}
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
@@ -106,8 +109,8 @@ export function CartSidebar() {
                     </div>
 
                     {/* Price */}
-                    <div className="text-right">
-                      <p className="font-semibold text-gray-900 dark:text-white">
+                    <div className="text-right shrink-0 min-w-[80px]">
+                      <p className="font-semibold text-gray-900 dark:text-white text-sm">
                         UGX {(item.price * item.quantity).toLocaleString()}
                       </p>
                       {item.comparePrice && (

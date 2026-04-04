@@ -1,6 +1,6 @@
 import { Metadata } from 'next'
-import { Header } from '@/components/layout/header'
-import { Footer } from '@/components/layout/footer'
+import { Header } from '@/components/home/header'
+import { Footer } from '@/components/home/footer'
 
 export const metadata: Metadata = {
   title: 'Terms of Service - DuukaAfrica',
@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 
 export default function TermsPage() {
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
+    <div className="min-h-screen flex flex-col bg-[oklch(0.99_0.005_85)] dark:bg-[oklch(0.12_0.02_45)]">
       <Header />
       
       <main className="flex-1">

@@ -150,8 +150,18 @@ export default function SellerVerificationPage() {
       const res = await fetch('/api/seller/verification')
       if (res.ok) {
         const data = await res.json()
-        setVerification(data.verification)
-        setTargetTier(data.verification.tier || 'VERIFIED')
+        const v = data.verification
+        setVerification(v)
+        setTargetTier(v.tier || 'VERIFIED')
+
+        // Pre-fill form fields from existing verification data
+        setFormData({
+          idType: v.idType || '',
+          idNumber: v.idNumber || '',
+          businessName: v.businessName || '',
+          businessType: v.businessType || '',
+          taxId: v.taxId || '',
+        })
       }
     } catch (error) {
       console.error('Error fetching verification:', error)
@@ -357,7 +367,17 @@ export default function SellerVerificationPage() {
                     variant="outline" 
                     size="sm" 
                     className="mt-3"
-                    onClick={() => setVerification({ ...verification, status: 'UNVERIFIED' })}
+                    onClick={() => {
+                      // Pre-fill form with existing data and show the form
+                      setFormData({
+                        idType: verification?.idType || '',
+                        idNumber: verification?.idNumber || '',
+                        businessName: verification?.businessName || '',
+                        businessType: verification?.businessType || '',
+                        taxId: verification?.taxId || '',
+                      })
+                      setVerification({ ...verification!, status: 'UNVERIFIED' })
+                    }}
                   >
                     Resubmit Documents
                   </Button>

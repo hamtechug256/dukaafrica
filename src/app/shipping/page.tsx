@@ -1,7 +1,18 @@
-import { Header } from '@/components/layout/header'
-import { Footer } from '@/components/layout/footer'
+import { Header } from '@/components/home/header'
+import { Footer } from '@/components/home/footer'
 import { Card, CardContent } from '@/components/ui/card'
 import { Truck, MapPin, Clock, Package, CheckCircle } from 'lucide-react'
+import { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'Shipping Information - DuukaAfrica | Delivery Across East Africa',
+  description: 'Learn about DuukaAfrica shipping zones, delivery times, and costs across Uganda, Kenya, Tanzania, and Rwanda. Free shipping on orders over UGX 100,000.',
+  openGraph: {
+    title: 'Shipping Information - DuukaAfrica',
+    description: 'Fast, reliable delivery across East Africa. Free shipping on qualifying orders.',
+    type: 'website',
+  },
+}
 
 export default function ShippingPage() {
   const zones = [
@@ -14,12 +25,12 @@ export default function ShippingPage() {
   ]
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
+    <div className="min-h-screen flex flex-col bg-[oklch(0.99_0.005_85)] dark:bg-[oklch(0.12_0.02_45)]">
       <Header />
       
       <main className="flex-1">
         {/* Hero */}
-        <div className="bg-gradient-to-r from-primary to-emerald-600 text-white py-16">
+        <div className="text-white py-16" style={{ background: 'linear-gradient(135deg, oklch(0.6 0.2 35), oklch(0.55 0.18 40), oklch(0.55 0.15 140))' }}>  
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <h1 className="text-4xl font-bold mb-4">Shipping Information</h1>
             <p className="text-xl text-white/80">Fast, reliable delivery across East Africa</p>

@@ -88,6 +88,26 @@ export default function CheckoutPage() {
     postalCode: '',
     saveAddress: true,
   })
+  const [paymentPhone, setPaymentPhone] = useState('')
+  const [phoneError, setPhoneError] = useState('')
+  const [paymentPhoneError, setPaymentPhoneError] = useState('')
+
+  // Phone validation patterns by country
+  const PHONE_PATTERNS: Record<string, { pattern: RegExp; placeholder: string; label: string }> = {
+    UGANDA: { pattern: /^(\+256|0)7[0-9]{8}$/, placeholder: '+256 7XX XXX XXX', label: 'Ugandan' },
+    KENYA:  { pattern: /^(\+254|0)(7[0-9]{8}|1[01][0-9]{7})$/, placeholder: '+254 7XX XXX XXX', label: 'Kenyan' },
+    TANZANIA: { pattern: /^(\+255|0)(6[0-9]{8}|7[0-9]{8})$/, placeholder: '+255 6XX XXX XXX', label: 'Tanzanian' },
+    RWANDA: { pattern: /^(\+250|0)7[38][0-9]{7}$/, placeholder: '+250 7XX XXX XXX', label: 'Rwandan' },
+  }
+
+  function validatePhone(phone: string, country: string): string {
+    if (!phone.trim()) return 'Phone number is required'
+    const config = PHONE_PATTERNS[country]
+    if (!config) return 'Invalid country'
+    const cleaned = phone.replace(/\s/g, '')
+    if (!config.pattern.test(cleaned)) return `Enter a valid ${config.label} phone number (e.g. ${config.placeholder})`
+    return ''
+  }
 
   // Get buyer's currency based on selected country
   const buyerCurrency = COUNTRY_CURRENCY[formData.country as keyof typeof COUNTRY_CURRENCY] || 'UGX'
@@ -164,6 +184,8 @@ export default function CheckoutPage() {
   }
 
   const handleAddressSubmit = () => {
+    const error = validatePhone(formData.phone, formData.country)
+    if (error) { setPhoneError(error); return }
     setShippingAddress(formData)
     nextStep()
   }
@@ -314,9 +336,10 @@ export default function CheckoutPage() {
                         id="phone"
                         type="tel"
                         value={formData.phone}
-                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                        placeholder="+256 7XX XXX XXX"
+                        onChange={(e) => { setFormData({ ...formData, phone: e.target.value }); setPhoneError('') }}
+                        placeholder={PHONE_PATTERNS[formData.country]?.placeholder || '+256 7XX XXX XXX'}
                       />
+                      {phoneError && <p className="text-xs text-red-500 mt-1" role="alert">{phoneError}</p>}
                       <p className="text-xs text-gray-500 mt-1">
                         Seller will call this number for bus delivery coordination
                       </p>
@@ -327,6 +350,7 @@ export default function CheckoutPage() {
                         id="country"
                         value={formData.country}
                         onChange={(e) => setFormData({ ...formData, country: e.target.value })}
+                        aria-label="Country"
                         className="w-full h-10 px-3 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800"
                       >
                         {countries.map((c) => (
@@ -404,7 +428,7 @@ export default function CheckoutPage() {
                     <Button
                       size="lg"
                       onClick={handleAddressSubmit}
-                      disabled={!formData.fullName || !formData.phone || !formData.city || !formData.addressLine1}
+                      disabled={!!phoneError || !formData.fullName || !formData.phone || !formData.city || !formData.addressLine1}
                     >
                       Continue to Delivery
                       <ArrowRight className="w-4 h-4 ml-2" />
@@ -433,7 +457,7 @@ export default function CheckoutPage() {
                 </CardHeader>
                 <CardContent>
                   {isCalculatingShipping ? (
-                    <div className="flex items-center justify-center py-8">
+                    <div className="flex items-center justify-center py-8" role="status">
                       <Loader2 className="w-8 h-8 animate-spin text-primary" />
                       <span className="ml-2">Calculating shipping...</span>
                     </div>
@@ -573,9 +597,14 @@ export default function CheckoutPage() {
                           id="paymentPhone"
                           type="tel"
                           className="mt-2"
-                          placeholder="Enter your mobile money number"
-                          defaultValue={formData.phone}
+                          placeholder={PHONE_PATTERNS[formData.country]?.placeholder || 'Enter your mobile money number'}
+                          value={paymentPhone}
+                          onChange={(e) => { setPaymentPhone(e.target.value); setPaymentPhoneError('') }}
                         />
+                        {paymentPhoneError && <p className="text-xs text-red-500 mt-1" role="alert">{paymentPhoneError}</p>}
+                        <p className="text-xs text-gray-500 mt-1">
+                          Enter the phone number linked to your {paymentMethod?.provider} account
+                        </p>
                       </div>
                     )}
                   </div>
@@ -585,7 +614,13 @@ export default function CheckoutPage() {
                       <ArrowLeft className="w-4 h-4 mr-2" />
                       Back
                     </Button>
-                    <Button size="lg" onClick={nextStep} disabled={!paymentMethod}>
+                    <Button size="lg" onClick={() => {
+                        if (paymentMethod?.type === 'MOBILE_MONEY') {
+                          const error = validatePhone(paymentPhone || formData.phone, formData.country)
+                          if (error) { setPaymentPhoneError(error); return }
+                        }
+                        nextStep()
+                      }} disabled={!paymentMethod}>
                       Review Order
                       <ArrowRight className="w-4 h-4 ml-2" />
                     </Button>
@@ -692,7 +727,7 @@ export default function CheckoutPage() {
                     <div key={item.productId} className="flex items-center gap-3">
                       <div className="w-12 h-12 bg-gray-100 rounded overflow-hidden">
                         {item.image ? (
-                          <img src={item.image} alt="" className="w-full h-full object-cover" />
+                          <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
                             <Package className="w-4 h-4 text-gray-300" />

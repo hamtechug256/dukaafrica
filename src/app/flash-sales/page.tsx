@@ -1,5 +1,7 @@
 import { Metadata } from 'next'
 import { prisma } from '@/lib/db'
+import { Header } from '@/components/home/header'
+import { Footer } from '@/components/home/footer'
 import { FlashSalesClient } from './client'
 import { Prisma } from '@prisma/client'
 
@@ -104,7 +106,19 @@ export const metadata: Metadata = {
 }
 
 export default async function FlashSalesPage() {
-  const products = await getFlashSales()
+  let products: any[] = []
 
-  return <FlashSalesClient products={JSON.parse(JSON.stringify(products))} />
+  try {
+    products = await getFlashSales()
+  } catch (error) {
+    console.error('[Flash Sales] Failed to fetch flash sale products:', error)
+  }
+
+  return (
+    <div className="min-h-screen bg-[oklch(0.99_0.005_85)] dark:bg-[oklch(0.12_0.02_45)]">
+      <Header />
+      <FlashSalesClient products={JSON.parse(JSON.stringify(products))} />
+      <Footer />
+    </div>
+  )
 }

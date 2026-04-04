@@ -1,6 +1,8 @@
 import { Metadata } from 'next'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Header } from '@/components/home/header'
+import { Footer } from '@/components/home/footer'
 import { 
   Package, 
   RotateCcw, 
@@ -63,19 +65,9 @@ const nonReturnableItems = [
 
 export default function ReturnsPage() {
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
-      <div className="bg-white dark:bg-gray-800 border-b">
-        <div className="container mx-auto px-4 py-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            Returns & Refunds
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-2">
-            Easy returns within 7 days of delivery. Your satisfaction is our priority.
-          </p>
-        </div>
-      </div>
-
+    <div className="min-h-screen flex flex-col bg-[oklch(0.99_0.005_85)] dark:bg-[oklch(0.12_0.02_45)]">
+      <Header />
+      <main className="flex-1">
       <div className="container mx-auto px-4 py-8">
         {/* Quick Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
@@ -217,6 +209,8 @@ export default function ReturnsPage() {
           </div>
         </div>
       </div>
+      </main>
+      <Footer />
     </div>
   )
 }

@@ -85,7 +85,7 @@ export default function StoreProfilePage() {
         {store.banner && (
           <img
             src={store.banner}
-            alt=""
+            alt={`${store.name} store banner`}
             className="w-full h-full object-cover absolute inset-0"
           />
         )}

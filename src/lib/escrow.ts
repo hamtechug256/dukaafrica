@@ -8,6 +8,7 @@
 import { prisma } from '@/lib/db'
 import { getEscrowHoldDays, getCommissionRate } from './seller-tiers'
 import { Prisma } from '@prisma/client'
+import { evaluateAndPromoteStores } from './auto-tier'
 
 // Escrow status types
 export type EscrowStatus = 'HELD' | 'RELEASED' | 'REFUNDED' | 'PARTIAL_REFUND' | 'DISPUTED'
@@ -283,6 +284,13 @@ export async function releaseEscrow(params: {
         status: 'DELIVERED',
         deliveredAt: new Date()
       }
+    })
+
+    // Non-blocking: evaluate stores for auto-tier promotion after escrow release.
+    // This runs in the background and won't slow down the main flow.
+    // Errors are handled internally — one store's failure won't affect others.
+    evaluateAndPromoteStores().catch((err) => {
+      console.error('[ESCROW] Auto-tier evaluation failed (non-fatal):', err)
     })
     
     return {

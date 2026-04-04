@@ -22,8 +22,6 @@ async function ensureCategoriesExist() {
     const count = await prisma.category.count()
 
     if (count === 0) {
-      console.log('[Categories API] No categories found, seeding defaults...')
-
       // Create categories one by one to handle errors better
       let seeded = 0
       for (const cat of defaultCategories) {
@@ -45,7 +43,6 @@ async function ensureCategoriesExist() {
         }
       }
 
-      console.log(`[Categories API] Successfully seeded ${seeded} categories`)
       return seeded
     }
 

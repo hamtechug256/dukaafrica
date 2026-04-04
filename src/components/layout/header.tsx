@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { useAuth, SignInButton, useClerk } from "@clerk/nextjs";
 import { useCartStore } from "@/store/cart-store";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
 const categories = [
   { name: "Electronics", href: "/categories/electronics", icon: "📱" },
@@ -132,10 +133,10 @@ export function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
+    <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 overflow-x-hidden">
       {/* Top Bar */}
-      <div className="bg-primary text-primary-foreground py-1.5 text-sm">
-        <div className="container flex items-center justify-between">
+      <div className="bg-primary text-primary-foreground py-1.5 text-sm overflow-x-hidden">
+        <div className="container flex items-center justify-between min-w-0">
           <div className="flex items-center gap-4">
             <span className="flex items-center gap-1">
               <MapPin className="h-3.5 w-3.5" />
@@ -147,24 +148,56 @@ export function Header() {
           <div className="flex items-center gap-4">
             {/* Show "Sell on DuukaAfrica" only for non-sellers, "Seller Dashboard" for sellers */}
             {!userRole?.isSeller ? (
-              <Link href="/seller/register" className="hover:underline hidden sm:inline-flex items-center gap-1">
+              <Link href="/seller/register" className="hover:underline hidden sm:inline-flex items-center gap-1 whitespace-nowrap">
                 <Store className="h-3.5 w-3.5" />
                 Sell on DuukaAfrica
               </Link>
             ) : (
-              <Link href="/seller/dashboard" className="hover:underline hidden sm:inline-flex items-center gap-1">
+              <Link href="/seller/dashboard" className="hover:underline hidden sm:inline-flex items-center gap-1 whitespace-nowrap">
                 <Store className="h-3.5 w-3.5" />
                 Seller Dashboard
               </Link>
             )}
-            <Link href="/help" className="hover:underline hidden sm:inline">Help</Link>
+            <Link href="/help" className="hover:underline hidden sm:inline whitespace-nowrap">Help</Link>
           </div>
         </div>
       </div>
 
       {/* Main Header */}
       <div className="container py-4">
-        <div className="flex items-center gap-4 lg:gap-8">
+        <div className="flex items-center gap-2 sm:gap-4 lg:gap-8">
+          {/* Mobile Menu Button */}
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" className="md:hidden shrink-0" aria-label="Open menu">
+                <Menu className="h-6 w-6" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-80 p-0">
+              <SheetHeader className="p-4 border-b">
+                <SheetTitle className="flex items-center gap-2">
+                  <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+                    <span className="text-white font-bold text-lg">D</span>
+                  </div>
+                  <span className="font-bold text-lg">Duuka<span className="text-emerald-600">Africa</span></span>
+                </SheetTitle>
+              </SheetHeader>
+              <nav className="p-4 space-y-1 overflow-y-auto flex-1" aria-label="Mobile categories">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 py-2">Categories</p>
+                {categories.map((cat) => (
+                  <Link
+                    key={cat.href}
+                    href={cat.href}
+                    className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  >
+                    <span className="text-lg">{cat.icon}</span>
+                    <span className="text-sm font-medium">{cat.name}</span>
+                  </Link>
+                ))}
+              </nav>
+            </SheetContent>
+          </Sheet>
+
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 shrink-0">
             <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
@@ -203,7 +236,7 @@ export function Header() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
-              <Button type="submit" className="rounded-l-none bg-primary hover:bg-primary/90">
+              <Button type="submit" className="rounded-l-none bg-primary hover:bg-primary/90" aria-label="Search products">
                 <Search className="h-4 w-4" />
               </Button>
             </form>
@@ -212,17 +245,17 @@ export function Header() {
           {/* Right Actions */}
           <div className="flex items-center gap-2 lg:gap-4">
             {/* Wishlist */}
-            <Link href="/dashboard/wishlist" className="hidden sm:flex flex-col items-center text-sm hover:text-primary">
+            <Link href="/dashboard/wishlist" className="hidden sm:flex flex-col items-center text-sm hover:text-primary" aria-label="Wishlist">
               <Heart className="h-5 w-5" />
               <span className="hidden lg:inline text-xs">Wishlist</span>
             </Link>
 
             {/* Cart */}
-            <Link href="/cart" className="flex flex-col items-center text-sm hover:text-primary relative">
+            <Link href="/cart" className="flex items-center justify-center min-h-[44px] min-w-[44px] text-sm hover:text-primary relative" aria-label={cartCount > 0 ? `Cart with ${cartCount} items` : 'Cart'}>
               <ShoppingCart className="h-5 w-5" />
               <span className="hidden lg:inline text-xs">Cart</span>
               {cartCount > 0 && (
-                <Badge className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-[10px] bg-primary text-white">
+                <Badge className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-[10px] bg-primary text-white" aria-hidden="true">
                   {cartCount > 99 ? '99+' : cartCount}
                 </Badge>
               )}
@@ -230,12 +263,12 @@ export function Header() {
 
             {/* User Menu */}
             {!isLoaded || roleLoading ? (
-              <div className="w-10 h-10 flex items-center justify-center">
+              <div className="w-11 h-11 flex items-center justify-center">
                 <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
               </div>
             ) : !isSignedIn ? (
               <SignInButton mode="modal">
-                <Button variant="ghost" className="flex flex-col items-center">
+                <Button variant="ghost" className="flex items-center justify-center min-h-[44px] min-w-[44px]" aria-label="Sign In">
                   <User className="h-5 w-5" />
                   <span className="hidden lg:inline text-xs">Sign In</span>
                 </Button>
@@ -296,7 +329,7 @@ export function Header() {
       </div>
 
       {/* Categories Nav */}
-      <nav className="border-t bg-gray-50 hidden md:block">
+      <nav className="border-t bg-gray-50 hidden md:block" aria-label="Product categories">
         <div className="container">
           <ul className="flex items-center gap-6 py-2 text-sm overflow-x-auto">
             {categories.map((cat) => (

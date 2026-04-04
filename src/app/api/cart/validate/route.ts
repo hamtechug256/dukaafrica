@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
     // Fetch all product IDs from cart
     const productIds = [...new Set(items.map(i => i.productId))]
 
-    // Query current product state (soft-deleted filtered by Prisma middleware)
+    // Query current product state
     const products = await prisma.product.findMany({
       where: { id: { in: productIds } },
       select: {
@@ -30,7 +30,6 @@ export async function POST(req: NextRequest) {
         status: true,
         quantity: true,
         hasVariants: true,
-        deletedAt: true,
         ProductVariant: {
           select: { id: true, quantity: true, isActive: true, price: true },
         },
@@ -51,7 +50,7 @@ export async function POST(req: NextRequest) {
       const product = productMap.get(item.productId)
 
       if (!product) {
-        // Product was soft-deleted (filtered out by middleware) or hard deleted
+        // Product was removed or hard deleted
         invalid.push({
           productId: item.productId,
           variantId: item.variantId,

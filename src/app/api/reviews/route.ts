@@ -2,6 +2,7 @@ import { auth } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { sanitizeText } from '@/lib/sanitize'
 
 // GET reviews for a product
 export async function GET(req: Request) {
@@ -16,6 +17,78 @@ export async function GET(req: Request) {
     if (productId) where.productId = productId
     if (storeId) {
       where.product = { storeId }
+    }
+
+    // Check if current user can review (has purchased this product)
+    let userCanReview = false
+    let userOrderId: string | null = null
+    let userAlreadyReviewed = false
+
+    try {
+      const { userId } = await auth()
+      if (userId) {
+        const user = await prisma.user.findUnique({
+          where: { clerkId: userId },
+          select: { id: true },
+        })
+
+        if (user) {
+          // Check if user already reviewed this product
+          if (productId) {
+            const existingReview = await prisma.review.findUnique({
+              where: {
+                userId_productId: {
+                  userId: user.id,
+                  productId,
+                },
+              },
+              select: { id: true },
+            })
+            userAlreadyReviewed = !!existingReview
+          }
+
+          // Check if user has a delivered order containing this product
+          if (productId && !userAlreadyReviewed) {
+            const orderItem = await prisma.orderItem.findFirst({
+              where: {
+                productId,
+                Order: {
+                  userId: user.id,
+                  status: { in: ['DELIVERED', 'OUT_FOR_DELIVERY', 'SHIPPED'] },
+                  paymentStatus: 'PAID',
+                },
+              },
+              select: { orderId: true },
+              orderBy: { createdAt: 'desc' },
+            })
+            if (orderItem) {
+              userCanReview = true
+              userOrderId = orderItem.orderId
+            }
+          }
+
+          // Check if user is the product's seller (should not review own product)
+          if (productId) {
+            const product = await prisma.product.findUnique({
+              where: { id: productId },
+              select: { storeId: true },
+            })
+            if (product) {
+              const sellerStore = await prisma.store.findUnique({
+                where: { userId: user.id, id: product.storeId },
+                select: { id: true },
+              })
+              if (sellerStore) {
+                // Seller owns this product — cannot review
+                userCanReview = false
+                userOrderId = null
+              }
+            }
+          }
+        }
+      }
+    } catch {
+      // Auth check failed — user is not logged in, which is fine
     }
 
     const [reviews, total] = await Promise.all([
@@ -59,6 +132,10 @@ export async function GET(req: Request) {
           acc[r.rating] = r._count
           return acc
         }, {} as Record<number, number>),
+        // Purchase & seller check info for the current user
+        userCanReview,
+        userOrderId,
+        userAlreadyReviewed,
       }
     })
   } catch (error) {
@@ -84,7 +161,11 @@ export async function POST(req: Request) {
     const body = await req.json()
     const { productId, orderId, rating, title, comment, images } = body
 
-    // Validate
+    // Sanitize user-generated text to prevent stored XSS
+    const sanitizedTitle = title ? sanitizeText(title) : undefined
+    const sanitizedComment = comment ? sanitizeText(comment) : undefined
+
+    // Validate required fields
     if (!productId || !rating || rating < 1 || rating > 5) {
       return NextResponse.json({ error: 'Invalid review data' }, { status: 400 })
     }
@@ -96,6 +177,53 @@ export async function POST(req: Request) {
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
+
+    // === SELLER SELF-REVIEW PREVENTION ===
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
+      select: { storeId: true, name: true },
+    })
+
+    if (!product) {
+      return NextResponse.json({ error: 'Product not found' }, { status: 404 })
+    }
+
+    const sellerStore = await prisma.store.findUnique({
+      where: { userId: user.id, id: product.storeId },
+      select: { id: true },
+    })
+
+    if (sellerStore) {
+      return NextResponse.json({
+        error: 'You cannot review your own product',
+      }, { status: 403 })
+    }
+
+    // === PURCHASE-VERIFIED REVIEW REQUIREMENT ===
+    if (!orderId) {
+      return NextResponse.json({
+        error: 'Only verified purchasers can leave reviews. You must provide an order ID.',
+      }, { status: 400 })
+    }
+
+    // Verify the order exists, belongs to the user, contains this product, and is paid/delivered
+    const orderItem = await prisma.orderItem.findFirst({
+      where: {
+        orderId,
+        productId,
+        Order: {
+          userId: user.id,
+          paymentStatus: 'PAID',
+          status: { in: ['DELIVERED', 'OUT_FOR_DELIVERY', 'SHIPPED'] },
+        },
+      },
+    })
+
+    if (!orderItem) {
+      return NextResponse.json({
+        error: 'You can only review products from orders you have purchased and received.',
+      }, { status: 403 })
     }
 
     // Check if user already reviewed this product
@@ -112,31 +240,24 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'You have already reviewed this product' }, { status: 400 })
     }
 
-    // If orderId provided, verify purchase
-    let isVerifiedPurchase = false
-    if (orderId) {
-      const orderItem = await prisma.orderItem.findFirst({
-        where: {
-          orderId,
-          productId,
-          Order: { userId: user.id }
-        }
-      })
-      isVerifiedPurchase = !!orderItem
-    }
-
-    // Create review
+    // Create review — always marked as verified since we verified the purchase above
     const review = await prisma.review.create({
       data: {
         userId: user.id,
         productId,
         orderId,
         rating,
-        title,
-        comment,
+        title: sanitizedTitle,
+        comment: sanitizedComment,
         images: images ? JSON.stringify(images) : null,
-        isVerified: isVerifiedPurchase,
+        isVerified: true,
       },
+    })
+
+    // Mark the order item as reviewed
+    await prisma.orderItem.update({
+      where: { id: orderItem.id },
+      data: { isReviewed: true },
     })
 
     // Update product rating

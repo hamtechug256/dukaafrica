@@ -111,8 +111,15 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: 'Address not found' }, { status: 404 })
     }
 
+    // Whitelist allowed update fields to prevent mass-assignment
+    const ALLOWED_UPDATE_FIELDS = ['label', 'fullName', 'phone', 'country', 'region', 'city', 'addressLine1', 'addressLine2', 'postalCode', 'isDefault']
+    const updateData: Record<string, unknown> = {}
+    for (const field of ALLOWED_UPDATE_FIELDS) {
+      if (field in data) updateData[field] = data[field]
+    }
+
     // If setting as default, unset others
-    if (data.isDefault) {
+    if (updateData.isDefault) {
       await prisma.address.updateMany({
         where: { userId: user.id, isDefault: true },
         data: { isDefault: false }
@@ -121,7 +128,7 @@ export async function PUT(req: Request) {
 
     const address = await prisma.address.update({
       where: { id },
-      data
+      data: updateData
     })
 
     return NextResponse.json({ address })

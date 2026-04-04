@@ -10,7 +10,7 @@
 import { auth } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { releaseEscrow } from '@/lib/escrow'
+import { evaluateAndPromoteStores } from '@/lib/auto-tier'
 
 export async function POST(
   req: Request,
@@ -86,55 +86,100 @@ export async function POST(
       // No body, that's fine
     }
 
-    // Update order with delivery confirmation
-    await prisma.order.update({
-      where: { id: orderId },
-      data: {
-        status: 'DELIVERED',
-        deliveredAt: new Date(),
-        deliveryConfirmedAt: new Date(),
-        deliveryConfirmedBy: user.id,
-        deliveryPhotoUrl,
-      },
-    })
+    // Update order with delivery confirmation + escrow release in a single transaction
+    // This ensures atomicity: either both succeed or both fail
+    try {
+      // Fetch escrow transactions before the transaction to know amounts
+      const heldEscrows =
+        order.escrowStatus === 'HELD'
+          ? await prisma.escrowTransaction.findMany({
+              where: { orderId, status: 'HELD' },
+            })
+          : []
 
-    // Release escrow if held
-    if (order.escrowStatus === 'HELD') {
-      const releaseResult = await releaseEscrow({
-        orderId,
-        releaseType: 'BUYER_CONFIRMED',
-      })
-
-      if (!releaseResult.success) {
-        console.error('Failed to release escrow:', releaseResult.error)
-        // Don't fail the request - order is still confirmed
-      }
-    }
-
-    // Create notification for seller
-    const escrow = await prisma.escrowTransaction.findFirst({
-      where: { orderId },
-      select: { storeId: true },
-    })
-
-    if (escrow) {
-      const store = await prisma.store.findUnique({
-        where: { id: escrow.storeId },
-        select: { userId: true },
-      })
-
-      if (store) {
-        await prisma.notification.create({
+      await prisma.$transaction(async (tx) => {
+        // a. Update order status to DELIVERED with timestamps
+        await tx.order.update({
+          where: { id: orderId },
           data: {
-            userId: store.userId,
-            type: 'DELIVERY_CONFIRMED',
-            title: 'Delivery Confirmed!',
-            message: `The buyer has confirmed delivery for order ${order.orderNumber}. Funds have been released to your balance.`,
-            data: JSON.stringify({ orderId, orderNumber: order.orderNumber }),
+            status: 'DELIVERED',
+            deliveredAt: new Date(),
+            deliveryConfirmedAt: new Date(),
+            deliveryConfirmedBy: user.id,
+            deliveryPhotoUrl,
+            ...(heldEscrows.length > 0
+              ? { escrowStatus: 'RELEASED', escrowReleasedAt: new Date() }
+              : {}),
           },
         })
-      }
+
+        // b. If escrow is HELD, update escrow records to RELEASED
+        for (const escrow of heldEscrows) {
+          await tx.escrowTransaction.update({
+            where: { id: escrow.id },
+            data: {
+              status: 'RELEASED',
+              releaseType: 'BUYER_CONFIRMED',
+              releasedAt: new Date(),
+              releasedBy: user.id,
+            },
+          })
+
+          // c. Move funds from escrow balance to pending balance on the store
+          const sellerAmt = escrow.sellerAmount.toNumber()
+          await tx.store.update({
+            where: { id: escrow.storeId },
+            data: {
+              escrowBalance: { decrement: sellerAmt },
+              pendingBalance: { increment: sellerAmt },
+              successfulDeliveries: { increment: 1 },
+              totalOrders: { increment: 1 },
+            },
+          })
+        }
+      })
+    } catch (txError) {
+      console.error('Transaction failed — order NOT marked as delivered:', txError)
+      return NextResponse.json(
+        { error: 'Failed to confirm delivery. Please try again.' },
+        { status: 500 }
+      )
     }
+
+    // Create notification for seller (outside transaction — non-fatal if it fails)
+    try {
+      const escrow = await prisma.escrowTransaction.findFirst({
+        where: { orderId },
+        select: { storeId: true },
+      })
+
+      if (escrow) {
+        const store = await prisma.store.findUnique({
+          where: { id: escrow.storeId },
+          select: { userId: true },
+        })
+
+        if (store) {
+          await prisma.notification.create({
+            data: {
+              userId: store.userId,
+              type: 'DELIVERY_CONFIRMED',
+              title: 'Delivery Confirmed!',
+              message: `The buyer has confirmed delivery for order ${order.orderNumber}. Funds have been released to your balance.`,
+              data: JSON.stringify({ orderId, orderNumber: order.orderNumber }),
+            },
+          })
+        }
+      }
+    } catch (notifError) {
+      // Non-fatal: notification failure should not break the response
+      console.error('Failed to create delivery confirmation notification (non-fatal):', notifError)
+    }
+
+    // Non-blocking: evaluate stores for auto-tier promotion after delivery confirmation
+    evaluateAndPromoteStores().catch((err) => {
+      console.error('[CONFIRM-DELIVERY] Auto-tier evaluation failed (non-fatal):', err)
+    })
 
     return NextResponse.json({
       success: true,

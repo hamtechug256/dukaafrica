@@ -15,6 +15,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
+import { safeParseImages } from '@/lib/helpers'
 import { Star, ThumbsUp, CheckCircle, Loader2 } from 'lucide-react'
 
 interface Review {
@@ -34,15 +35,21 @@ interface Review {
 
 interface ReviewListProps {
   productId: string
+  orderId?: string | null
+  canReview?: boolean
+  alreadyReviewed?: boolean
   reviews: Review[]
   stats: {
     averageRating: number
     totalReviews: number
     distribution: Record<number, number>
+    userCanReview?: boolean
+    userOrderId?: string | null
+    userAlreadyReviewed?: boolean
   }
 }
 
-export function ReviewList({ productId, reviews, stats }: ReviewListProps) {
+export function ReviewList({ productId, orderId, canReview, alreadyReviewed, reviews, stats }: ReviewListProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [rating, setRating] = useState(5)
   const [title, setTitle] = useState('')
@@ -57,6 +64,7 @@ export function ReviewList({ productId, reviews, stats }: ReviewListProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           productId,
+          orderId: orderId || null,
           rating,
           title,
           comment,
@@ -87,9 +95,15 @@ export function ReviewList({ productId, reviews, stats }: ReviewListProps) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">Customer Reviews</h3>
+        {!canReview && !alreadyReviewed && (
+          <Badge variant="outline" className="text-sm text-gray-500">Only verified purchasers can review</Badge>
+        )}
+        {alreadyReviewed && (
+          <Badge variant="secondary" className="text-sm">Already reviewed</Badge>
+        )}
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
           <DialogTrigger asChild>
-            <Button>Write a Review</Button>
+            <Button disabled={!canReview || alreadyReviewed}>Write a Review</Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
@@ -229,7 +243,7 @@ export function ReviewList({ productId, reviews, stats }: ReviewListProps) {
                     {review.user.avatar ? (
                       <img
                         src={review.user.avatar}
-                        alt=""
+                        alt={review.user.name ? `${review.user.name}'s avatar` : 'User avatar'}
                         className="w-full h-full object-cover"
                       />
                     ) : (
@@ -279,11 +293,11 @@ export function ReviewList({ productId, reviews, stats }: ReviewListProps) {
                     {/* Images */}
                     {review.images && (
                       <div className="flex gap-2 mt-3">
-                        {JSON.parse(review.images).map((img: string, idx: number) => (
+                        {safeParseImages(review.images).map((img: string, idx: number) => (
                           <img
                             key={idx}
                             src={img}
-                            alt=""
+                            alt={`Review photo ${idx + 1}`}
                             className="w-16 h-16 rounded object-cover"
                           />
                         ))}
