@@ -951,7 +951,7 @@ model PlatformReserve {
 
   // Reserve Settings
   reservePercent Decimal @default(10) @db.Decimal(5, 2) // % of each transaction to hold
-  minReserve     Decimal @default(500000) @db.Decimal(5, 2)
+  minReserve     Decimal @default(500000) @db.Decimal(12, 2)
 
   updatedAt DateTime @updatedAt
 }
