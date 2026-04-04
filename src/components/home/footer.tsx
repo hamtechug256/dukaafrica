@@ -1,63 +1,170 @@
 'use client'
 
 import { motion } from 'framer-motion'
+import { useState } from 'react'
 import Link from 'next/link'
-import { 
-  Facebook, 
-  Twitter, 
-  Instagram, 
-  Youtube, 
-  Mail, 
-  Phone, 
+import { useQuery, useMutation } from '@tanstack/react-query'
+import {
+  Facebook,
+  Twitter,
+  Instagram,
+  Youtube,
+  Mail,
+  Phone,
   MapPin,
   ArrowRight,
   Shield,
   CreditCard,
   Truck,
-  Headphones
+  Headphones,
+  CheckCircle,
+  AlertCircle,
+  Loader2,
 } from 'lucide-react'
 
-const footerLinks = {
-  shop: [
-    { name: 'All Categories', href: '/categories' },
-    { name: 'Electronics', href: '/categories/electronics' },
-    { name: 'Fashion', href: '/categories/fashion' },
-    { name: 'Home & Living', href: '/categories/home-living' },
-    { name: 'Groceries', href: '/categories/groceries' },
-    { name: 'All Products', href: '/products' },
-  ],
-  sell: [
-    { name: 'Start Selling', href: '/seller/register' },
-    { name: 'Seller Dashboard', href: '/seller/dashboard' },
-    { name: 'Seller Guidelines', href: '/seller/guidelines' },
-    { name: 'Seller Resources', href: '/seller/resources' },
-    { name: 'Fees & Pricing', href: '/seller/fees' },
-  ],
-  support: [
-    { name: 'Help Center', href: '/help' },
-    { name: 'Track Order', href: '/track-order' },
-    { name: 'Returns & Refunds', href: '/returns' },
-    { name: 'Contact Us', href: '/contact' },
-    { name: 'Shipping Info', href: '/shipping' },
-  ],
-  company: [
-    { name: 'About Us', href: '/about' },
-    { name: 'Privacy Policy', href: '/privacy' },
-    { name: 'Terms of Service', href: '/terms' },
-    { name: 'Cookie Policy', href: '/cookies' },
-  ],
+// ── Settings fetch ──
+async function fetchHomepageSettings() {
+  const res = await fetch('/api/homepage/settings')
+  if (!res.ok) throw new Error('Failed to fetch settings')
+  return res.json()
 }
 
-const socialLinks = [
-  { icon: Facebook, href: 'https://facebook.com/duukaafrica', label: 'Facebook' },
-  { icon: Twitter, href: 'https://twitter.com/duukaafrica', label: 'Twitter' },
-  { icon: Instagram, href: 'https://instagram.com/duukaafrica', label: 'Instagram' },
-  { icon: Youtube, href: 'https://youtube.com/duukaafrica', label: 'YouTube' },
-]
-
-const paymentMethods = ['Visa', 'Mastercard', 'MTN MoMo', 'Airtel Money', 'PayPal']
+const SOCIAL_ICON_MAP: Record<string, typeof Facebook> = {
+  Facebook,
+  Twitter,
+  Instagram,
+  Youtube,
+}
 
 export function Footer() {
+  const [email, setEmail] = useState('')
+  const [subscribeStatus, setSubscribeStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
+  const [subscribeMessage, setSubscribeMessage] = useState('')
+
+  const { data: settingsData } = useQuery({
+    queryKey: ['homepage-settings'],
+    queryFn: fetchHomepageSettings,
+    staleTime: 1000 * 60 * 5,
+  })
+
+  const settings = settingsData?.settings || {}
+
+  // Admin-configurable values (with hardcoded fallbacks)
+  const contact = settings.contact || {}
+  const socials = settings.social || {}
+  const newsletter = settings.newsletter || {}
+  const payment = settings.payment || {}
+  const footerConfig = settings.footer || {}
+
+  const phone = contact.contact_phone || '+256 700 000000'
+  const email_ = contact.contact_email || 'support@duukaafrica.com'
+  const address = contact.contact_address || 'Kampala, Uganda'
+  const aboutText =
+    footerConfig.footer_about ||
+    "East Africa's trusted multi-vendor marketplace. Shop millions of products from verified sellers with buyer protection and fast delivery."
+  const copyrightName = footerConfig.footer_copyright || 'DuukaAfrica'
+  const paymentMethods = Array.isArray(payment.payment_methods)
+    ? payment.payment_methods
+    : ['Visa', 'Mastercard', 'MTN MoMo', 'Airtel Money']
+  const countries = Array.isArray(footerConfig.footer_countries)
+    ? footerConfig.footer_countries
+    : [
+        { flag: '\uD83C\uDDFA\uD83C\uDDE6', name: 'Uganda' },
+        { flag: '\uD83C\uDDEF\uD83C\uDDEA', name: 'Kenya' },
+        { flag: '\uD83C\uDDF9\uD83C\uDDFF', name: 'Tanzania' },
+        { flag: '\uD83C\uDDF7\uD83C\uDDFC', name: 'Rwanda' },
+      ]
+
+  const socialLinks = [
+    {
+      icon: 'Facebook',
+      href: socials.social_facebook || 'https://facebook.com/duukaafrica',
+      label: 'Facebook',
+    },
+    {
+      icon: 'Twitter',
+      href: socials.social_twitter || 'https://twitter.com/duukaafrica',
+      label: 'Twitter',
+    },
+    {
+      icon: 'Instagram',
+      href: socials.social_instagram || 'https://instagram.com/duukaafrica',
+      label: 'Instagram',
+    },
+    {
+      icon: 'Youtube',
+      href: socials.social_youtube || 'https://youtube.com/duukaafrica',
+      label: 'YouTube',
+    },
+  ]
+
+  const newsletterTitle = newsletter.newsletter_title || 'Stay Updated with DuukaAfrica'
+  const newsletterSubtitle =
+    newsletter.newsletter_subtitle ||
+    'Get exclusive deals, new arrivals, and shopping tips delivered to your inbox.'
+
+  // Newsletter subscribe handler
+  const handleSubscribe = async () => {
+    if (!email.trim()) return
+
+    setSubscribeStatus('loading')
+    setSubscribeMessage('')
+
+    try {
+      const res = await fetch('/api/newsletter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim() }),
+      })
+      const data = await res.json()
+
+      if (data.success) {
+        setSubscribeStatus('success')
+        setSubscribeMessage(data.message || 'Successfully subscribed!')
+        setEmail('')
+      } else {
+        setSubscribeStatus('error')
+        setSubscribeMessage(data.error || 'Something went wrong.')
+      }
+    } catch {
+      setSubscribeStatus('error')
+      setSubscribeMessage('Network error. Please try again.')
+    }
+
+    // Reset status after 4 seconds
+    setTimeout(() => {
+      setSubscribeStatus('idle')
+      setSubscribeMessage('')
+    }, 4000)
+  }
+
+  const footerLinks = {
+    shop: [
+      { name: 'All Categories', href: '/categories' },
+      { name: 'Electronics', href: '/categories/electronics' },
+      { name: 'Fashion', href: '/categories/fashion' },
+      { name: 'Home & Living', href: '/categories/home-living' },
+      { name: 'All Products', href: '/products' },
+    ],
+    sell: [
+      { name: 'Start Selling', href: '/seller/register' },
+      { name: 'Seller Dashboard', href: '/seller/dashboard' },
+      { name: 'Seller Guidelines', href: '/seller/guidelines' },
+      { name: 'Fees & Pricing', href: '/seller/fees' },
+    ],
+    support: [
+      { name: 'Help Center', href: '/help' },
+      { name: 'Track Order', href: '/track-order' },
+      { name: 'Returns & Refunds', href: '/returns' },
+      { name: 'Contact Us', href: '/contact' },
+    ],
+    company: [
+      { name: 'About Us', href: '/about' },
+      { name: 'Privacy Policy', href: '/privacy' },
+      { name: 'Terms of Service', href: '/terms' },
+    ],
+  }
+
   return (
     <footer className="bg-[oklch(0.12_0.02_45)] text-white">
       {/* Newsletter Section */}
@@ -66,18 +173,25 @@ export function Footer() {
           <div className="grid lg:grid-cols-2 gap-8 items-center">
             <div>
               <h3 className="text-2xl md:text-3xl font-bold mb-3">
-                Stay Updated with{' '}
-                <span className="text-[oklch(0.75_0.14_80)]">DuukaAfrica</span>
+                {newsletterTitle.includes('DuukaAfrica') ? (
+                  <>
+                    {newsletterTitle.replace('DuukaAfrica', '')}{' '}
+                    <span className="text-[oklch(0.75_0.14_80)]">DuukaAfrica</span>
+                  </>
+                ) : (
+                  newsletterTitle
+                )}
               </h3>
-              <p className="text-white/70">
-                Get exclusive deals, new arrivals, and shopping tips delivered to your inbox.
-              </p>
+              <p className="text-white/70">{newsletterSubtitle}</p>
             </div>
             <div className="flex gap-3">
               <div className="flex-1 relative">
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/50" />
                 <input
                   type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSubscribe()}
                   placeholder="Enter your email"
                   className="w-full h-14 pl-12 pr-4 rounded-xl bg-white/10 border border-white/20 text-white placeholder:text-white/50 focus:outline-none focus:border-[oklch(0.6_0.2_35)] transition-colors"
                 />
@@ -85,13 +199,45 @@ export function Footer() {
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className="px-8 h-14 rounded-xl font-semibold text-white flex items-center gap-2"
-                style={{ background: 'linear-gradient(135deg, oklch(0.6 0.2 35), oklch(0.55 0.18 40))' }}
+                onClick={handleSubscribe}
+                disabled={subscribeStatus === 'loading'}
+                className="px-8 h-14 rounded-xl font-semibold text-white flex items-center gap-2 disabled:opacity-60"
+                style={{
+                  background:
+                    'linear-gradient(135deg, oklch(0.6 0.2 35), oklch(0.55 0.18 40))',
+                }}
               >
-                Subscribe
-                <ArrowRight className="w-4 h-4" />
+                {subscribeStatus === 'loading' ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <>
+                    Subscribe
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
               </motion.button>
             </div>
+            {/* Status message */}
+            {subscribeMessage && (
+              <div className="lg:col-span-2 mt-2">
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className={`flex items-center gap-2 text-sm ${
+                    subscribeStatus === 'success'
+                      ? 'text-green-400'
+                      : 'text-red-400'
+                  }`}
+                >
+                  {subscribeStatus === 'success' ? (
+                    <CheckCircle className="w-4 h-4" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4" />
+                  )}
+                  {subscribeMessage}
+                </motion.div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -105,7 +251,10 @@ export function Footer() {
               <motion.div
                 whileHover={{ rotate: 10 }}
                 className="w-12 h-12 rounded-xl flex items-center justify-center"
-                style={{ background: 'linear-gradient(135deg, oklch(0.6 0.2 35), oklch(0.55 0.18 40))' }}
+                style={{
+                  background:
+                    'linear-gradient(135deg, oklch(0.6 0.2 35), oklch(0.55 0.18 40))',
+                }}
               >
                 <span className="text-white font-bold text-2xl">D</span>
               </motion.div>
@@ -114,42 +263,50 @@ export function Footer() {
                 <span className="font-bold text-2xl text-[oklch(0.55_0.15_140)]">Africa</span>
               </div>
             </Link>
-            <p className="text-white/70 mb-6 max-w-sm">
-              East Africa&apos;s trusted multi-vendor marketplace. Shop millions of products from verified sellers with buyer protection and fast delivery.
-            </p>
-            
-            {/* Contact Info */}
+            <p className="text-white/70 mb-6 max-w-sm">{aboutText}</p>
+
+            {/* Contact Info - admin configurable */}
             <div className="space-y-3 mb-6">
               <div className="flex items-center gap-3 text-white/70">
                 <MapPin className="w-4 h-4 text-[oklch(0.6_0.2_35)]" />
-                <span>Kampala, Uganda</span>
+                <span>{address}</span>
               </div>
-              <div className="flex items-center gap-3 text-white/70">
+              <a
+                href={`tel:${phone}`}
+                className="flex items-center gap-3 text-white/70 hover:text-white transition-colors"
+              >
                 <Phone className="w-4 h-4 text-[oklch(0.6_0.2_35)]" />
-                <span>+256 700 000000</span>
-              </div>
-              <div className="flex items-center gap-3 text-white/70">
+                <span>{phone}</span>
+              </a>
+              <a
+                href={`mailto:${email_}`}
+                className="flex items-center gap-3 text-white/70 hover:text-white transition-colors"
+              >
                 <Mail className="w-4 h-4 text-[oklch(0.6_0.2_35)]" />
-                <span>support@duukaafrica.com</span>
-              </div>
+                <span>{email_}</span>
+              </a>
             </div>
 
-            {/* Social Links */}
+            {/* Social Links - admin configurable */}
             <div className="flex items-center gap-3">
-              {socialLinks.map((social) => (
-                <motion.a
-                  key={social.label}
-                  href={social.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  whileHover={{ scale: 1.1, y: -3 }}
-                  whileTap={{ scale: 0.9 }}
-                  className="w-10 h-10 rounded-xl bg-white/10 hover:bg-[oklch(0.6_0.2_35)] flex items-center justify-center transition-colors"
-                  aria-label={social.label}
-                >
-                  <social.icon className="w-5 h-5" />
-                </motion.a>
-              ))}
+              {socialLinks.map((social) => {
+                const IconComponent =
+                  SOCIAL_ICON_MAP[social.icon] || Facebook
+                return (
+                  <motion.a
+                    key={social.label}
+                    href={social.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    whileHover={{ scale: 1.1, y: -3 }}
+                    whileTap={{ scale: 0.9 }}
+                    className="w-10 h-10 rounded-xl bg-white/10 hover:bg-[oklch(0.6_0.2_35)] flex items-center justify-center transition-colors"
+                    aria-label={social.label}
+                  >
+                    <IconComponent className="w-5 h-5" />
+                  </motion.a>
+                )
+              })}
             </div>
           </div>
 
@@ -159,7 +316,10 @@ export function Footer() {
             <ul className="space-y-3">
               {footerLinks.shop.map((link) => (
                 <li key={link.name}>
-                  <Link href={link.href} className="text-white/70 hover:text-white transition-colors">
+                  <Link
+                    href={link.href}
+                    className="text-white/70 hover:text-white transition-colors"
+                  >
                     {link.name}
                   </Link>
                 </li>
@@ -173,7 +333,10 @@ export function Footer() {
             <ul className="space-y-3">
               {footerLinks.sell.map((link) => (
                 <li key={link.name}>
-                  <Link href={link.href} className="text-white/70 hover:text-white transition-colors">
+                  <Link
+                    href={link.href}
+                    className="text-white/70 hover:text-white transition-colors"
+                  >
                     {link.name}
                   </Link>
                 </li>
@@ -187,7 +350,10 @@ export function Footer() {
             <ul className="space-y-3">
               {footerLinks.support.map((link) => (
                 <li key={link.name}>
-                  <Link href={link.href} className="text-white/70 hover:text-white transition-colors">
+                  <Link
+                    href={link.href}
+                    className="text-white/70 hover:text-white transition-colors"
+                  >
                     {link.name}
                   </Link>
                 </li>
@@ -201,7 +367,10 @@ export function Footer() {
             <ul className="space-y-3">
               {footerLinks.company.map((link) => (
                 <li key={link.name}>
-                  <Link href={link.href} className="text-white/70 hover:text-white transition-colors">
+                  <Link
+                    href={link.href}
+                    className="text-white/70 hover:text-white transition-colors"
+                  >
                     {link.name}
                   </Link>
                 </li>
@@ -233,12 +402,12 @@ export function Footer() {
         {/* Bottom Bar */}
         <div className="flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="text-white/60 text-sm text-center md:text-left">
-            © {new Date().getFullYear()} DuukaAfrica. All rights reserved.
+            &copy; {new Date().getFullYear()} {copyrightName}. All rights reserved.
           </div>
-          
-          {/* Payment Methods */}
-          <div className="flex items-center gap-4">
-            {paymentMethods.map((method) => (
+
+          {/* Payment Methods - admin configurable */}
+          <div className="flex items-center gap-4 flex-wrap justify-center">
+            {paymentMethods.map((method: string) => (
               <div
                 key={method}
                 className="px-3 py-1.5 rounded-lg bg-white/10 text-xs text-white/70"
@@ -250,25 +419,34 @@ export function Footer() {
 
           {/* Legal Links */}
           <div className="flex items-center gap-4 text-sm text-white/60">
-            <Link href="/privacy" className="hover:text-white transition-colors">
+            <Link
+              href="/privacy"
+              className="hover:text-white transition-colors"
+            >
               Privacy Policy
             </Link>
-            <Link href="/terms" className="hover:text-white transition-colors">
+            <Link
+              href="/terms"
+              className="hover:text-white transition-colors"
+            >
               Terms of Service
             </Link>
           </div>
         </div>
       </div>
 
-      {/* Countries */}
+      {/* Countries - admin configurable */}
       <div className="border-t border-white/10">
         <div className="container mx-auto px-4 py-4">
           <div className="flex flex-wrap items-center justify-center gap-4 text-sm text-white/60">
             <span>Serving:</span>
-            <span className="flex items-center gap-1">🇺🇬 Uganda</span>
-            <span className="flex items-center gap-1">🇰🇪 Kenya</span>
-            <span className="flex items-center gap-1">🇹🇿 Tanzania</span>
-            <span className="flex items-center gap-1">🇷🇼 Rwanda</span>
+            {countries.map(
+              (c: { flag: string; name: string }) => (
+                <span key={c.name} className="flex items-center gap-1">
+                  {c.flag} {c.name}
+                </span>
+              ),
+            )}
           </div>
         </div>
       </div>

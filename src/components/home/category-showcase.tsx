@@ -128,6 +128,8 @@ export function CategoryShowcase() {
                       src={categories[0].image}
                       alt={categories[0].name}
                       className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                      loading="lazy"
+                      decoding="async"
                     />
                   ) : (
                     <div 
@@ -177,6 +179,8 @@ export function CategoryShowcase() {
                       src={category.image}
                       alt={category.name}
                       className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                      loading="lazy"
+                      decoding="async"
                     />
                   ) : (
                     <div 
@@ -216,6 +220,8 @@ export function CategoryShowcase() {
                       src={category.image}
                       alt={category.name}
                       className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                      loading="lazy"
+                      decoding="async"
                     />
                   ) : (
                     <div 

@@ -323,3 +323,27 @@
     padding-bottom: env(safe-area-inset-bottom);
   }
 }
+
+/* ── Reduced Motion ──
+ * Respect users who prefer reduced motion for accessibility.
+ * Disables all infinite/continuous animations and reduces transition durations.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .animate-float,
+  .animate-shimmer,
+  .animate-pulse-glow,
+  .animate-gradient,
+  .animate-scroll-x,
+  .animate-blob {
+    animation: none !important;
+  }
+}
