@@ -63,10 +63,10 @@ export const DEFAULTS = {
   // Trust indicators (JSON array)
   trust_indicators: {
     value: JSON.stringify([
-      { emoji: '\uD83D\uDEE1\uFE0F', text: 'Buyer Protection' },
-      { emoji: '\u2705', text: 'Verified Sellers' },
-      { emoji: '\uD83D\uDCB3', text: 'Secure Checkout' },
-      { emoji: '\uD83C\uDFAF', text: 'Dedicated Support' },
+      { emoji: '🛡️', text: 'Buyer Protection' },
+      { emoji: '✅', text: 'Verified Sellers' },
+      { emoji: '💳', text: 'Secure Checkout' },
+      { emoji: '🏆', text: 'Dedicated Support' },
     ]),
     type: 'JSON',
     group: 'homepage_trust',
@@ -191,10 +191,10 @@ export const DEFAULTS = {
   footer_copyright: { value: 'DuukaAfrica', type: 'STRING', group: 'homepage_footer' },
   footer_countries: {
     value: JSON.stringify([
-      { flag: '\uD83C\uDDFA\uD83C\uDDE6', name: 'Uganda' },
-      { flag: '\uD83C\uDDEF\uD83C\uDDEA', name: 'Kenya' },
-      { flag: '\uD83C\uDDF9\uD83C\uDDFF', name: 'Tanzania' },
-      { flag: '\uD83C\uDDF7\uD83C\uDDFC', name: 'Rwanda' },
+      { flag: '🇺🇬', name: 'Uganda' },
+      { flag: '🇰🇪', name: 'Kenya' },
+      { flag: '🇹🇿', name: 'Tanzania' },
+      { flag: '🇷🇼', name: 'Rwanda' },
     ]),
     type: 'JSON',
     group: 'homepage_footer',

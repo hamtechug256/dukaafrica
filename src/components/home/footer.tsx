@@ -69,10 +69,10 @@ export function Footer() {
   const countries = Array.isArray(footerConfig.footer_countries)
     ? footerConfig.footer_countries
     : [
-        { flag: '\uD83C\uDDFA\uD83C\uDDE6', name: 'Uganda' },
-        { flag: '\uD83C\uDDEF\uD83C\uDDEA', name: 'Kenya' },
-        { flag: '\uD83C\uDDF9\uD83C\uDDFF', name: 'Tanzania' },
-        { flag: '\uD83C\uDDF7\uD83C\uDDFC', name: 'Rwanda' },
+        { flag: '🇺🇬', name: 'Uganda' },
+        { flag: '🇰🇪', name: 'Kenya' },
+        { flag: '🇹🇿', name: 'Tanzania' },
+        { flag: '🇷🇼', name: 'Rwanda' },
       ]
 
   const socialLinks = [
