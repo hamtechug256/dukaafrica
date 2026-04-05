@@ -100,7 +100,7 @@ export const DEFAULTS = {
     group: 'homepage_how_it_works',
   },
   how_it_works_title: {
-    value: 'How DukaAfrica Works',
+    value: 'How DuukaAfrica Works',
     type: 'STRING',
     group: 'homepage_how_it_works',
   },

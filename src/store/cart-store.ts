@@ -147,7 +147,7 @@ export const useCartStore = create<CartStore>()(
       },
     }),
     {
-      name: 'dukaafrica-cart',
+      name: 'duukaafrica-cart',
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ items: state.items }),
     }

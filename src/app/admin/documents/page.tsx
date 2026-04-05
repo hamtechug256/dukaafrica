@@ -844,7 +844,7 @@ export default function AdminDocumentsPage() {
                   setFileData(null)
                   if (!editingDocument) setExistingFileUrl('')
                 }}
-                folder="dukaafrica/documents"
+                folder="duukaafrica/documents"
               />
             </div>
 

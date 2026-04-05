@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import {
   Facebook,
   Twitter,
@@ -9,7 +10,6 @@ import {
   MapPin,
 } from "lucide-react";
 import { getAllPublicSettings } from "@/lib/site-settings";
-import Image from "next/image";
 
 export async function Footer() {
   let settings: Record<string, any> = {};
@@ -139,56 +139,45 @@ export async function Footer() {
           <div>
             <h4 className="font-semibold text-white mb-4">Shop</h4>
             <ul className="space-y-2 text-sm">
-              <li>
-                <Link href="/categories/electronics" className="hover:text-white">
-                  Electronics
-                </Link>
-              </li>
-              <li>
-                <Link href="/categories/fashion" className="hover:text-white">
-                  Fashion
-                </Link>
-              </li>
-              <li>
-                <Link href="/categories/home-garden" className="hover:text-white">
-                  Home &amp; Garden
-                </Link>
-              </li>
-              <li>
-                <Link href="/categories/beauty" className="hover:text-white">
-                  Beauty
-                </Link>
-              </li>
-              <li>
-                <Link href="/categories/sports" className="hover:text-white">
-                  Sports
-                </Link>
-              </li>
-              <li>
-                <Link href="/categories/vehicles" className="hover:text-white">
-                  Vehicles
-                </Link>
-              </li>
+              <li><Link href="/products" className="hover:text-white">All Products</Link></li>
+              <li><Link href="/categories" className="hover:text-white">All Categories</Link></li>
+              <li><Link href="/categories/electronics" className="hover:text-white">Electronics</Link></li>
+              <li><Link href="/categories/fashion" className="hover:text-white">Fashion</Link></li>
+              <li><Link href="/categories/home-garden" className="hover:text-white">Home &amp; Garden</Link></li>
+              <li><Link href="/categories/beauty" className="hover:text-white">Beauty</Link></li>
+              <li><Link href="/categories/sports" className="hover:text-white">Sports</Link></li>
+              <li><Link href="/flash-sales" className="hover:text-white">Flash Sales</Link></li>
+              <li><Link href="/stores" className="hover:text-white">All Stores</Link></li>
             </ul>
           </div>
 
-          {/* Company */}
+          {/* Resources */}
           <div>
-            <h4 className="font-semibold text-white mb-4">Company</h4>
+            <h4 className="font-semibold text-white mb-4">Resources</h4>
             <ul className="space-y-2 text-sm">
+              <li><Link href="/seller/resources" className="hover:text-white">Seller Resources &amp; Downloads</Link></li>
+              <li><Link href="/seller/guidelines" className="hover:text-white">Seller Guidelines</Link></li>
+              <li><Link href="/seller/fees" className="hover:text-white">Fees &amp; Pricing</Link></li>
+              <li><Link href="/help" className="hover:text-white">Help Center</Link></li>
+              <li><Link href="/track-order" className="hover:text-white">Track Order</Link></li>
+              <li><Link href="/shipping" className="hover:text-white">Shipping Info</Link></li>
+              <li><Link href="/returns" className="hover:text-white">Returns &amp; Refunds</Link></li>
               <li><Link href="/about" className="hover:text-white">About Us</Link></li>
               <li><Link href="/contact" className="hover:text-white">Contact Us</Link></li>
             </ul>
           </div>
 
-          {/* Customer Service */}
+          {/* My Account */}
           <div>
-            <h4 className="font-semibold text-white mb-4">Customer Service</h4>
+            <h4 className="font-semibold text-white mb-4">My Account</h4>
             <ul className="space-y-2 text-sm">
-              <li><Link href="/help" className="hover:text-white">Help Center</Link></li>
-              <li><Link href="/track-order" className="hover:text-white">Track Order</Link></li>
-              <li><Link href="/returns" className="hover:text-white">Returns & Refunds</Link></li>
-              <li><Link href="/shipping" className="hover:text-white">Shipping Info</Link></li>
+              <li><Link href="/dashboard" className="hover:text-white">Dashboard</Link></li>
+              <li><Link href="/dashboard/orders" className="hover:text-white">My Orders</Link></li>
+              <li><Link href="/dashboard/wishlist" className="hover:text-white">Wishlist</Link></li>
+              <li><Link href="/dashboard/reviews" className="hover:text-white">My Reviews</Link></li>
+              <li><Link href="/messages" className="hover:text-white">Messages</Link></li>
+              <li><Link href="/dashboard/addresses" className="hover:text-white">Addresses</Link></li>
+              <li><Link href="/dashboard/notifications" className="hover:text-white">Notifications</Link></li>
             </ul>
           </div>
 
@@ -198,9 +187,11 @@ export async function Footer() {
             <ul className="space-y-2 text-sm">
               <li><Link href="/seller/register" className="hover:text-white">Start Selling</Link></li>
               <li><Link href="/seller/login" className="hover:text-white">Seller Login</Link></li>
+              <li><Link href="/seller/dashboard" className="hover:text-white">Seller Dashboard</Link></li>
               <li><Link href="/seller/guidelines" className="hover:text-white">Seller Guidelines</Link></li>
-              <li><Link href="/seller/fees" className="hover:text-white">Fees & Pricing</Link></li>
-              <li><Link href="/seller/resources" className="hover:text-white">Seller Resources</Link></li>
+              <li><Link href="/seller/fees" className="hover:text-white">Fees &amp; Pricing</Link></li>
+              <li><Link href="/seller/analytics" className="hover:text-white">Analytics</Link></li>
+              <li><Link href="/seller/verification" className="hover:text-white">Verification</Link></li>
             </ul>
           </div>
 
@@ -238,39 +229,28 @@ export async function Footer() {
                   const isAirtel = label.includes('airtel')
                   const isVisa = label.includes('visa')
                   const isMastercard = label.includes('master') || label.includes('mastercard')
+                  const isAmex = label.includes('american') || label.includes('amex')
+
+                  // Real payment logo URLs from Wikimedia Commons & seeklogo
+                  let logoSrc = ''
+                  if (isVisa) logoSrc = 'https://upload.wikimedia.org/wikipedia/commons/b/bb/Visa-icon.svg'
+                  else if (isMastercard) logoSrc = 'https://upload.wikimedia.org/wikipedia/commons/a/a4/Mastercard_2019_logo.svg'
+                  else if (isAmex) logoSrc = 'https://upload.wikimedia.org/wikipedia/commons/f/fa/American_Express_logo_%282018%29.svg'
+                  else if (isMoMo) logoSrc = 'https://images.seeklogo.com/logo-png/65/1/mtn-momo-icon-logo-png_seeklogo-659243.png'
+                  else if (isAirtel) logoSrc = 'https://images.seeklogo.com/logo-png/52/1/airtel-money-tanzania-logo-png_seeklogo-527192.png'
+
                   return (
                     <div key={method} className="flex items-center gap-1.5 px-2 py-1 bg-gray-800 rounded" title={method}>
-                      {isVisa && (
-                        <svg className="w-8 h-5" viewBox="0 0 48 32" fill="none">
-                          <rect width="48" height="32" rx="4" fill="#1A1F71"/>
-                          <path d="M19.5 21.5h-3l1.9-10.5h3l-1.9 10.5zm12.7-10.3c-.6-.2-1.5-.5-2.7-.5-3 0-5.1 1.5-5.1 3.6 0 1.6 1.5 2.5 2.6 3 1.1.6 1.5.9 1.5 1.4 0 .8-.9 1.1-1.8 1.1-1.2 0-1.8-.2-2.8-.6l-.4-.2-.4 2.5c.7.3 2 .6 3.3.6 3.2 0 5.2-1.5 5.2-3.7 0-1.3-.8-2.2-2.5-3-1-.5-1.7-.9-1.7-1.4 0-.5.5-1 1.7-1 1 0 1.7.2 2.2.4l.3.1.4-2.3zm7.9 6.5h2.3c.2 0 .4 0 .5-.2l.1-.1 1.7-8.5c0-.1 0-.3-.2-.4h-2.1c-.2 0-.3.1-.4.3l-.8 4.1-.2-4c0-.2-.2-.4-.4-.4h-2c-.2 0-.3.1-.3.3l-.1.1 1.4 10.3c0 .2.2.4.4.4h2.4l-.3-1.9zm-5.2 3.8l1.5-8.6c0-.2-.1-.4-.3-.4h-2c-.2 0-.4.2-.4.3l-.6 3.9c0 .2-.1.3-.3.3s-.4-.1-.4-.3l-.7-3.9c0-.2-.2-.3-.4-.3h-2c-.2 0-.3.2-.3.4l1.6 8.6c0 .2.2.4.4.4h2.1c.2 0 .3-.2.4-.4h-.6z" fill="white"/>
-                        </svg>
-                      )}
-                      {isMastercard && (
-                        <svg className="w-8 h-5" viewBox="0 0 48 32" fill="none">
-                          <rect width="48" height="32" rx="4" fill="#252525"/>
-                          <circle cx="20" cy="16" r="8" fill="#EB001B" opacity="0.9"/>
-                          <circle cx="28" cy="16" r="8" fill="#F79E1B" opacity="0.9"/>
-                          <path d="M24 10.3a8 8 0 010 11.4 8 8 0 000-11.4z" fill="#FF5F00" opacity="0.9"/>
-                        </svg>
-                      )}
-                      {isMoMo && (
-                        <div className="flex items-center gap-1.5">
-                          <div className="w-5 h-5 rounded-full bg-yellow-400 flex items-center justify-center">
-                            <span className="text-[10px] font-black text-gray-900">M</span>
-                          </div>
-                          <span className="text-xs text-gray-300 font-medium">MTN MoMo</span>
-                        </div>
-                      )}
-                      {isAirtel && (
-                        <div className="flex items-center gap-1.5">
-                          <div className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center">
-                            <span className="text-[10px] font-black text-white">A</span>
-                          </div>
-                          <span className="text-xs text-gray-300 font-medium">Airtel Money</span>
-                        </div>
-                      )}
-                      {!isVisa && !isMastercard && !isMoMo && !isAirtel && (
+                      {logoSrc ? (
+                        <Image
+                          src={logoSrc}
+                          alt={method}
+                          width={40}
+                          height={26}
+                          className="h-5 w-auto object-contain"
+                          unoptimized
+                        />
+                      ) : (
                         <span className="text-xs text-gray-400 font-medium">{method}</span>
                       )}
                     </div>
@@ -301,14 +281,20 @@ export async function Footer() {
               reserved.
             </p>
             <div className="flex items-center gap-4">
-              <Link href="/privacy" className="hover:text-white">
-                Privacy Policy
-              </Link>
               <Link href="/terms" className="hover:text-white">
                 Terms of Service
               </Link>
+              <Link href="/privacy" className="hover:text-white">
+                Privacy Policy
+              </Link>
               <Link href="/cookies" className="hover:text-white">
                 Cookie Policy
+              </Link>
+              <Link href="/returns" className="hover:text-white">
+                Refund Policy
+              </Link>
+              <Link href="/shipping" className="hover:text-white">
+                Shipping Policy
               </Link>
             </div>
           </div>

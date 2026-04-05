@@ -580,7 +580,7 @@ export default function AdminCategoriesPage() {
                 <ImageUploader
                   value={formData.image}
                   onChange={(url) => setFormData(prev => ({ ...prev, image: url }))}
-                  folder="dukaafrica/categories"
+                  folder="duukaafrica/categories"
                   aspectRatio="16/9"
                 />
               </div>
