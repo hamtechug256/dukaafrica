@@ -155,12 +155,13 @@ export async function Footer() {
           <div>
             <h4 className="font-semibold text-white mb-4">Resources</h4>
             <ul className="space-y-2 text-sm">
+              <li><Link href="/seller/resources" className="hover:text-white">Seller Resources &amp; Downloads</Link></li>
+              <li><Link href="/seller/guidelines" className="hover:text-white">Seller Guidelines</Link></li>
+              <li><Link href="/seller/fees" className="hover:text-white">Fees &amp; Pricing</Link></li>
               <li><Link href="/help" className="hover:text-white">Help Center</Link></li>
               <li><Link href="/track-order" className="hover:text-white">Track Order</Link></li>
-              <li><Link href="/returns" className="hover:text-white">Returns &amp; Refunds</Link></li>
               <li><Link href="/shipping" className="hover:text-white">Shipping Info</Link></li>
-              <li><Link href="/seller/resources" className="hover:text-white">Seller Resources</Link></li>
-              <li><Link href="/seller/learn-more" className="hover:text-white">Learn More</Link></li>
+              <li><Link href="/returns" className="hover:text-white">Returns &amp; Refunds</Link></li>
               <li><Link href="/about" className="hover:text-white">About Us</Link></li>
               <li><Link href="/contact" className="hover:text-white">Contact Us</Link></li>
             </ul>
@@ -280,14 +281,20 @@ export async function Footer() {
               reserved.
             </p>
             <div className="flex items-center gap-4">
-              <Link href="/privacy" className="hover:text-white">
-                Privacy Policy
-              </Link>
               <Link href="/terms" className="hover:text-white">
                 Terms of Service
               </Link>
+              <Link href="/privacy" className="hover:text-white">
+                Privacy Policy
+              </Link>
               <Link href="/cookies" className="hover:text-white">
                 Cookie Policy
+              </Link>
+              <Link href="/returns" className="hover:text-white">
+                Refund Policy
+              </Link>
+              <Link href="/shipping" className="hover:text-white">
+                Shipping Policy
               </Link>
             </div>
           </div>
