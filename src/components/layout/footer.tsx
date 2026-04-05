@@ -232,14 +232,50 @@ export async function Footer() {
             <div className="flex items-center gap-4 text-sm text-gray-400">
               <span>We accept:</span>
               <div className="flex items-center gap-3">
-                {paymentMethods.map((method: string) => (
-                  <span
-                    key={method}
-                    className="px-2 py-1 bg-gray-800 rounded text-xs font-medium"
-                  >
-                    {method}
-                  </span>
-                ))}
+                {paymentMethods.map((method: string) => {
+                  const label = method.toLowerCase()
+                  const isMoMo = label.includes('mtn') || label.includes('momo')
+                  const isAirtel = label.includes('airtel')
+                  const isVisa = label.includes('visa')
+                  const isMastercard = label.includes('master') || label.includes('mastercard')
+                  return (
+                    <div key={method} className="flex items-center gap-1.5 px-2 py-1 bg-gray-800 rounded" title={method}>
+                      {isVisa && (
+                        <svg className="w-8 h-5" viewBox="0 0 48 32" fill="none">
+                          <rect width="48" height="32" rx="4" fill="#1A1F71"/>
+                          <path d="M19.5 21.5h-3l1.9-10.5h3l-1.9 10.5zm12.7-10.3c-.6-.2-1.5-.5-2.7-.5-3 0-5.1 1.5-5.1 3.6 0 1.6 1.5 2.5 2.6 3 1.1.6 1.5.9 1.5 1.4 0 .8-.9 1.1-1.8 1.1-1.2 0-1.8-.2-2.8-.6l-.4-.2-.4 2.5c.7.3 2 .6 3.3.6 3.2 0 5.2-1.5 5.2-3.7 0-1.3-.8-2.2-2.5-3-1-.5-1.7-.9-1.7-1.4 0-.5.5-1 1.7-1 1 0 1.7.2 2.2.4l.3.1.4-2.3zm7.9 6.5h2.3c.2 0 .4 0 .5-.2l.1-.1 1.7-8.5c0-.1 0-.3-.2-.4h-2.1c-.2 0-.3.1-.4.3l-.8 4.1-.2-4c0-.2-.2-.4-.4-.4h-2c-.2 0-.3.1-.3.3l-.1.1 1.4 10.3c0 .2.2.4.4.4h2.4l-.3-1.9zm-5.2 3.8l1.5-8.6c0-.2-.1-.4-.3-.4h-2c-.2 0-.4.2-.4.3l-.6 3.9c0 .2-.1.3-.3.3s-.4-.1-.4-.3l-.7-3.9c0-.2-.2-.3-.4-.3h-2c-.2 0-.3.2-.3.4l1.6 8.6c0 .2.2.4.4.4h2.1c.2 0 .3-.2.4-.4h-.6z" fill="white"/>
+                        </svg>
+                      )}
+                      {isMastercard && (
+                        <svg className="w-8 h-5" viewBox="0 0 48 32" fill="none">
+                          <rect width="48" height="32" rx="4" fill="#252525"/>
+                          <circle cx="20" cy="16" r="8" fill="#EB001B" opacity="0.9"/>
+                          <circle cx="28" cy="16" r="8" fill="#F79E1B" opacity="0.9"/>
+                          <path d="M24 10.3a8 8 0 010 11.4 8 8 0 000-11.4z" fill="#FF5F00" opacity="0.9"/>
+                        </svg>
+                      )}
+                      {isMoMo && (
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-5 h-5 rounded-full bg-yellow-400 flex items-center justify-center">
+                            <span className="text-[10px] font-black text-gray-900">M</span>
+                          </div>
+                          <span className="text-xs text-gray-300 font-medium">MTN MoMo</span>
+                        </div>
+                      )}
+                      {isAirtel && (
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center">
+                            <span className="text-[10px] font-black text-white">A</span>
+                          </div>
+                          <span className="text-xs text-gray-300 font-medium">Airtel Money</span>
+                        </div>
+                      )}
+                      {!isVisa && !isMastercard && !isMoMo && !isAirtel && (
+                        <span className="text-xs text-gray-400 font-medium">{method}</span>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             </div>
             <div className="flex items-center gap-4 text-sm">

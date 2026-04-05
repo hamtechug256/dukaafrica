@@ -69,10 +69,10 @@ export function Footer() {
   const countries = Array.isArray(footerConfig.footer_countries)
     ? footerConfig.footer_countries
     : [
-        { flag: '\uD83C\uDDFA\uD83C\uDDE6', name: 'Uganda' },
-        { flag: '\uD83C\uDDEF\uD83C\uDDEA', name: 'Kenya' },
-        { flag: '\uD83C\uDDF9\uD83C\uDDFF', name: 'Tanzania' },
-        { flag: '\uD83C\uDDF7\uD83C\uDDFC', name: 'Rwanda' },
+        { flag: '🇺🇬', name: 'Uganda' },
+        { flag: '🇰🇪', name: 'Kenya' },
+        { flag: '🇹🇿', name: 'Tanzania' },
+        { flag: '🇷🇼', name: 'Rwanda' },
       ]
 
   const socialLinks = [
@@ -405,15 +405,10 @@ export function Footer() {
             &copy; {new Date().getFullYear()} {copyrightName}. All rights reserved.
           </div>
 
-          {/* Payment Methods - admin configurable */}
-          <div className="flex items-center gap-4 flex-wrap justify-center">
+          {/* Payment Methods - admin configurable with icons */}
+          <div className="flex items-center gap-3 flex-wrap justify-center">
             {paymentMethods.map((method: string) => (
-              <div
-                key={method}
-                className="px-3 py-1.5 rounded-lg bg-white/10 text-xs text-white/70"
-              >
-                {method}
-              </div>
+              <PaymentIcon key={method} method={method} />
             ))}
           </div>
 
@@ -451,5 +446,56 @@ export function Footer() {
         </div>
       </div>
     </footer>
+  )
+}
+
+// ── Payment Method Icon Component ──
+function PaymentIcon({ method }: { method: string }) {
+  const label = method.toLowerCase()
+  const isMoMo = label.includes('mtn') || label.includes('momo')
+  const isAirtel = label.includes('airtel')
+  const isVisa = label.includes('visa')
+  const isMastercard = label.includes('master') || label.includes('mastercard')
+
+  return (
+    <div
+      className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 transition-colors"
+      title={method}
+    >
+      {/* Payment Logo SVG */}
+      {isVisa && (
+        <svg className="w-8 h-5" viewBox="0 0 48 32" fill="none">
+          <rect width="48" height="32" rx="4" fill="#1A1F71"/>
+          <path d="M19.5 21.5h-3l1.9-10.5h3l-1.9 10.5zm12.7-10.3c-.6-.2-1.5-.5-2.7-.5-3 0-5.1 1.5-5.1 3.6 0 1.6 1.5 2.5 2.6 3 1.1.6 1.5.9 1.5 1.4 0 .8-.9 1.1-1.8 1.1-1.2 0-1.8-.2-2.8-.6l-.4-.2-.4 2.5c.7.3 2 .6 3.3.6 3.2 0 5.2-1.5 5.2-3.7 0-1.3-.8-2.2-2.5-3-1-.5-1.7-.9-1.7-1.4 0-.5.5-1 1.7-1 1 0 1.7.2 2.2.4l.3.1.4-2.3zm7.9 6.5h2.3c.2 0 .4 0 .5-.2l.1-.1 1.7-8.5c0-.1 0-.3-.2-.4h-2.1c-.2 0-.3.1-.4.3l-.8 4.1-.2-4c0-.2-.2-.4-.4-.4h-2c-.2 0-.3.1-.3.3l-.1.1 1.4 10.3c0 .2.2.4.4.4h2.4l-.3-1.9zm-5.2 3.8l1.5-8.6c0-.2-.1-.4-.3-.4h-2c-.2 0-.4.2-.4.3l-.6 3.9c0 .2-.1.3-.3.3s-.4-.1-.4-.3l-.7-3.9c0-.2-.2-.3-.4-.3h-2c-.2 0-.3.2-.3.4l1.6 8.6c0 .2.2.4.4.4h2.1c.2 0 .3-.2.4-.4h-.6z" fill="white"/>
+        </svg>
+      )}
+      {isMastercard && (
+        <svg className="w-8 h-5" viewBox="0 0 48 32" fill="none">
+          <rect width="48" height="32" rx="4" fill="#252525"/>
+          <circle cx="20" cy="16" r="8" fill="#EB001B" opacity="0.9"/>
+          <circle cx="28" cy="16" r="8" fill="#F79E1B" opacity="0.9"/>
+          <path d="M24 10.3a8 8 0 010 11.4 8 8 0 000-11.4z" fill="#FF5F00" opacity="0.9"/>
+        </svg>
+      )}
+      {isMoMo && (
+        <div className="flex items-center gap-1.5">
+          <div className="w-5 h-5 rounded-full bg-yellow-400 flex items-center justify-center">
+            <span className="text-[10px] font-black text-gray-900">M</span>
+          </div>
+          <span className="text-xs text-white/80 font-medium">MTN MoMo</span>
+        </div>
+      )}
+      {isAirtel && (
+        <div className="flex items-center gap-1.5">
+          <div className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center">
+            <span className="text-[10px] font-black text-white">A</span>
+          </div>
+          <span className="text-xs text-white/80 font-medium">Airtel Money</span>
+        </div>
+      )}
+      {!isVisa && !isMastercard && !isMoMo && !isAirtel && (
+        <span className="text-xs text-white/70 font-medium">{method}</span>
+      )}
+    </div>
   )
 }
