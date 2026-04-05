@@ -139,56 +139,44 @@ export async function Footer() {
           <div>
             <h4 className="font-semibold text-white mb-4">Shop</h4>
             <ul className="space-y-2 text-sm">
-              <li>
-                <Link href="/categories/electronics" className="hover:text-white">
-                  Electronics
-                </Link>
-              </li>
-              <li>
-                <Link href="/categories/fashion" className="hover:text-white">
-                  Fashion
-                </Link>
-              </li>
-              <li>
-                <Link href="/categories/home-garden" className="hover:text-white">
-                  Home &amp; Garden
-                </Link>
-              </li>
-              <li>
-                <Link href="/categories/beauty" className="hover:text-white">
-                  Beauty
-                </Link>
-              </li>
-              <li>
-                <Link href="/categories/sports" className="hover:text-white">
-                  Sports
-                </Link>
-              </li>
-              <li>
-                <Link href="/categories/vehicles" className="hover:text-white">
-                  Vehicles
-                </Link>
-              </li>
+              <li><Link href="/products" className="hover:text-white">All Products</Link></li>
+              <li><Link href="/categories" className="hover:text-white">All Categories</Link></li>
+              <li><Link href="/categories/electronics" className="hover:text-white">Electronics</Link></li>
+              <li><Link href="/categories/fashion" className="hover:text-white">Fashion</Link></li>
+              <li><Link href="/categories/home-garden" className="hover:text-white">Home &amp; Garden</Link></li>
+              <li><Link href="/categories/beauty" className="hover:text-white">Beauty</Link></li>
+              <li><Link href="/categories/sports" className="hover:text-white">Sports</Link></li>
+              <li><Link href="/flash-sales" className="hover:text-white">Flash Sales</Link></li>
+              <li><Link href="/stores" className="hover:text-white">All Stores</Link></li>
             </ul>
           </div>
 
-          {/* Company */}
+          {/* Resources */}
           <div>
-            <h4 className="font-semibold text-white mb-4">Company</h4>
+            <h4 className="font-semibold text-white mb-4">Resources</h4>
             <ul className="space-y-2 text-sm">
+              <li><Link href="/help" className="hover:text-white">Help Center</Link></li>
+              <li><Link href="/track-order" className="hover:text-white">Track Order</Link></li>
+              <li><Link href="/returns" className="hover:text-white">Returns &amp; Refunds</Link></li>
+              <li><Link href="/shipping" className="hover:text-white">Shipping Info</Link></li>
+              <li><Link href="/seller/resources" className="hover:text-white">Seller Resources</Link></li>
+              <li><Link href="/seller/learn-more" className="hover:text-white">Learn More</Link></li>
               <li><Link href="/about" className="hover:text-white">About Us</Link></li>
               <li><Link href="/contact" className="hover:text-white">Contact Us</Link></li>
             </ul>
           </div>
 
-          {/* Customer Service */}
+          {/* My Account */}
           <div>
-            <h4 className="font-semibold text-white mb-4">Customer Service</h4>
+            <h4 className="font-semibold text-white mb-4">My Account</h4>
             <ul className="space-y-2 text-sm">
-              <li><Link href="/help" className="hover:text-white">Help Center</Link></li>
-              <li><Link href="/track-order" className="hover:text-white">Track Order</Link></li>
-              <li><Link href="/returns" className="hover:text-white">Returns & Refunds</Link></li>
-              <li><Link href="/shipping" className="hover:text-white">Shipping Info</Link></li>
+              <li><Link href="/dashboard" className="hover:text-white">Dashboard</Link></li>
+              <li><Link href="/dashboard/orders" className="hover:text-white">My Orders</Link></li>
+              <li><Link href="/dashboard/wishlist" className="hover:text-white">Wishlist</Link></li>
+              <li><Link href="/dashboard/reviews" className="hover:text-white">My Reviews</Link></li>
+              <li><Link href="/messages" className="hover:text-white">Messages</Link></li>
+              <li><Link href="/dashboard/addresses" className="hover:text-white">Addresses</Link></li>
+              <li><Link href="/dashboard/notifications" className="hover:text-white">Notifications</Link></li>
             </ul>
           </div>
 
@@ -198,9 +186,11 @@ export async function Footer() {
             <ul className="space-y-2 text-sm">
               <li><Link href="/seller/register" className="hover:text-white">Start Selling</Link></li>
               <li><Link href="/seller/login" className="hover:text-white">Seller Login</Link></li>
+              <li><Link href="/seller/dashboard" className="hover:text-white">Seller Dashboard</Link></li>
               <li><Link href="/seller/guidelines" className="hover:text-white">Seller Guidelines</Link></li>
-              <li><Link href="/seller/fees" className="hover:text-white">Fees & Pricing</Link></li>
-              <li><Link href="/seller/resources" className="hover:text-white">Seller Resources</Link></li>
+              <li><Link href="/seller/fees" className="hover:text-white">Fees &amp; Pricing</Link></li>
+              <li><Link href="/seller/analytics" className="hover:text-white">Analytics</Link></li>
+              <li><Link href="/seller/verification" className="hover:text-white">Verification</Link></li>
             </ul>
           </div>
 
