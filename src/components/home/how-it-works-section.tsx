@@ -67,7 +67,7 @@ export function HowItWorksSection() {
 
   if (!isVisible) return null
 
-  const title: string = howItWorks?.how_it_works_title || 'How DukaAfrica Works'
+  const title: string = howItWorks?.how_it_works_title || 'How DuukaAfrica Works'
   const subtitle: string =
     howItWorks?.how_it_works_subtitle || 'Simple, safe, and secure shopping in 4 easy steps'
   const steps: Step[] = howItWorks?.how_it_works_steps || []

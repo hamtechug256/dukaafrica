@@ -26,8 +26,8 @@ This guide will help you set up the DuukaAfrica e-commerce platform from scratch
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/hamtechug256/dukaafrica.git
-   cd dukaafrica
+   git clone https://github.com/hamtechug256/duukaafrica.git
+   cd duukaafrica
    ```
 
 2. Install dependencies:
@@ -224,5 +224,5 @@ This error occurs when Google OAuth is not properly configured. Solutions:
 ## Support
 
 For issues or questions:
-- GitHub Issues: https://github.com/hamtechug256/dukaafrica/issues
+- GitHub Issues: https://github.com/hamtechug256/duukaafrica/issues
 - Email: support@duukaafrica.com

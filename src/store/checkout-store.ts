@@ -217,7 +217,7 @@ export const useCheckoutStore = create<CheckoutStore>()(
       },
     }),
     {
-      name: 'dukaafrica-checkout',
+      name: 'duukaafrica-checkout',
       storage: createJSONStorage(() => {
         if (typeof window === 'undefined') {
           return {

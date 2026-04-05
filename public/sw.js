@@ -1,6 +1,6 @@
 /// <reference lib="webworker" />
 
-const CACHE_NAME = 'dukaafrica-v1'
+const CACHE_NAME = 'duukaafrica-v1'
 const OFFLINE_URL = '/offline'
 
 // Resources to cache on install
@@ -105,7 +105,7 @@ self.addEventListener('fetch', (event: any) => {
 // Push notification event
 self.addEventListener('push', (event: any) => {
   const data = event.data?.json() || {}
-  const title = data.title || 'DukaAfrica'
+  const title = data.title || 'DuukaAfrica'
   const options = {
     body: data.body || 'You have a new notification',
     icon: '/icons/icon-192x192.png',

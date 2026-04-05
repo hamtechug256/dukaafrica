@@ -59,7 +59,7 @@ export async function POST(req: Request) {
 
     const formData = await req.formData()
     const file = formData.get('file') as File | null
-    const folder = (formData.get('folder') as string) || 'dukaafrica/uploads'
+    const folder = (formData.get('folder') as string) || 'duukaafrica/uploads'
     const category = (formData.get('category') as string) || null
 
     if (!file) {

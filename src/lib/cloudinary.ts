@@ -186,7 +186,7 @@ export function useCloudinaryUpload() {
     options: UploadOptions = {}
   ): Promise<string | null> => {
     const result = await uploadToCloudinary(file, {
-      folder: 'dukaafrica/products',
+      folder: 'duukaafrica/products',
       maxWidth: 1200,
       quality: 80,
       format: 'webp',
@@ -201,7 +201,7 @@ export function useCloudinaryUpload() {
     options: UploadOptions = {}
   ): Promise<string[]> => {
     const results = await uploadMultipleImages(files, {
-      folder: 'dukaafrica/products',
+      folder: 'duukaafrica/products',
       maxWidth: 1200,
       quality: 80,
       format: 'webp',

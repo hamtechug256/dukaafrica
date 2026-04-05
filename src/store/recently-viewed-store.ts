@@ -59,7 +59,7 @@ export const useRecentlyViewedStore = create<RecentlyViewedState>()(
       },
     }),
     {
-      name: 'dukaafrica-recently-viewed',
+      name: 'duukaafrica-recently-viewed',
     }
   )
 )

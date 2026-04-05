@@ -70,7 +70,7 @@ export function FileUploader({
   onRemove,
   accept = DEFAULT_ACCEPT,
   maxSizeMB = 25,
-  folder = 'dukaafrica/documents',
+  folder = 'duukaafrica/documents',
   className,
   disabled = false,
 }: FileUploaderProps) {

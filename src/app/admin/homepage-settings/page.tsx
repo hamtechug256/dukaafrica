@@ -470,7 +470,7 @@ export default function AdminHomepageSettingsPage() {
                       <Input
                         value={howItWorksTitle}
                         onChange={(e) => setHowItWorksTitle(e.target.value)}
-                        placeholder="How DukaAfrica Works"
+                        placeholder="How DuukaAfrica Works"
                       />
                     </div>
                     <div className="space-y-2">

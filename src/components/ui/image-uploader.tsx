@@ -47,7 +47,7 @@ interface ImageUploaderProps {
 export function ImageUploader({
   value,
   onChange,
-  folder = 'dukaafrica/categories',
+  folder = 'duukaafrica/categories',
   className,
   placeholder = 'Upload or paste an image URL',
   aspectRatio = '16/9',
