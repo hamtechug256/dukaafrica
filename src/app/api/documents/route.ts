@@ -24,27 +24,16 @@ export async function GET(request: NextRequest) {
       where.category = category
     }
 
-    if (targetAudience) {
-      where.targetAudience = targetAudience
-    }
-
-    // If no target audience specified, show ALL and match specific audience
+    // Build targetAudience filter — documents tagged "ALL" are visible to everyone
     if (!targetAudience) {
-      where.OR = [
-        { targetAudience: 'ALL' },
-        { targetAudience: 'SELLERS' },
-        { targetAudience: 'BUYERS' },
-      ]
+      // No filter: show everything
+      where.targetAudience = { in: ['ALL', 'SELLERS', 'BUYERS'] }
     } else if (targetAudience === 'SELLERS') {
-      where.OR = [
-        { targetAudience: 'ALL' },
-        { targetAudience: 'SELLERS' },
-      ]
+      where.targetAudience = { in: ['ALL', 'SELLERS'] }
     } else if (targetAudience === 'BUYERS') {
-      where.OR = [
-        { targetAudience: 'ALL' },
-        { targetAudience: 'BUYERS' },
-      ]
+      where.targetAudience = { in: ['ALL', 'BUYERS'] }
+    } else {
+      where.targetAudience = { in: ['ALL', targetAudience] }
     }
 
     if (featured === 'true') {
