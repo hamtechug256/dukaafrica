@@ -129,10 +129,16 @@ export async function POST(req: Request) {
     })
 
     if (!response.ok) {
-      const errorData = await response.json()
-      console.error('Cloudinary upload error:', errorData?.error?.message || 'Unknown error')
+      let errorData: Record<string, unknown> = {}
+      try {
+        errorData = await response.json()
+      } catch {
+        // Cloudinary might not return JSON
+      }
+      const cloudinaryMessage = (errorData?.error as Record<string, unknown>)?.message || 'Unknown Cloudinary error'
+      console.error('Cloudinary upload error:', cloudinaryMessage, errorData)
       return NextResponse.json(
-        { error: 'Upload failed' },
+        { error: 'Upload failed', details: cloudinaryMessage, cloudinaryStatus: response.status },
         { status: 500 }
       )
     }
@@ -162,9 +168,10 @@ export async function POST(req: Request) {
 
     return NextResponse.json(responseData)
   } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error'
     console.error('Upload endpoint error:', error)
     return NextResponse.json(
-      { error: 'Upload failed' },
+      { error: 'Upload failed', details: message },
       { status: 500 }
     )
   }
