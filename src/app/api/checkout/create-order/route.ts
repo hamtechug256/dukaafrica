@@ -71,6 +71,8 @@ const CreateOrderSchema = z.object({
   shipping: z.number().nonnegative(),
   total: z.number().positive(),
   coupon: CouponSchema.optional(),
+  buyerCountry: z.string().optional(),
+  buyerCurrency: z.string().optional(),
 })
 
 // Generate unique order number
@@ -109,7 +111,7 @@ export async function POST(req: Request) {
       )
     }
 
-    const { items, shippingAddress, deliveryOption, paymentMethod, subtotal, shipping, total, coupon } = validationResult.data
+    const { items, shippingAddress, deliveryOption, paymentMethod, subtotal, shipping, total, coupon, buyerCountry, buyerCurrency } = validationResult.data
 
     // Verify coupon exists early (fail fast before price verification)
     let couponDiscount = 0
@@ -137,7 +139,7 @@ export async function POST(req: Request) {
 
     const dbProducts = await prisma.product.findMany({
       where: { id: { in: productIds } },
-      select: { id: true, price: true, status: true, currency: true, quantity: true },
+      select: { id: true, price: true, status: true, currency: true, quantity: true, storeId: true, Store: { select: { id: true, country: true, commissionRate: true } } },
     })
     const productPriceMap = new Map(dbProducts.map(p => [p.id, { ...p, price: p.price.toNumber(), quantity: p.quantity }]))
 
@@ -288,10 +290,20 @@ export async function POST(req: Request) {
           // Delivery
           deliveryMethod: deliveryOption.id.toUpperCase(),
           
+          // Buyer/Seller country for commission & shipping calculations
+          buyerCountry: buyerCountry || 'UGANDA',
+          sellerCountry: (() => {
+            const firstProduct = productPriceMap.get(items[0].productId)
+            return firstProduct?.Store?.country || 'UGANDA'
+          })(),
+          
           // Payment
           paymentMethod: paymentMethod.type,
           paymentStatus: 'PENDING',
           status: 'PENDING',
+          
+          // Store - derive from the first item's storeId
+          storeId: items[0]?.storeId || null,
           
           // Items - using verified prices from database
           OrderItem: {
@@ -340,56 +352,7 @@ export async function POST(req: Request) {
 
     const { order, payment } = result
 
-    // If card payment, initialize Paystack transaction
-    if (paymentMethod.type === 'CARD' && paymentMethod.provider === 'PAYSTACK') {
-      const paystackResponse = await fetch('https://api.paystack.co/transaction/initialize', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: user.emailAddresses[0]?.emailAddress,
-          amount: serverTotal * 100, // SECURITY FIX: Use server-verified total
-          reference: `DA-${order.id}`,
-          callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/checkout/success?orderId=${order.id}`,
-          metadata: {
-            orderId: order.id,
-            orderNumber: order.orderNumber,
-            userId: dbUser.id,
-          },
-        }),
-      })
-
-      const paystackData = await paystackResponse.json()
-
-      if (paystackData.status) {
-        // Update payment with reference
-        await prisma.payment.update({
-          where: { id: payment.id },
-          data: {
-            reference: paystackData.data.reference,
-            providerRef: paystackData.data.access_code,
-          },
-        })
-
-        return NextResponse.json({
-          order: serializeDecimal(order),
-          payment: {
-            id: payment.id,
-            authorization_url: paystackData.data.authorization_url,
-            reference: paystackData.data.reference,
-          },
-        })
-      } else {
-        return NextResponse.json(
-          { error: 'Failed to initialize payment' },
-          { status: 500 }
-        )
-      }
-    }
-
-    // For mobile money, return order and payment info (using server-verified total)
+    // Return order and payment info (Pesapal initialization is done from the checkout page)
     return NextResponse.json({
       order: serializeDecimal(order),
       payment: {

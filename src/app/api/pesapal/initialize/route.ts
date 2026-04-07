@@ -77,7 +77,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const store = order.Store
+    // Store lookup - prefer OrderItem.Product.Store over order.Store
+    const firstItemWithStore = order.OrderItem.find(item => item.Product?.Store)
+    const store = firstItemWithStore?.Product?.Store || order.Store
 
     // Generate a unique order tracking ID for Pesapal
     const orderTrackingId = generateTransactionReference('DUKA')
@@ -124,30 +126,36 @@ export async function POST(request: NextRequest) {
     }
 
     // Update order with payment reference (the Pesapal order tracking ID)
-    await prisma.order.update({
-      where: { id: orderId },
-      data: {
-        paymentRef: orderTrackingId
-      }
+    // Also update the existing Payment record (created by create-order) with Pesapal details
+    const payment = await prisma.payment.findUnique({
+      where: { orderId: order.id }
     })
 
-    // Create payment record
-    await prisma.payment.create({
-      data: {
-        orderId: order.id,
-        userId: user.id,
-        amount: toNum(order.total),
-        currency: order.currency,
-        method: 'MOBILE_MONEY',
-        provider: 'PESAPAL',
-        sellerAmount: paymentBreakdown.sellerTotalEarnings,
-        sellerCurrency: order.currency,
-        platformAmount: paymentBreakdown.platformTotalEarnings,
-        platformCurrency: order.currency,
-        reference: orderTrackingId,
-        status: 'PENDING'
-      }
-    })
+    if (!payment) {
+      return NextResponse.json(
+        { error: 'Payment record not found for this order' },
+        { status: 404 }
+      )
+    }
+
+    await prisma.$transaction([
+      prisma.order.update({
+        where: { id: orderId },
+        data: { paymentRef: orderTrackingId }
+      }),
+      prisma.payment.update({
+        where: { id: payment.id },
+        data: {
+          method: 'MOBILE_MONEY',
+          provider: 'PESAPAL',
+          reference: orderTrackingId,
+          sellerAmount: paymentBreakdown.sellerTotalEarnings,
+          sellerCurrency: order.currency,
+          platformAmount: paymentBreakdown.platformTotalEarnings,
+          platformCurrency: order.currency,
+        }
+      })
+    ])
 
     return NextResponse.json({
       success: true,

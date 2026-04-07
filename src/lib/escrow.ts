@@ -49,18 +49,21 @@ async function getPlatformReserve(): Promise<{
  * Create escrow hold for an order
  * Called when payment is successful
  * 
- * NOTE (Shipping Earnings): The escrow only tracks product earnings (grossAmount).
- * Shipping earnings are tracked at the payment level — the sellerAmount in the
- * Payment record includes both product and shipping components. The seller's
- * availableBalance is updated correctly via the payment webhook handler.
- * The manual payout system handles this correctly because payouts are based on
- * the store's availableBalance which reflects the full sellerAmount.
+ * In the Pesapal manual payout model, ALL money comes to the platform first.
+ * The escrow tracks the full seller entitlement (product earnings after commission
+ * and reserve, PLUS shipping earnings). This ensures sellers receive their complete
+ * payout when escrow releases.
+ * 
+ * Shipping earnings are NOT subject to commission or platform reserve —
+ * only the product price has commission applied. Shipping markup (5%) is
+ * kept by the platform and not passed through escrow.
  */
 export async function createEscrowHold(params: {
   orderId: string
   storeId: string
   buyerId: string
   grossAmount: number
+  shippingEarnings?: number  // Seller's net shipping earnings (after platform markup deduction)
   currency: string
   store: {
     verificationTier: string
@@ -82,18 +85,21 @@ export async function createEscrowHold(params: {
     const commissionRate = params.store.commissionRate || await getCommissionRate(params.store)
     const holdDays = await getEscrowHoldDays(params.store)
     
-    // Calculate amounts
+    // Calculate amounts (commission applies ONLY to product price, NOT shipping)
     const platformAmount = Math.round(params.grossAmount * (commissionRate / 100))
     const initialSellerAmount = params.grossAmount - platformAmount
     
     // Get platform reserve percentage
     const { reservePercent } = await getPlatformReserve()
     
-    // Calculate reserve amount from seller's earnings
+    // Calculate reserve amount from seller's product earnings only (not shipping)
     const reserveAmount = Math.round(initialSellerAmount * (reservePercent / 100))
     
-    // Final seller amount after reserve deduction
-    const sellerAmount = initialSellerAmount - reserveAmount
+    // Final seller amount: product earnings after commission & reserve, PLUS shipping earnings
+    // Shipping earnings are NOT subject to commission or reserve
+    const sellerProductEarnings = initialSellerAmount - reserveAmount
+    const sellerShippingEarnings = params.shippingEarnings || 0
+    const sellerAmount = sellerProductEarnings + sellerShippingEarnings
     
     // Calculate release date
     const releaseDate = new Date()

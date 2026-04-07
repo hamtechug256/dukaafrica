@@ -112,6 +112,13 @@ export default function CheckoutPage() {
   // Get buyer's currency based on selected country
   const buyerCurrency = COUNTRY_CURRENCY[formData.country as keyof typeof COUNTRY_CURRENCY] || 'UGX'
 
+  // Auto-set payment method to Pesapal when reaching Step 3
+  useEffect(() => {
+    if (currentStep === 2 && !paymentMethod) {
+      setPaymentMethod({ id: 'pesapal', type: 'MOBILE_MONEY', provider: 'PESAPAL' })
+    }
+  }, [currentStep, paymentMethod, setPaymentMethod])
+
   // Calculate shipping when country changes
   useEffect(() => {
     if (items.length > 0 && formData.country) {
@@ -527,86 +534,43 @@ export default function CheckoutPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {/* Mobile Money Options */}
+                    {/* Pesapal Payment Info */}
                     <div className="mb-4">
-                      <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
-                        Mobile Money
+                      <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-3">
+                        You will be redirected to Pesapal's secure payment page
                       </p>
-                      {availablePaymentMethods.map((method) => (
-                        <div
-                          key={method.id}
-                          className={`flex items-center justify-between p-4 border rounded-lg cursor-pointer transition-colors mb-2 ${
-                            paymentMethod?.id === method.id
-                              ? 'border-primary bg-primary/5'
-                              : 'hover:border-gray-300'
-                          }`}
-                          onClick={() => setPaymentMethod({
-                            id: method.id,
-                            type: 'MOBILE_MONEY',
-                            provider: method.name,
-                          })}
-                        >
-                          <div className="flex items-center gap-4">
-                            <Smartphone className="w-6 h-6 text-gray-600" />
-                            <div>
-                              <p className="font-medium">{method.name}</p>
-                              <p className="text-sm text-gray-500">
-                                Pay with {method.name}
-                              </p>
-                            </div>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-3 p-3 bg-primary/5 border border-primary/20 rounded-lg">
+                          <Shield className="w-5 h-5 text-primary flex-shrink-0" />
+                          <div>
+                            <p className="font-medium text-sm">Pesapal Secure Payment</p>
+                            <p className="text-xs text-gray-500">Regulated by Bank of Uganda</p>
                           </div>
-                          {paymentMethod?.id === method.id && (
-                            <CheckCircle className="w-5 h-5 text-primary" />
-                          )}
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Card Payment */}
-                    <div
-                      className={`flex items-center justify-between p-4 border rounded-lg cursor-pointer transition-colors ${
-                        paymentMethod?.type === 'CARD'
-                          ? 'border-primary bg-primary/5'
-                          : 'hover:border-gray-300'
-                      }`}
-                      onClick={() => setPaymentMethod({
-                        id: 'card',
-                        type: 'CARD',
-                        provider: 'CARD',
-                      })}
-                    >
-                      <div className="flex items-center gap-4">
-                        <CreditCard className="w-6 h-6 text-gray-600" />
-                        <div>
-                          <p className="font-medium">Card Payment</p>
-                          <p className="text-sm text-gray-500">
-                            Visa, Mastercard, Verve
-                          </p>
                         </div>
                       </div>
-                      {paymentMethod?.type === 'CARD' && (
-                        <CheckCircle className="w-5 h-5 text-primary" />
-                      )}
                     </div>
 
-                    {/* Phone number for Mobile Money */}
-                    {paymentMethod?.type === 'MOBILE_MONEY' && (
-                      <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                        <Label htmlFor="paymentPhone">Payment Phone Number</Label>
-                        <Input
-                          id="paymentPhone"
-                          type="tel"
-                          className="mt-2"
-                          placeholder={PHONE_PATTERNS[formData.country]?.placeholder || 'Enter your mobile money number'}
-                          value={paymentPhone}
-                          onChange={(e) => { setPaymentPhone(e.target.value); setPaymentPhoneError('') }}
-                        />
-                        {paymentPhoneError && <p className="text-xs text-red-500 mt-1" role="alert">{paymentPhoneError}</p>}
-                        <p className="text-xs text-gray-500 mt-1">
-                          Enter the phone number linked to your {paymentMethod?.provider} account
-                        </p>
+                    {/* Supported Payment Methods */}
+                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
+                        Supported payment methods on Pesapal:
+                      </p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="flex items-center gap-2 text-sm">
+                          <Smartphone className="w-4 h-4 text-gray-500" />
+                          <span>Mobile Money</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm">
+                          <CreditCard className="w-4 h-4 text-gray-500" />
+                          <span>Visa / Mastercard</span>
+                        </div>
                       </div>
-                    )}
+                      <p className="text-xs text-gray-400 mt-2">
+                        MTN MoMo, Airtel Money, M-Pesa, and more available on Pesapal's page
+                      </p>
+                    </div>
+
+                    {/* Payment method is auto-set to Pesapal — handled in useEffect */}
                   </div>
 
                   <div className="flex justify-between pt-6">
@@ -614,13 +578,7 @@ export default function CheckoutPage() {
                       <ArrowLeft className="w-4 h-4 mr-2" />
                       Back
                     </Button>
-                    <Button size="lg" onClick={() => {
-                        if (paymentMethod?.type === 'MOBILE_MONEY') {
-                          const error = validatePhone(paymentPhone || formData.phone, formData.country)
-                          if (error) { setPaymentPhoneError(error); return }
-                        }
-                        nextStep()
-                      }} disabled={!paymentMethod}>
+                    <Button size="lg" onClick={nextStep}>
                       Review Order
                       <ArrowRight className="w-4 h-4 ml-2" />
                     </Button>

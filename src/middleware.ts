@@ -24,9 +24,7 @@ const isPublicRoute = createRouteMatcher([
   '/api/admin/security(.*)', // Security API for rate limiting
   '/api/health', // Health check endpoint (no auth needed for diagnostics)
   '/api/cron(.*)', // Cron endpoints use their own Bearer token auth
-  '/api/payments/mpesa/callback(.*)', // M-Pesa callback
-  '/api/payments/airtel/callback(.*)', // Airtel Money callback
-  '/api/payments/mtn/callback(.*)', // MTN MoMo callback
+  '/api/pesapal/ipn(.*)', // Pesapal IPN webhook callback
   '/cart(.*)',
   '/checkout(.*)',
   '/about(.*)',

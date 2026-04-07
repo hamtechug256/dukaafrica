@@ -185,6 +185,7 @@ async function handleCompletedPayment(orderTrackingId: string, payload: PesapalI
         verificationTier: true,
         verificationStatus: true,
         commissionRate: true,
+        country: true,
       },
     })
 
@@ -193,11 +194,29 @@ async function handleCompletedPayment(orderTrackingId: string, payload: PesapalI
       continue
     }
 
+    // Calculate this store's proportion of the total product subtotal
+    // to determine their share of shipping earnings
+    const totalProductSubtotal = order.subtotal ? toNum(order.subtotal) : storeTotal
+    const storeProductShare = totalProductSubtotal > 0 ? storeTotal / totalProductSubtotal : 1
+
+    // Get seller's shipping earnings from the Payment record
+    // Payment.sellerAmount includes product + shipping earnings
+    // sellerTotalEarnings = sellerProductEarnings + sellerShippingEarnings
+    const sellerTotalEarnings = toNum(payment.sellerAmount)
+    const platformCommission = toNum(payment.platformAmount)
+    
+    // Estimate seller shipping earnings proportionally
+    // Platform keeps: commission (on product) + shipping markup (5% of shipping)
+    // Seller gets: product after commission + shipping after markup
+    const orderShippingFee = toNum(order.shippingFee) || 0
+    const sellerShippingEarnings = Math.round(orderShippingFee * 0.95 * storeProductShare) // 95% after 5% markup
+
     const escrowResult = await createEscrowHold({
       orderId: order.id,
       storeId: store.id,
       buyerId: order.userId,
       grossAmount: storeTotal,
+      shippingEarnings: sellerShippingEarnings,
       currency: order.currency,
       store: {
         verificationTier: store.verificationTier,
