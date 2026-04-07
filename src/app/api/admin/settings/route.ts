@@ -118,6 +118,13 @@ export async function GET() {
       exchangeRates: platformSettings?.exchangeRates
         ? JSON.parse(platformSettings.exchangeRates)
         : DEFAULT_SETTINGS.exchangeRates,
+      payout: {
+        method: platformSettings?.adminPayoutMethod ?? '',
+        phone: platformSettings?.adminPayoutPhone ?? '',
+        bankName: platformSettings?.adminPayoutBankName ?? '',
+        bankAccount: platformSettings?.adminPayoutBankAccount ?? '',
+        country: platformSettings?.adminPayoutCountry ?? 'UGANDA',
+      },
       general: {
         platformName: 'DuukaAfrica',
         supportEmail: 'support@duukaafrica.com',
@@ -225,6 +232,19 @@ export async function PUT(request: NextRequest) {
               lastUpdated: new Date().toISOString(),
             }),
             exchangeRatesUpdatedAt: new Date(),
+          },
+        })
+        break
+
+      case 'payout':
+        await prisma.platformSettings.update({
+          where: { id: platformSettings.id },
+          data: {
+            adminPayoutMethod: data.method,
+            adminPayoutPhone: data.phone,
+            adminPayoutBankName: data.bankName,
+            adminPayoutBankAccount: data.bankAccount,
+            adminPayoutCountry: data.country,
           },
         })
         break

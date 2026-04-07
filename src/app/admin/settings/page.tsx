@@ -114,6 +114,13 @@ export default function AdminSettingsPage() {
   const [shippingRates, setShippingRates] = useState<any[]>([])
   const [exchangeRates, setExchangeRates] = useState<any>({})
   const [testingConnection, setTestingConnection] = useState(false)
+  const [payoutForm, setPayoutForm] = useState({
+    method: '',
+    phone: '',
+    bankName: '',
+    bankAccount: '',
+    country: 'UGANDA',
+  })
 
   // Check role from database
   const { data: roleData, isLoading: roleLoading } = useQuery({
@@ -159,6 +166,9 @@ export default function AdminSettingsPage() {
         ? settingsData.settings.shipping.rates 
         : getDefaultShippingRates())
       setExchangeRates(settingsData.settings.exchangeRates || {})
+      if (settingsData.settings.payout) {
+        setPayoutForm(settingsData.settings.payout)
+      }
     }
   }, [settingsData])
 
@@ -247,22 +257,26 @@ export default function AdminSettingsPage() {
 
         <div className="p-6">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-4 mb-6">
+            <TabsList className="grid w-full grid-cols-5 mb-6">
               <TabsTrigger value="commission" className="flex items-center gap-2">
                 <Percent className="w-4 h-4" />
-                Commission
+                <span className="hidden sm:inline">Commission</span>
               </TabsTrigger>
               <TabsTrigger value="shipping" className="flex items-center gap-2">
                 <Truck className="w-4 h-4" />
-                Shipping
+                <span className="hidden sm:inline">Shipping</span>
               </TabsTrigger>
               <TabsTrigger value="payment" className="flex items-center gap-2">
                 <CreditCard className="w-4 h-4" />
-                Payment
+                <span className="hidden sm:inline">Payment</span>
+              </TabsTrigger>
+              <TabsTrigger value="payout" className="flex items-center gap-2">
+                <Coins className="w-4 h-4" />
+                <span className="hidden sm:inline">Payouts</span>
               </TabsTrigger>
               <TabsTrigger value="currency" className="flex items-center gap-2">
                 <Coins className="w-4 h-4" />
-                Currency
+                <span className="hidden sm:inline">Currency</span>
               </TabsTrigger>
             </TabsList>
 
@@ -575,6 +589,111 @@ export default function AdminSettingsPage() {
                     <Button onClick={() => handleSaveSection('pesapal', pesapalForm)} disabled={saveMutation.isPending}>
                       {saveMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
                       Save Payment Settings
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Payout Settings */}
+            <TabsContent value="payout">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Admin Payout Configuration</CardTitle>
+                  <CardDescription>
+                    Configure how sellers receive payouts. When you process a payout manually, these details are used as a reference. Each seller can also set their own payout method in their seller settings.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Payout Method */}
+                  <div className="space-y-2">
+                    <Label htmlFor="payoutMethod">Payout Method</Label>
+                    <select
+                      id="payoutMethod"
+                      className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
+                      value={payoutForm.method}
+                      onChange={(e) => setPayoutForm({ ...payoutForm, method: e.target.value })}
+                    >
+                      <option value="">Select method...</option>
+                      <option value="MOBILE_MONEY">Mobile Money</option>
+                      <option value="BANK_TRANSFER">Bank Transfer</option>
+                    </select>
+                    <p className="text-xs text-gray-500">
+                      This is YOUR (admin/platform) payout method for receiving platform earnings.
+                    </p>
+                  </div>
+
+                  {/* Mobile Money Fields */}
+                  {payoutForm.method === 'MOBILE_MONEY' && (
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="payoutPhone">Mobile Money Phone Number</Label>
+                        <Input
+                          id="payoutPhone"
+                          type="tel"
+                          placeholder="+256 7XX XXX XXX"
+                          value={payoutForm.phone}
+                          onChange={(e) => setPayoutForm({ ...payoutForm, phone: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="payoutCountry">Country</Label>
+                        <select
+                          id="payoutCountry"
+                          className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
+                          value={payoutForm.country}
+                          onChange={(e) => setPayoutForm({ ...payoutForm, country: e.target.value })}
+                        >
+                          <option value="UGANDA">Uganda</option>
+                          <option value="KENYA">Kenya</option>
+                          <option value="TANZANIA">Tanzania</option>
+                          <option value="RWANDA">Rwanda</option>
+                        </select>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Bank Transfer Fields */}
+                  {payoutForm.method === 'BANK_TRANSFER' && (
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="bankName">Bank Name</Label>
+                        <Input
+                          id="bankName"
+                          placeholder="e.g. Stanbic Bank Uganda"
+                          value={payoutForm.bankName}
+                          onChange={(e) => setPayoutForm({ ...payoutForm, bankName: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="bankAccount">Account Number</Label>
+                        <Input
+                          id="bankAccount"
+                          placeholder="e.g. 003XXXXXXXXX"
+                          value={payoutForm.bankAccount}
+                          onChange={(e) => setPayoutForm({ ...payoutForm, bankAccount: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="bg-yellow-50 dark:bg-yellow-950/30 p-4 rounded-lg">
+                    <h4 className="font-medium flex items-center gap-2 mb-2">
+                      <AlertCircle className="w-4 h-4 text-yellow-500" />
+                      Important: Manual Payout Process
+                    </h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      With Pesapal, ALL customer payments go to your platform account first. You keep your commission
+                      and shipping markup, then manually send the seller their share via mobile money or bank transfer.
+                      Use the Admin Payout Queue (under Payouts) to process seller withdrawals. Always confirm amounts
+                      before sending.
+                    </p>
+                  </div>
+
+                  <div className="flex justify-end">
+                    <Button onClick={() => handleSaveSection('payout', payoutForm)} disabled={saveMutation.isPending}>
+                      {saveMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                      Save Payout Settings
                     </Button>
                   </div>
                 </CardContent>
