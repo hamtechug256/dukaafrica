@@ -3,13 +3,15 @@
  * 
  * POST /api/seller/withdraw
  * 
- * Processes seller withdrawal request to mobile money or bank
+ * Processes seller withdrawal request to mobile money or bank.
+ * Uses manual payouts — the payout is created as PENDING and an admin
+ * processes it manually. Balance is deducted at request time so there
+ * is no double-deduction bug.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/db'
-import { flutterwaveClient, generateTransactionReference } from '@/lib/flutterwave/client'
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 
 // Minimum withdrawal amounts per currency
@@ -18,14 +20,6 @@ const MIN_WITHDRAWAL: Record<string, number> = {
   KES: 500,    // 500 KES
   TZS: 5000,   // 5,000 TZS
   RWF: 2000    // 2,000 RWF
-}
-
-// Bank codes for mobile money per country and provider
-const MOBILE_MONEY_BANKS: Record<string, Record<string, string>> = {
-  UGANDA: { MTN: 'MTNUG', AIRTEL: 'ATLUG' },
-  KENYA: { MPESA: 'MPESA', AIRTEL: 'AIRTELMONEYKE' },
-  TANZANIA: { VODACOM: 'VODATZ', MPESA: 'VODATZ', AIRTEL: 'AIRTELTZ', TIGO: 'TIGOTZ' },
-  RWANDA: { MTN: 'MTNRW', AIRTEL: 'AIRTELRW' }
 }
 
 // Currency per country
@@ -81,6 +75,15 @@ export async function POST(request: NextRequest) {
     }
 
     const store = user.Store
+
+    // Ensure store is active
+    if (!store.isActive) {
+      return NextResponse.json(
+        { error: 'Your store is not active. Please contact support.' },
+        { status: 403 }
+      )
+    }
+
     const currency = COUNTRY_CURRENCY[store.country] || 'UGX'
 
     // Check minimum withdrawal
@@ -109,7 +112,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Capture verified payout method (TypeScript narrowing lost across async boundaries)
+    // Capture verified payout method
     const payoutMethod = store.payoutMethod
 
     // Generate reference
@@ -121,9 +124,11 @@ export async function POST(request: NextRequest) {
       accountInfo = store.payoutPhone || ''
     } else {
       accountInfo = `${store.payoutBankName || ''} - ${store.payoutBankAccount || ''}`
-  }
+    }
 
     // ATOMIC: Check balance + create payout + deduct in a single transaction
+    // Balance is deducted ONCE here. When admin marks payout as COMPLETED,
+    // no further balance change happens (manual payout model).
     let payout: any
     try {
       payout = await prisma.$transaction(async (tx) => {
@@ -137,7 +142,7 @@ export async function POST(request: NextRequest) {
           throw new Error('Insufficient balance')
         }
 
-        // Create payout record
+        // Create payout record (PENDING — admin will process manually)
         const newPayout = await tx.sellerPayout.create({
           data: {
             storeId: store.id,
@@ -150,7 +155,7 @@ export async function POST(request: NextRequest) {
           }
         })
 
-        // Deduct balance atomically
+        // Deduct balance atomically (only once — at request time)
         await tx.store.update({
           where: { id: store.id },
           data: { availableBalance: { decrement: amount } }
@@ -165,86 +170,20 @@ export async function POST(request: NextRequest) {
       throw txError
     }
 
-    // Try to process via Flutterwave
-    try {
-      // Determine bank code and account number
-      let accountBank: string
-      let accountNumber: string
-      let narration: string
-
-      if (store.payoutMethod === 'MOBILE_MONEY') {
-        // Use the stored mobile provider, fallback to default
-        const provider = store.payoutMobileProvider || 'MTN'
-        const countryProviders = MOBILE_MONEY_BANKS[store.country] || MOBILE_MONEY_BANKS['UGANDA']
-        accountBank = countryProviders[provider.toUpperCase()] || countryProviders['MTN'] || 'MTNUG'
-        accountNumber = store.payoutPhone?.replace(/\D/g, '') || ''
-        narration = `DuukaAfrica payout to ${store.payoutPhone}`
-      } else if (store.payoutMethod === 'BANK_TRANSFER') {
-        // Use the stored bank code
-        accountBank = store.payoutBankCode || ''
-        accountNumber = store.payoutBankAccount || ''
-        narration = `DuukaAfrica payout to ${store.payoutBankName}`
-      } else {
-        throw new Error('Invalid payout method')
-      }
-
-      // Create transfer via Flutterwave
-      const transferResponse = await flutterwaveClient.createTransfer({
-        account_bank: accountBank,
-        account_number: accountNumber,
+    return NextResponse.json({
+      success: true,
+      message: 'Withdrawal requested. The admin will process it within 24 hours.',
+      payout: {
+        id: payout.id,
         amount,
         currency,
-        narration,
+        status: 'PENDING',
+        method: payoutMethod,
+        accountInfo,
         reference,
-        debit_currency: currency
-      })
-
-      if (transferResponse.status === 'success') {
-        // Update payout status
-        await prisma.sellerPayout.update({
-          where: { id: payout.id },
-          data: {
-            status: 'PROCESSING'
-          }
-        })
-
-        return NextResponse.json({
-          success: true,
-          message: 'Withdrawal initiated successfully. You will receive a confirmation shortly.',
-          payout: {
-            id: payout.id,
-            amount,
-            currency,
-            status: 'PROCESSING',
-            reference
-          }
-        })
-      } else {
-        throw new Error('Transfer failed')
+        createdAt: payout.createdAt
       }
-
-    } catch (transferError: any) {
-      console.error('Flutterwave transfer error:', transferError)
-      
-      // Mark payout as failed
-      await prisma.sellerPayout.update({
-        where: { id: payout.id },
-        data: { status: 'FAILED' }
-      })
-
-      // Restore balance
-      await prisma.store.update({
-        where: { id: store.id },
-        data: {
-          availableBalance: { increment: amount }
-        }
-      })
-
-      return NextResponse.json(
-        { error: 'Withdrawal processing failed. Please try again or contact support.' },
-        { status: 500 }
-      )
-    }
+    })
 
   } catch (error) {
     console.error('Withdrawal error:', error)

@@ -219,8 +219,8 @@ export default function CheckoutPage() {
 
       setOrderId(orderData.order.id)
 
-      // Initialize Flutterwave payment
-      const paymentResponse = await fetch('/api/flutterwave/initialize', {
+      // Initialize Pesapal payment
+      const paymentResponse = await fetch('/api/pesapal/initialize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -234,7 +234,7 @@ export default function CheckoutPage() {
       const paymentData = await paymentResponse.json()
 
       if (paymentData.success && paymentData.paymentLink) {
-        // Redirect to Flutterwave payment page
+        // Redirect to Pesapal payment page
         window.location.href = paymentData.paymentLink
       } else {
         throw new Error(paymentData.error || 'Failed to initialize payment')
@@ -780,7 +780,7 @@ export default function CheckoutPage() {
                 <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
                   <div className="flex items-center gap-2 text-blue-600 text-sm">
                     <Shield className="w-4 h-4" />
-                    <span>Secure payment via Flutterwave</span>
+                    <span>Secure payment via Pesapal</span>
                   </div>
                 </div>
               </CardContent>

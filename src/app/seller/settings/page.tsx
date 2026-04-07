@@ -101,10 +101,6 @@ interface StoreSettings {
     bankCode: string
     bankAccount: string
   }
-  flutterwave: {
-    subaccountId: string
-    isConfigured: boolean
-  }
   balances: {
     available: number
     pending: number
@@ -239,11 +235,9 @@ export default function SellerSettingsPage() {
   async function fetchBanks(country: string) {
     setLoadingBanks(true)
     try {
-      const res = await fetch(`/api/flutterwave/banks?country=${country}`)
-      if (res.ok) {
-        const data = await res.json()
-        setBanks(data.banks || [])
-      }
+      // Bank list fetching removed with payment provider migration
+      // Banks are now managed by admin for manual payouts
+      setBanks([])
     } catch (error) {
       console.error('Error fetching banks:', error)
     } finally {
@@ -804,16 +798,10 @@ export default function SellerSettingsPage() {
                 <CardHeader>
                   <CardTitle>Payout Method</CardTitle>
                   <CardDescription>
-                    Choose how you want to receive your earnings. Payments are processed via Flutterwave.
+                    Choose how you want to receive your earnings. Payouts are processed manually by the admin within 1-3 business days.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  {settings?.flutterwave.isConfigured && (
-                    <div className="bg-green-50 dark:bg-green-950/30 p-3 rounded-lg flex items-center gap-2">
-                      <CheckCircle className="w-5 h-5 text-green-500" />
-                      <span className="text-sm">Flutterwave account configured for automatic payouts</span>
-                    </div>
-                  )}
 
                   <div className="space-y-2">
                     <Label>Payout Method</Label>

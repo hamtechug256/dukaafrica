@@ -246,3 +246,79 @@ Created 4 files (2 new, 2 modified) implementing the full document management fr
 - Display type detection (PDF, DOC, DOCX, XLSX, IMAGE) based on MIME and extension
 
 All new files pass ESLint with zero errors. Commit: `ced6376` on branch `fix/10-document-management`.
+
+---
+Task ID: 1d-1e
+Agent: Payment Migration
+Task: Remove Flutterwave, fix bugs, update schema
+
+Work Log:
+- Deleted 7 Flutterwave files: src/lib/flutterwave/client.ts, 4 API routes (initialize, webhook, subaccount, banks), admin/flutterwave/verify route
+- Removed entire src/app/api/flutterwave/ directory and src/lib/flutterwave/ directory
+- Removed all Flutterwave imports from 15+ source files
+- Updated src/app/api/seller/withdraw/route.ts: Replaced Flutterwave transfer with manual payout model (PENDING status, balance deducted once at request time)
+- Updated src/app/api/seller/earnings/route.ts: Replaced flutterwaveSubaccountId with pesapalMerchantId in response
+- Updated src/app/api/seller/settings/route.ts: Removed Flutterwave subaccount creation on payout save, replaced with direct payout data update
+- Updated src/app/api/admin/settings/route.ts: Replaced flutterwave config section with pesapal config (clientId, clientSecret, ipnId, environment)
+- Updated src/app/admin/settings/page.tsx: Replaced Flutterwave Configuration UI with Pesapal Configuration UI (form fields, status badge, environment selector)
+- Updated src/app/seller/settings/page.tsx: Replaced flutterwave interface with payment interface, updated payout description to "manual payouts by admin"
+- Updated src/app/seller/payouts/page.tsx: Changed alert condition from flutterwaveSubaccountId to payoutMethod
+- Updated src/app/seller/fees/page.tsx: Updated payment provider list text
+- Updated src/app/api/health/route.ts: Replaced FLUTTERWAVE_* env checks with PESAPAL_* checks
+- Updated src/app/api/pesapal/initialize/route.ts: Replaced flutterwaveSubaccountId reference with pesapalMerchantId
+- Updated src/app/api/pesapal/ipn/route.ts: Updated comment from "Flutterwave" to "Paystack"
+- Updated src/lib/pesapal/client.ts: Updated comment about database config pattern
+- Updated src/lib/payment-split.ts: Removed deprecated FlutterwaveSplitConfig type alias and generateFlutterwaveSplitConfig export
+- Updated src/lib/currency.ts: Updated comment from "Flutterwave" to "Pesapal"
+- Updated src/lib/shipping-calculator.ts: Updated comment from "Flutterwave" to "Pesapal"
+- Updated src/app/api/payments/mtn/callback/route.ts, mpesa/callback/route.ts, airtel/callback/route.ts: Updated escrow comments from "Flutterwave" to "Paystack"
+- Fixed Bug 1 (double balance deduction): Withdrawal route now creates PENDING payout with manual processing. Balance deducted once at request time. No webhook will deduct again.
+- Fixed Bug 2 (pendingBalance → availableBalance): Changed releaseEscrow to increment availableBalance instead of pendingBalance, so sellers can withdraw immediately after escrow release
+- Documented Bug 3 (shipping earnings): Added comment in createEscrowHold noting that escrow tracks product earnings only; shipping is handled at payment level; manual payout system handles correctly
+- Updated Prisma schema: Payment.provider default "FLUTTERWAVE" → "PESAPAL", PlatformSettings fields replaced (flutterwave* → pesapal*), Store.flutterwaveSubaccountId → Store.pesapalMerchantId
+- Generated Prisma client and verified zero TypeScript errors
+- Final sweep: zero flutterwave references remaining in src/ (only historical references in worklog.md and SETUP.md remain)
+- All pre-existing lint errors are unrelated to this migration (react-hooks/set-state-in-effect warnings)
+
+---
+Task ID: 2a-2d
+Agent: Payment Migration
+Task: Build admin payout system, rebuild withdrawal, update onboarding
+
+Work Log:
+- Task 1: Rebuilt seller withdrawal route (src/app/api/seller/withdraw/route.ts) for manual payout model
+  - Added store.isActive validation check
+  - Updated success message to "Withdrawal requested. The admin will process it within 24 hours."
+  - Added method, accountInfo, and createdAt to response payload
+  - Confirmed: Clerk auth, rate limiting (3/min), amount validation, min withdrawal per currency, atomic transaction with race condition prevention, balance deducted once at PENDING creation
+  - No Flutterwave transfer API calls (confirmed clean)
+- Task 2: Built Admin Payout Queue API
+  - Created src/app/api/admin/payouts/route.ts (GET) — lists payouts by status with seller/store details, payout method, bank/phone info. Default: PENDING, sorted ASC. Includes summary counts for all statuses.
+  - Created src/app/api/admin/payouts/[id]/process/route.ts (POST) — processes payout with {action, confirmationAmount}. Safety guards: admin auth check, exact amount confirmation, only PENDING payouts. complete → marks COMPLETED (no balance change). fail → marks FAILED + restores availableBalance atomically.
+- Task 3: Built Admin Reconciliation API
+  - Created src/app/api/admin/reconciliation/route.ts (GET) — financial summary grouped by currency (UGX, KES, TZS, RWF) plus any unexpected currencies. Returns: totalPaymentsReceived, totalPlatformEarnings, totalSentToSellers, pendingPayouts, failedPayouts, expectedBankBalance per currency and totals. Uses groupBy aggregation queries with graceful error handling.
+- Task 4: Updated Seller Onboarding
+  - Cleaned src/lib/payment-split.ts: removed sellerSubaccountId and providerMerchantId from PaymentBreakdownInput and PaymentBreakdown interfaces, removed PaymentProviderConfig interface and generatePaymentProviderConfig function (old Flutterwave split config)
+  - Updated src/app/api/pesapal/initialize/route.ts: removed providerMerchantId parameter from calculatePaymentBreakdown call
+  - Updated src/app/api/seller/earnings/route.ts: removed pesapalMerchantId from seller response (payment provider ID no longer relevant to sellers in aggregation model)
+  - Updated src/app/api/seller/settings/route.ts: removed pesapalMerchantId from GET select and removed payment.merchantId from response object
+  - Updated src/app/seller/settings/page.tsx: removed payment: { merchantId: string } from StoreSettings interface
+  - Updated src/app/seller/payouts/page.tsx: updated withdrawal success toast to "The admin will process it within 24 hours."
+  - Verified: zero Flutterwave references in src/, zero subaccount references, zero seller-context pesapalMerchantId references
+  - TypeScript: zero errors. ESLint: zero new errors (all pre-existing)
+
+Stage Summary:
+- 3 new API routes created (admin payouts GET, admin payout process POST, admin reconciliation GET)
+- 6 existing files modified (withdraw route, pesapal initialize, payment-split, seller earnings, seller settings API, seller settings page, seller payouts page)
+- Manual payout model fully implemented: seller requests → balance deducted → PENDING payout → admin processes via queue
+- Safety net: failed payouts restore balance to seller atomically
+- Financial reconciliation available for admin per-currency audit
+- Zero Flutterwave/subaccount references remain in codebase (src/)
+
+Stage Summary:
+- 7 files deleted, 20+ files modified
+- Flutterwave completely removed from codebase (src/ and prisma/schema.prisma)
+- Manual payout model implemented (no automatic transfer via payment provider)
+- Escrow release now deposits to availableBalance directly
+- Prisma schema updated for Pesapal (Payment, PlatformSettings, Store models)
+- Zero new lint errors introduced

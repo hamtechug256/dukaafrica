@@ -343,7 +343,7 @@ export async function POST(req: NextRequest) {
 
       console.log(`[MPESA-CALLBACK] Payment ${payment.id} confirmed PAID via M-Pesa. Receipt: ${mpesaReceiptNumber}`)
 
-      // FIX: Create escrow holds per store (same pattern as Flutterwave webhook)
+      // FIX: Create escrow holds per store (same pattern as Paystack webhook)
       try {
         const order = await prisma.order.findUnique({
           where: { id: payment.orderId },

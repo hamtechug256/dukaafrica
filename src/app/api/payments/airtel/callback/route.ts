@@ -147,7 +147,7 @@ export async function POST(req: NextRequest) {
         },
       })
 
-      // FIX: Create escrow holds per store (same pattern as Flutterwave webhook)
+      // FIX: Create escrow holds per store (same pattern as Paystack webhook)
       try {
         const order = await prisma.order.findUnique({
           where: { id: payment.orderId },

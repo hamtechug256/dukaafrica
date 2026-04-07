@@ -65,7 +65,7 @@ export const CURRENCY_COUNTRY: Record<Currency, Country> = {
 
 // ============================================
 // EXCHANGE RATES (Approximate - Updated Periodically)
-// These are approximate rates. Flutterwave handles actual conversion.
+// These are approximate rates. Pesapal handles actual conversion.
 // ============================================
 
 export const EXCHANGE_RATES: Record<Currency, Record<Currency, number>> = {

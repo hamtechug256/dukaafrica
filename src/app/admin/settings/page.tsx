@@ -44,12 +44,11 @@ interface PlatformSettings {
     defaultRate: number
     shippingMarkupPercent: number
   }
-  flutterwave: {
-    publicKey: string
-    secretKey: string
-    encryptionKey: string
-    webhookSecret: string
-    testMode: boolean
+  pesapal: {
+    clientId: string
+    clientSecret: string
+    ipnId: string
+    environment: string
   }
   exchangeRates: {
     UGX_TO_KES: number
@@ -106,11 +105,11 @@ export default function AdminSettingsPage() {
     defaultRate: 10,
     shippingMarkupPercent: 5,
   })
-  const [flutterwaveForm, setFlutterwaveForm] = useState({
-    publicKey: '',
-    secretKey: '',
-    encryptionKey: '',
-    webhookSecret: '',
+  const [pesapalForm, setPesapalForm] = useState({
+    clientId: '',
+    clientSecret: '',
+    ipnId: '',
+    environment: 'sandbox',
   })
   const [shippingRates, setShippingRates] = useState<any[]>([])
   const [exchangeRates, setExchangeRates] = useState<any>({})
@@ -155,7 +154,7 @@ export default function AdminSettingsPage() {
   useEffect(() => {
     if (settingsData?.settings) {
       setCommissionForm(settingsData.settings.commission || { defaultRate: 10, shippingMarkupPercent: 5 })
-      setFlutterwaveForm(settingsData.settings.flutterwave || { publicKey: '', secretKey: '', encryptionKey: '', webhookSecret: '' })
+      setPesapalForm(settingsData.settings.pesapal || { clientId: '', clientSecret: '', ipnId: '', environment: 'sandbox' })
       setShippingRates(settingsData.settings.shipping?.rates?.length > 0 
         ? settingsData.settings.shipping.rates 
         : getDefaultShippingRates())
@@ -491,157 +490,89 @@ export default function AdminSettingsPage() {
             <TabsContent value="payment">
               <Card>
                 <CardHeader>
-                  <CardTitle>Flutterwave Configuration</CardTitle>
+                  <CardTitle>Pesapal Configuration</CardTitle>
                   <CardDescription>
-                    Configure your Flutterwave payment gateway for processing payments and seller payouts.
+                    Configure your Pesapal payment gateway for processing payments.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   {/* Connection Status */}
                   <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
                     <div className="flex items-center gap-3">
-                      <div className={`w-3 h-3 rounded-full ${flutterwaveForm.publicKey && flutterwaveForm.secretKey ? 'bg-green-500' : 'bg-yellow-500'}`} />
+                      <div className={`w-3 h-3 rounded-full ${pesapalForm.clientId && pesapalForm.clientSecret ? 'bg-green-500' : 'bg-yellow-500'}`} />
                       <div>
                         <p className="font-medium">Payment Gateway Status</p>
                         <p className="text-sm text-gray-500">
-                          {flutterwaveForm.publicKey && flutterwaveForm.secretKey 
-                            ? 'Configured - Click Test to verify connection' 
+                          {pesapalForm.clientId && pesapalForm.clientSecret 
+                            ? 'Configured' 
                             : 'Not configured - Add keys below'}
                         </p>
                       </div>
                     </div>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      disabled={testingConnection}
-                      onClick={async () => {
-                        setTestingConnection(true)
-                        try {
-                          const res = await fetch('/api/admin/flutterwave/verify')
-                          const data = await res.json()
-                          
-                          if (!res.ok) {
-                            toast({
-                              title: '❌ Test Failed',
-                              description: data.error || 'Could not connect to verification service',
-                              variant: 'destructive',
-                            })
-                            return
-                          }
-                          
-                          // Check configuration status
-                          if (!data.configuration?.hasSecretKey) {
-                            toast({
-                              title: '⚠️ No Keys Configured',
-                              description: 'Please add your Flutterwave keys and save settings first',
-                              variant: 'destructive',
-                            })
-                            return
-                          }
-                          
-                          // Check API connection
-                          if (data.tests?.apiConnection?.success) {
-                            toast({
-                              title: '✅ Flutterwave Connected!',
-                              description: `API working! Balance: ${data.tests.apiConnection.balance?.availableBalance || 'N/A'} ${data.tests.apiConnection.balance?.currency || 'UGX'}`,
-                            })
-                          } else if (data.tests?.banksApi?.success) {
-                            toast({
-                              title: '✅ Flutterwave API Working!',
-                              description: `Connected! Found ${data.tests.banksApi.bankCount} banks. ${data.tests.apiConnection?.error || ''}`,
-                            })
-                          } else {
-                            toast({
-                              title: '⚠️ Connection Issues',
-                              description: data.tests?.apiConnection?.error || data.tests?.banksApi?.error || 'API connection failed. Check your keys.',
-                              variant: 'destructive',
-                            })
-                          }
-                        } catch (err: any) {
-                          toast({
-                            title: '❌ Test Failed',
-                            description: err.message || 'Could not verify Flutterwave connection',
-                            variant: 'destructive',
-                          })
-                        } finally {
-                          setTestingConnection(false)
-                        }
-                      }}
-                    >
-                      {testingConnection ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Testing...
-                        </>
-                      ) : (
-                        'Test Connection'
-                      )}
-                    </Button>
-                  </div>
-
-                  <div className="bg-yellow-50 dark:bg-yellow-950/30 p-4 rounded-lg flex items-start gap-3">
-                    <AlertCircle className="w-5 h-5 text-yellow-500 mt-0.5" />
-                    <div>
-                      <p className="font-medium text-yellow-800 dark:text-yellow-200">Configure Payment Gateway</p>
-                      <p className="text-sm text-yellow-700 dark:text-yellow-300">
-                        Add your Flutterwave keys to start accepting payments.
-                      </p>
-                    </div>
+                    <Badge variant={pesapalForm.environment === 'production' ? 'default' : 'secondary'}>
+                      {pesapalForm.environment === 'production' ? 'Production' : 'Sandbox'}
+                    </Badge>
                   </div>
 
                   <div className="grid gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="publicKey">Public Key</Label>
+                      <Label htmlFor="psClientId">Client ID (Consumer Key)</Label>
                       <Input
-                        id="publicKey"
-                        placeholder="FLWPUBK-xxxxxxxxxxxxxxxxxxxxxxxx-X"
-                        value={flutterwaveForm.publicKey}
-                        onChange={(e) => setFlutterwaveForm({ ...flutterwaveForm, publicKey: e.target.value })}
+                        id="psClientId"
+                        placeholder="Your Pesapal Client ID"
+                        value={pesapalForm.clientId}
+                        onChange={(e) => setPesapalForm({ ...pesapalForm, clientId: e.target.value })}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="secretKey">Secret Key</Label>
+                      <Label htmlFor="psClientSecret">Client Secret (Consumer Secret)</Label>
                       <Input
-                        id="secretKey"
+                        id="psClientSecret"
                         type="password"
-                        placeholder="FLWSECK-xxxxxxxxxxxxxxxxxxxxxxxx-X"
-                        value={flutterwaveForm.secretKey}
-                        onChange={(e) => setFlutterwaveForm({ ...flutterwaveForm, secretKey: e.target.value })}
+                        placeholder="Your Pesapal Client Secret"
+                        value={pesapalForm.clientSecret}
+                        onChange={(e) => setPesapalForm({ ...pesapalForm, clientSecret: e.target.value })}
                       />
-                      <p className="text-xs text-gray-500">Never share your secret key. It's stored encrypted.</p>
+                      <p className="text-xs text-gray-500">Never share your client secret. It's stored encrypted.</p>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="encryptionKey">Encryption Key</Label>
+                      <Label htmlFor="psIpnId">IPN ID (Instant Payment Notification)</Label>
                       <Input
-                        id="encryptionKey"
-                        placeholder="Your encryption key from Flutterwave dashboard"
-                        value={flutterwaveForm.encryptionKey}
-                        onChange={(e) => setFlutterwaveForm({ ...flutterwaveForm, encryptionKey: e.target.value })}
+                        id="psIpnId"
+                        placeholder="Your Pesapal IPN ID"
+                        value={pesapalForm.ipnId}
+                        onChange={(e) => setPesapalForm({ ...pesapalForm, ipnId: e.target.value })}
                       />
+                      <p className="text-xs text-gray-500">This is used to receive payment notifications from Pesapal.</p>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="webhookSecret">Webhook Secret Hash</Label>
-                      <Input
-                        id="webhookSecret"
-                        placeholder="Your webhook secret for verifying callbacks"
-                        value={flutterwaveForm.webhookSecret}
-                        onChange={(e) => setFlutterwaveForm({ ...flutterwaveForm, webhookSecret: e.target.value })}
-                      />
+                      <Label htmlFor="psEnvironment">Environment</Label>
+                      <select
+                        id="psEnvironment"
+                        className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
+                        value={pesapalForm.environment}
+                        onChange={(e) => setPesapalForm({ ...pesapalForm, environment: e.target.value })}
+                      >
+                        <option value="sandbox">Sandbox (Testing)</option>
+                        <option value="production">Production (Live)</option>
+                      </select>
+                      <p className="text-xs text-gray-500">Use sandbox for testing, switch to production for live payments.</p>
                     </div>
                   </div>
 
                   <div className="bg-blue-50 dark:bg-blue-950/30 p-4 rounded-lg">
-                    <h4 className="font-medium mb-2">How to get Flutterwave Keys</h4>
+                    <h4 className="font-medium mb-2">How to get Pesapal Credentials</h4>
                     <ol className="text-sm text-gray-600 dark:text-gray-400 space-y-1 list-decimal list-inside">
-                      <li>Go to <a href="https://dashboard.flutterwave.com" target="_blank" className="text-blue-500 hover:underline">Flutterwave Dashboard</a></li>
-                      <li>Navigate to Settings → API Keys</li>
-                      <li>Copy your Public Key, Secret Key, and Encryption Key</li>
-                      <li>Set up a webhook endpoint and copy the secret hash</li>
+                      <li>Go to <a href="https://pay.pesapal.com" target="_blank" className="text-blue-500 hover:underline">Pesapal Dashboard</a></li>
+                      <li>Create an account or log in</li>
+                      <li>Navigate to Integration → API Settings</li>
+                      <li>Copy your Consumer Key and Consumer Secret</li>
+                      <li>Register an IPN URL: <code className="text-xs bg-gray-100 dark:bg-gray-700 px-1 rounded">/api/pesapal/ipn</code></li>
                     </ol>
                   </div>
 
                   <div className="flex justify-end">
-                    <Button onClick={() => handleSaveSection('flutterwave', flutterwaveForm)} disabled={saveMutation.isPending}>
+                    <Button onClick={() => handleSaveSection('pesapal', pesapalForm)} disabled={saveMutation.isPending}>
                       {saveMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
                       Save Payment Settings
                     </Button>
@@ -743,7 +674,7 @@ export default function AdminSettingsPage() {
                     </h4>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
                       For automatic rate updates, integrate with Open Exchange Rates API (free tier: 1,000 requests/month).
-                      Flutterwave also provides live rates during payment processing.
+                      Pesapal also handles live rates during payment processing.
                     </p>
                   </div>
 

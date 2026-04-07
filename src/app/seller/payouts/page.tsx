@@ -86,7 +86,7 @@ export default function SellerPayoutsPage() {
       setWithdrawAmount('')
       toast({
         title: 'Withdrawal Requested',
-        description: 'Your withdrawal is being processed.',
+        description: 'The admin will process it within 24 hours.',
       })
     },
     onError: (error: Error) => {
@@ -270,7 +270,7 @@ export default function SellerPayoutsPage() {
         </div>
 
         {/* Payment Setup Alert */}
-        {!store.flutterwaveSubaccountId && (
+        {!store.payoutMethod && (
           <Card className="mb-8 border-yellow-500 bg-yellow-50 dark:bg-yellow-950/30">
             <CardContent className="pt-6">
               <div className="flex items-start gap-4">

@@ -48,6 +48,13 @@ async function getPlatformReserve(): Promise<{
 /**
  * Create escrow hold for an order
  * Called when payment is successful
+ * 
+ * NOTE (Shipping Earnings): The escrow only tracks product earnings (grossAmount).
+ * Shipping earnings are tracked at the payment level — the sellerAmount in the
+ * Payment record includes both product and shipping components. The seller's
+ * availableBalance is updated correctly via the payment webhook handler.
+ * The manual payout system handles this correctly because payouts are based on
+ * the store's availableBalance which reflects the full sellerAmount.
  */
 export async function createEscrowHold(params: {
   orderId: string
@@ -229,13 +236,15 @@ export async function releaseEscrow(params: {
           }
         })
         
-        // Move from escrow balance to pending balance
+        // Move from escrow balance to available balance
+        // Since the escrow hold period has already passed, funds go directly
+        // to availableBalance so sellers can withdraw them immediately.
         const sellerAmt = escrow.sellerAmount.toNumber()
         await tx.store.update({
           where: { id: escrow.storeId },
           data: {
             escrowBalance: { decrement: sellerAmt },
-            pendingBalance: { increment: sellerAmt },
+            availableBalance: { increment: sellerAmt },
             successfulDeliveries: { increment: 1 },
             totalOrders: { increment: 1 }
           }

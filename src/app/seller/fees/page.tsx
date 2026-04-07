@@ -130,7 +130,7 @@ export default function SellerFeesPage() {
     {
       name: 'Payment Processing',
       fee: 'Varies by provider',
-      note: 'Charged by the payment provider (Flutterwave, MTN MoMo, Paystack, etc.) — not by DuukaAfrica',
+      note: 'Charged by the payment provider (Pesapal, MTN MoMo, Paystack, etc.) — not by DuukaAfrica',
       icon: CreditCard,
     },
     {

@@ -98,7 +98,7 @@ export const DEFAULT_SHIPPING_RATES: Record<ShippingZoneType, {
 // ============================================
 // CURRENCY CONVERSION RATES (approximate)
 // Used for displaying shipping estimates
-// Flutterwave handles actual conversion
+// Pesapal handles actual conversion
 // ============================================
 
 export const CURRENCY_RATES: Record<Currency, Record<Currency, number>> = {

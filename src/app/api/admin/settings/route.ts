@@ -7,7 +7,7 @@
  * Handles:
  * - Commission rates
  * - Shipping rates per zone
- * - Flutterwave configuration
+ * - Pesapal configuration
  * - Exchange rates
  * - General platform settings
  */
@@ -23,12 +23,11 @@ const DEFAULT_SETTINGS = {
     shippingMarkupPercent: 5,
     categoryRates: {} as Record<string, number>,
   },
-  flutterwave: {
-    publicKey: '',
-    secretKey: '',
-    encryptionKey: '',
-    webhookSecret: '',
-    testMode: true,
+  pesapal: {
+    clientId: '',
+    clientSecret: '',
+    ipnId: '',
+    environment: 'sandbox', // 'sandbox' or 'production'
   },
   exchangeRates: {
     UGX_TO_KES: 0.035,
@@ -110,12 +109,11 @@ export async function GET() {
         defaultRate: platformSettings?.defaultCommissionRate ?? DEFAULT_SETTINGS.commission.defaultRate,
         shippingMarkupPercent: platformSettings?.shippingMarkupPercent ?? DEFAULT_SETTINGS.commission.shippingMarkupPercent,
       },
-      flutterwave: {
-        publicKey: platformSettings?.flutterwavePublicKey ?? '',
-        secretKey: platformSettings?.flutterwaveSecretKey ? '••••••••' : '',
-        encryptionKey: platformSettings?.flutterwaveEncryptionKey ? '••••••••' : '',
-        webhookSecret: platformSettings?.flutterwaveWebhookSecret ? '••••••••' : '',
-        testMode: !platformSettings?.flutterwaveSecretKey?.startsWith('FLWSECK_PROD'),
+      pesapal: {
+        clientId: platformSettings?.pesapalClientId ?? '',
+        clientSecret: platformSettings?.pesapalClientSecret ? '••••••••' : '',
+        ipnId: platformSettings?.pesapalIpnId ?? '',
+        environment: platformSettings?.pesapalEnvironment ?? 'sandbox',
       },
       exchangeRates: platformSettings?.exchangeRates
         ? JSON.parse(platformSettings.exchangeRates)
@@ -205,16 +203,16 @@ export async function PUT(request: NextRequest) {
         })
         break
 
-      case 'flutterwave':
-        const fwData: any = {}
-        if (data.publicKey) fwData.flutterwavePublicKey = data.publicKey
-        if (data.secretKey && !data.secretKey.includes('•')) fwData.flutterwaveSecretKey = data.secretKey
-        if (data.encryptionKey && !data.encryptionKey.includes('•')) fwData.flutterwaveEncryptionKey = data.encryptionKey
-        if (data.webhookSecret && !data.webhookSecret.includes('•')) fwData.flutterwaveWebhookSecret = data.webhookSecret
+      case 'pesapal':
+        const psData: any = {}
+        if (data.clientId) psData.pesapalClientId = data.clientId
+        if (data.clientSecret && !data.clientSecret.includes('•')) psData.pesapalClientSecret = data.clientSecret
+        if (data.ipnId) psData.pesapalIpnId = data.ipnId
+        if (data.environment) psData.pesapalEnvironment = data.environment
 
         await prisma.platformSettings.update({
           where: { id: platformSettings.id },
-          data: fwData,
+          data: psData,
         })
         break
 
