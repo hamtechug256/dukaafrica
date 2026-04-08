@@ -327,6 +327,13 @@ model PlatformSettings {
   pesapalClientSecret String?
   pesapalIpnId        String?
   pesapalEnvironment  String? @default("sandbox")
+
+  // Flutterwave Configuration (DEPRECATED - kept for backward compatibility, do not remove)
+  flutterwavePublicKey     String?
+  flutterwaveSecretKey     String?
+  flutterwaveEncryptionKey String?
+  flutterwaveWebhookSecret String?
+
   adminPayoutMethod        String?
   adminPayoutPhone         String?
   adminPayoutBankName      String?

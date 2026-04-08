@@ -23,6 +23,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { createEscrowHold } from '@/lib/escrow'
+import { pesapalClient } from '@/lib/pesapal/client'
 import { Prisma } from '@prisma/client'
 
 // Helper to safely convert Prisma Decimal to number
@@ -92,6 +93,19 @@ async function processPesapalIPN(payload: PesapalIPNPayload) {
 // ============================================================
 
 async function handleCompletedPayment(orderTrackingId: string, payload: PesapalIPNPayload) {
+  // SECURITY: Re-verify payment status directly from Pesapal API
+  // Don't trust the IPN payload alone — confirm with Pesapal's status endpoint
+  try {
+    const pesapalStatus = await pesapalClient.getTransactionStatus(orderTrackingId)
+    if (pesapalStatus.transaction_status !== 'COMPLETED') {
+      console.warn(`Pesapal IPN verification failed: status is "${pesapalStatus.transaction_status}", not COMPLETED. Skipping.`)
+      return
+    }
+  } catch (err) {
+    console.error('Pesapal status re-verification failed:', err)
+    return
+  }
+
   // Find the payment record by reference (the order tracking ID)
   const payment = await prisma.payment.findFirst({
     where: { reference: orderTrackingId },

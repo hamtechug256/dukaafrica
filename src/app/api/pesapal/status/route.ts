@@ -25,10 +25,11 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const orderTrackingId = searchParams.get('orderTrackingId')
+    const orderId = searchParams.get('orderId')
 
-    if (!orderTrackingId) {
+    if (!orderTrackingId && !orderId) {
       return NextResponse.json(
-        { error: 'orderTrackingId is required' },
+        { error: 'orderTrackingId or orderId is required' },
         { status: 400 }
       )
     }
@@ -45,15 +46,16 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    // Find payment by orderId (if no trackingId provided) or by reference
     const payment = await prisma.payment.findFirst({
-      where: {
-        reference: orderTrackingId,
-        userId: user.id,
-      },
+      where: orderTrackingId
+        ? { reference: orderTrackingId, userId: user.id }
+        : { orderId: orderId!, userId: user.id },
       select: {
         id: true,
         status: true,
         orderId: true,
+        reference: true,
       },
     })
 
@@ -73,7 +75,13 @@ export async function GET(request: NextRequest) {
     }
 
     // Otherwise, poll Pesapal for the latest status
-    const transactionStatus = await pesapalClient.getTransactionStatus(orderTrackingId)
+    // Use the payment reference (which is the Pesapal order tracking ID)
+    const trackingId = payment.reference || orderTrackingId
+    if (!trackingId) {
+      return NextResponse.json({ status: payment.status, resolvedLocally: true })
+    }
+
+    const transactionStatus = await pesapalClient.getTransactionStatus(trackingId)
 
     return NextResponse.json({
       status: transactionStatus.transaction_status,
