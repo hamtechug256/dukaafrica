@@ -275,9 +275,9 @@ export default function CheckoutPage() {
 
       const paymentData = await paymentResponse.json()
 
-      if (paymentData.success && paymentData.redirectUrl) {
+      if (paymentData.success && (paymentData.redirectUrl || paymentData.paymentLink)) {
         // Step 3: Redirect to Pesapal payment page
-        window.location.href = paymentData.redirectUrl
+        window.location.href = paymentData.redirectUrl || paymentData.paymentLink
       } else {
         throw new Error(paymentData.error || 'Failed to initialize payment')
       }

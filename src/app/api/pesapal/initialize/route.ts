@@ -146,7 +146,8 @@ export async function POST(request: NextRequest) {
       prisma.payment.update({
         where: { id: payment.id },
         data: {
-          method: 'MOBILE_MONEY',
+          // Don't overwrite method — it was set correctly in create-order
+          // (e.g. 'CARD' for Visa/Mastercard, 'MOBILE_MONEY' for mobile money)
           provider: 'PESAPAL',
           reference: orderTrackingId,
           sellerAmount: paymentBreakdown.sellerTotalEarnings,

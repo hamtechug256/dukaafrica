@@ -47,8 +47,12 @@ const ShippingAddressSchema = z.object({
 })
 
 const PaymentMethodSchema = z.object({
+  id: z.string().min(1),
   type: z.enum(['CARD', 'MOBILE_MONEY']),
   provider: z.string().min(1),
+  label: z.string().min(1),
+  mobileMoneyCode: z.string().optional(),
+  icon: z.string().optional(),
 })
 
 const DeliveryOptionSchema = z.object({
@@ -297,8 +301,9 @@ export async function POST(req: Request) {
             return firstProduct?.Store?.country || 'UGANDA'
           })(),
           
-          // Payment
-          paymentMethod: paymentMethod.type,
+          // Payment — save the user-friendly label (e.g. 'MTN Mobile Money', 'Visa / Mastercard')
+          // The Payment.method field stores the raw type for internal use
+          paymentMethod: paymentMethod.label || paymentMethod.type,
           paymentStatus: 'PENDING',
           status: 'PENDING',
           
@@ -335,6 +340,7 @@ export async function POST(req: Request) {
           currency: dbUser!.currency || 'UGX',
           method: paymentMethod.type,
           provider: paymentMethod.provider,
+          phone: paymentMethod.mobileMoneyCode || null,
           status: 'PENDING',
         },
       })
