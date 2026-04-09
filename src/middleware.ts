@@ -122,8 +122,16 @@ export default clerkMiddleware(async (auth, req) => {
   const url = req.nextUrl
   const ip = getClientIP(req)
 
+  // Inject the pathname as a header so server components/layouts can read it.
+  // This is used by the seller layout to determine if the current page is public.
+  const withPathname = () => {
+    const res = NextResponse.next()
+    res.headers.set('x-pathname', url.pathname)
+    return res
+  }
+
   if (isPublicRoute(req)) {
-    return NextResponse.next()
+    return withPathname()
   }
 
   if (isAdminRoute(req) && !isAdminLoginRoute(req)) {
@@ -173,6 +181,9 @@ export default clerkMiddleware(async (auth, req) => {
     signInUrl.searchParams.set('redirect_url', req.url)
     return NextResponse.redirect(signInUrl)
   }
+
+  // Authenticated user on a non-public route — pass through with pathname header
+  return withPathname()
 })
 
 export const config = {
