@@ -1,6 +1,5 @@
 'use client'
 
-
 import { useUser } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
 import { useCartStore } from '@/store/cart-store'
@@ -12,25 +11,24 @@ import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { 
   MapPin, 
   Truck, 
-  CreditCard, 
   CheckCircle, 
   ArrowLeft, 
   ArrowRight,
-  Smartphone,
   Shield,
   Loader2,
   ShoppingBag,
   Package,
   AlertCircle,
-  Bus
+  Bus,
+  CreditCard,
+  Smartphone
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { formatPrice, COUNTRY_INFO, COUNTRY_CURRENCY, MOBILE_MONEY_PROVIDERS, Currency } from '@/lib/currency'
+import { formatPrice, COUNTRY_INFO, COUNTRY_CURRENCY, Currency } from '@/lib/currency'
 
 // Countries we support (East Africa only)
 const countries = [
@@ -53,6 +51,49 @@ interface ShippingResult {
     maxDays: number
   }
   error?: string
+}
+
+// Payment methods configuration by country
+// Pesapal processes all payments — these options are shown for user familiarity
+interface PaymentOption {
+  id: string
+  type: 'CARD' | 'MOBILE_MONEY'
+  provider: 'PESAPAL'
+  label: string
+  icon?: string
+  mobileMoneyCode?: string
+}
+
+function getPaymentMethodsForCountry(countryCode: string): PaymentOption[] {
+  const card: PaymentOption = {
+    id: 'card',
+    type: 'CARD',
+    provider: 'PESAPAL',
+    label: 'Visa / Mastercard',
+    icon: 'CreditCard',
+  }
+
+  const mobileMoneyByCountry: Record<string, PaymentOption[]> = {
+    UGANDA: [
+      { id: 'mtn_momo_ug', type: 'MOBILE_MONEY', provider: 'PESAPAL', label: 'MTN Mobile Money', icon: 'Smartphone', mobileMoneyCode: 'MTN_MONEY_UG' },
+      { id: 'airtel_money_ug', type: 'MOBILE_MONEY', provider: 'PESAPAL', label: 'Airtel Money', icon: 'Smartphone', mobileMoneyCode: 'AIRTEL_MONEY_UG' },
+    ],
+    KENYA: [
+      { id: 'mpesa_ke', type: 'MOBILE_MONEY', provider: 'PESAPAL', label: 'M-Pesa', icon: 'Smartphone', mobileMoneyCode: 'MPESA' },
+      { id: 'airtel_money_ke', type: 'MOBILE_MONEY', provider: 'PESAPAL', label: 'Airtel Money', icon: 'Smartphone', mobileMoneyCode: 'AIRTEL_MONEY_KE' },
+    ],
+    TANZANIA: [
+      { id: 'mpesa_tz', type: 'MOBILE_MONEY', provider: 'PESAPAL', label: 'M-Pesa', icon: 'Smartphone', mobileMoneyCode: 'MPESA_TZ' },
+      { id: 'airtel_money_tz', type: 'MOBILE_MONEY', provider: 'PESAPAL', label: 'Airtel Money', icon: 'Smartphone', mobileMoneyCode: 'AIRTEL_MONEY_TZ' },
+      { id: 'tigo_pesa', type: 'MOBILE_MONEY', provider: 'PESAPAL', label: 'Tigo Pesa', icon: 'Smartphone', mobileMoneyCode: 'TIGO_PESA' },
+    ],
+    RWANDA: [
+      { id: 'mtn_momo_rw', type: 'MOBILE_MONEY', provider: 'PESAPAL', label: 'MTN Mobile Money', icon: 'Smartphone', mobileMoneyCode: 'MTN_MONEY_RW' },
+      { id: 'airtel_money_rw', type: 'MOBILE_MONEY', provider: 'PESAPAL', label: 'Airtel Money', icon: 'Smartphone', mobileMoneyCode: 'AIRTEL_MONEY_RW' },
+    ],
+  }
+
+  return [card, ...(mobileMoneyByCountry[countryCode] || [])]
 }
 
 export default function CheckoutPage() {
@@ -88,9 +129,7 @@ export default function CheckoutPage() {
     postalCode: '',
     saveAddress: true,
   })
-  const [paymentPhone, setPaymentPhone] = useState('')
   const [phoneError, setPhoneError] = useState('')
-  const [paymentPhoneError, setPaymentPhoneError] = useState('')
 
   // Phone validation patterns by country
   const PHONE_PATTERNS: Record<string, { pattern: RegExp; placeholder: string; label: string }> = {
@@ -112,13 +151,6 @@ export default function CheckoutPage() {
   // Get buyer's currency based on selected country
   const buyerCurrency = COUNTRY_CURRENCY[formData.country as keyof typeof COUNTRY_CURRENCY] || 'UGX'
 
-  // Auto-set payment method to Pesapal when reaching Step 3
-  useEffect(() => {
-    if (currentStep === 2 && !paymentMethod) {
-      setPaymentMethod({ id: 'pesapal', type: 'MOBILE_MONEY', provider: 'PESAPAL' })
-    }
-  }, [currentStep, paymentMethod, setPaymentMethod])
-
   // Calculate shipping when country changes
   useEffect(() => {
     if (items.length > 0 && formData.country) {
@@ -129,7 +161,6 @@ export default function CheckoutPage() {
   const calculateShipping = async () => {
     setIsCalculatingShipping(true)
     try {
-      // Get seller country from first item (assuming single seller for now)
       const firstItem = items[0]
       
       const response = await fetch('/api/shipping/calculate', {
@@ -169,8 +200,15 @@ export default function CheckoutPage() {
   const shipping = deliveryOption?.price || 0
   const total = subtotal + shipping
 
-  // Get available payment methods based on buyer's country
-  const availablePaymentMethods = MOBILE_MONEY_PROVIDERS[formData.country as keyof typeof MOBILE_MONEY_PROVIDERS] || []
+  // Payment methods available based on buyer's country
+  const paymentMethods = getPaymentMethodsForCountry(formData.country)
+
+  // Auto-select first payment method if none selected
+  useEffect(() => {
+    if (!paymentMethod && paymentMethods.length > 0) {
+      setPaymentMethod(paymentMethods[0])
+    }
+  }, [paymentMethod, paymentMethods, setPaymentMethod])
 
   // Redirect if cart is empty
   if (items.length === 0) {
@@ -201,7 +239,7 @@ export default function CheckoutPage() {
     if (isLoading) return // Prevent double-click / double-order
     setIsLoading(true)
     try {
-      // Create order
+      // Step 1: Create order
       const orderResponse = await fetch('/api/checkout/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -209,7 +247,7 @@ export default function CheckoutPage() {
           items,
           shippingAddress: formData,
           deliveryOption,
-          paymentMethod,
+          paymentMethod: paymentMethod || { type: 'CARD', provider: 'PESAPAL', id: 'card', label: 'Visa / Mastercard' },
           subtotal,
           shipping,
           total,
@@ -226,23 +264,20 @@ export default function CheckoutPage() {
 
       setOrderId(orderData.order.id)
 
-      // Initialize Pesapal payment
+      // Step 2: Initialize Pesapal payment
       const paymentResponse = await fetch('/api/pesapal/initialize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           orderId: orderData.order.id,
-          customerEmail: user?.emailAddresses[0]?.emailAddress || '',
-          customerPhone: formData.phone,
-          customerName: formData.fullName
         })
       })
 
       const paymentData = await paymentResponse.json()
 
-      if (paymentData.success && paymentData.paymentLink) {
-        // Redirect to Pesapal payment page
-        window.location.href = paymentData.paymentLink
+      if (paymentData.success && paymentData.redirectUrl) {
+        // Step 3: Redirect to Pesapal payment page
+        window.location.href = paymentData.redirectUrl
       } else {
         throw new Error(paymentData.error || 'Failed to initialize payment')
       }
@@ -522,7 +557,7 @@ export default function CheckoutPage() {
               </Card>
             )}
 
-            {/* Step 3: Payment Method */}
+            {/* Step 3: Payment Method — Card & Mobile Money by Country */}
             {currentStep === 2 && (
               <Card>
                 <CardHeader>
@@ -530,47 +565,96 @@ export default function CheckoutPage() {
                     <CreditCard className="w-5 h-5" />
                     Payment Method
                   </CardTitle>
-                  <CardDescription>Choose how you want to pay</CardDescription>
+                  <CardDescription>Choose how you&apos;d like to pay</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    {/* Pesapal Payment Info */}
-                    <div className="mb-4">
-                      <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-3">
-                        You will be redirected to Pesapal's secure payment page
-                      </p>
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-3 p-3 bg-primary/5 border border-primary/20 rounded-lg">
-                          <Shield className="w-5 h-5 text-primary flex-shrink-0" />
-                          <div>
-                            <p className="font-medium text-sm">Pesapal Secure Payment</p>
-                            <p className="text-xs text-gray-500">Regulated by Bank of Uganda</p>
+                  <div className="space-y-6">
+                    {/* ---- Card Payment ---- */}
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3">Card Payment</h4>
+                      <button
+                        type="button"
+                        onClick={() => setPaymentMethod(paymentMethods.find(m => m.id === 'card')!)}
+                        className={`w-full flex items-center justify-between p-4 border-2 rounded-xl transition-all cursor-pointer ${
+                          paymentMethod?.id === 'card'
+                            ? 'border-primary bg-primary/5 shadow-sm'
+                            : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                        }`}
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-sm">
+                            <CreditCard className="w-6 h-6 text-white" />
+                          </div>
+                          <div className="text-left">
+                            <p className="font-semibold">Visa / Mastercard</p>
+                            <p className="text-sm text-gray-500">Pay with any bank debit or credit card</p>
                           </div>
                         </div>
+                        {paymentMethod?.id === 'card' && (
+                          <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+                            <CheckCircle className="w-4 h-4 text-white" />
+                          </div>
+                        )}
+                      </button>
+                    </div>
+
+                    {/* ---- Mobile Money ---- */}
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3">
+                        Mobile Money{formData.country !== 'UGANDA' && (
+                          <span className="ml-1">
+                            — <span className="text-xs">{countries.find(c => c.code === formData.country)?.flag} {countries.find(c => c.code === formData.country)?.name}</span>
+                          </span>
+                        )}
+                      </h4>
+                      <div className="space-y-3">
+                        {paymentMethods.filter(m => m.type === 'MOBILE_MONEY').map((method) => {
+                          const isSelected = paymentMethod?.id === method.id
+                          return (
+                            <button
+                              key={method.id}
+                              type="button"
+                              onClick={() => setPaymentMethod(method)}
+                              className={`w-full flex items-center justify-between p-4 border-2 rounded-xl transition-all cursor-pointer ${
+                                isSelected
+                                  ? 'border-primary bg-primary/5 shadow-sm'
+                                  : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                              }`}
+                            >
+                              <div className="flex items-center gap-4">
+                                <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-sm ${
+                                  method.id.includes('mtn')
+                                    ? 'bg-gradient-to-br from-yellow-400 to-yellow-500'
+                                    : method.id.includes('airtel')
+                                      ? 'bg-gradient-to-br from-red-500 to-red-600'
+                                      : method.id.includes('mpesa')
+                                        ? 'bg-gradient-to-br from-green-500 to-green-600'
+                                        : 'bg-gradient-to-br from-cyan-400 to-cyan-500'
+                                }`}
+                                >
+                                  <Smartphone className="w-6 h-6 text-white" />
+                                </div>
+                                <div className="text-left">
+                                  <p className="font-semibold">{method.label}</p>
+                                  <p className="text-sm text-gray-500">Pay directly from your phone</p>
+                                </div>
+                              </div>
+                              {isSelected && (
+                                <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+                                  <CheckCircle className="w-4 h-4 text-white" />
+                                </div>
+                              )}
+                            </button>
+                          )
+                        })}
                       </div>
                     </div>
 
-                    {/* Supported Payment Methods */}
-                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                      <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
-                        Supported payment methods on Pesapal:
-                      </p>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="flex items-center gap-2 text-sm">
-                          <Smartphone className="w-4 h-4 text-gray-500" />
-                          <span>Mobile Money</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-sm">
-                          <CreditCard className="w-4 h-4 text-gray-500" />
-                          <span>Visa / Mastercard</span>
-                        </div>
-                      </div>
-                      <p className="text-xs text-gray-400 mt-2">
-                        MTN MoMo, Airtel Money, M-Pesa, and more available on Pesapal's page
-                      </p>
+                    {/* Security notice */}
+                    <div className="flex items-center gap-2 text-sm text-gray-500 bg-green-50 dark:bg-green-950/30 p-3 rounded-lg">
+                      <Shield className="w-4 h-4 text-green-500 shrink-0" />
+                      <span>Payments are processed securely by Pesapal — regulated by Bank of Uganda</span>
                     </div>
-
-                    {/* Payment method is auto-set to Pesapal — handled in useEffect */}
                   </div>
 
                   <div className="flex justify-between pt-6">
@@ -578,7 +662,11 @@ export default function CheckoutPage() {
                       <ArrowLeft className="w-4 h-4 mr-2" />
                       Back
                     </Button>
-                    <Button size="lg" onClick={nextStep}>
+                    <Button
+                      size="lg"
+                      onClick={nextStep}
+                      disabled={!paymentMethod}
+                    >
                       Review Order
                       <ArrowRight className="w-4 h-4 ml-2" />
                     </Button>
@@ -626,9 +714,14 @@ export default function CheckoutPage() {
                   {/* Payment */}
                   <div>
                     <h4 className="font-medium mb-2">Payment Method</h4>
-                    <p className="text-gray-600 dark:text-gray-400">
-                      {paymentMethod?.provider}
-                    </p>
+                    <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                      {paymentMethod?.type === 'CARD' ? (
+                        <CreditCard className="w-5 h-5" />
+                      ) : (
+                        <Smartphone className="w-5 h-5" />
+                      )}
+                      <span>{paymentMethod?.label || 'Pesapal'}</span>
+                    </div>
                   </div>
 
                   <Separator />
@@ -735,10 +828,10 @@ export default function CheckoutPage() {
                   <span>{formatPrice(total, buyerCurrency)}</span>
                 </div>
 
-                <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
-                  <div className="flex items-center gap-2 text-blue-600 text-sm">
+                <div className="mt-4 p-3 bg-green-50 dark:bg-green-950/30 rounded-lg">
+                  <div className="flex items-center gap-2 text-green-600 text-sm">
                     <Shield className="w-4 h-4" />
-                    <span>Secure payment via Pesapal</span>
+                    <span>Secure payment via Pesapal — regulated by Bank of Uganda</span>
                   </div>
                 </div>
               </CardContent>

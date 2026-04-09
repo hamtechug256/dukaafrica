@@ -22,12 +22,12 @@ interface Address {
 }
 
 interface PaymentMethod {
-  id?: string
-  type: 'MOBILE_MONEY' | 'CARD' | 'BANK_TRANSFER'
-  provider?: string
-  phoneNumber?: string
-  cardLast4?: string
-  cardBrand?: string
+  id: string
+  type: 'CARD' | 'MOBILE_MONEY'
+  provider: 'PESAPAL'
+  label: string         // Human-readable name e.g. "Visa / Mastercard", "MTN Mobile Money"
+  mobileMoneyCode?: string // e.g. 'MTN_MONEY_UG' — for internal tracking
+  icon?: string         // Lucide icon name for display
 }
 
 interface DeliveryOption {
@@ -217,7 +217,7 @@ export const useCheckoutStore = create<CheckoutStore>()(
       },
     }),
     {
-      name: 'duukaafrica-checkout',
+      name: 'dukaafrica-checkout',
       storage: createJSONStorage(() => {
         if (typeof window === 'undefined') {
           return {
