@@ -291,7 +291,7 @@ model Payment {
   amount           Decimal   @db.Decimal(20, 2)
   currency         String    @default("UGX")
   method           String
-  provider         String    @default("FLUTTERWAVE")
+  provider         String    @default("PESAPAL")
   sellerAmount     Decimal   @default(0) @db.Decimal(20, 2)
   sellerCurrency   String    @default("UGX")
   platformAmount   Decimal   @default(0) @db.Decimal(20, 2)
@@ -323,10 +323,17 @@ model PlatformSettings {
   id                       String    @id @default(uuid())
   defaultCommissionRate    Decimal   @default(10) @db.Decimal(5, 2)
   shippingMarkupPercent    Decimal   @default(5) @db.Decimal(5, 2)
+  pesapalClientId     String?
+  pesapalClientSecret String?
+  pesapalIpnId        String?
+  pesapalEnvironment  String? @default("sandbox")
+
+  // Flutterwave Configuration (DEPRECATED - kept for backward compatibility, do not remove)
   flutterwavePublicKey     String?
   flutterwaveSecretKey     String?
   flutterwaveEncryptionKey String?
   flutterwaveWebhookSecret String?
+
   adminPayoutMethod        String?
   adminPayoutPhone         String?
   adminPayoutBankName      String?
@@ -580,12 +587,12 @@ model Store {
   taxId            String?
 
   // Payment & Payouts
-  flutterwaveSubaccountId String?
+  pesapalMerchantId String?
   payoutMethod            String? // MOBILE_MONEY, BANK_TRANSFER
   payoutPhone             String? // Mobile money number
   payoutMobileProvider    String? // MTN, AIRTEL, MPESA, TIGO_PESA, etc.
   payoutBankName          String? // Bank display name (e.g., "Equity Bank")
-  payoutBankCode          String? // Flutterwave bank code (e.g., "EQB")
+  payoutBankCode          String? // Bank code (e.g., "EQB")
   payoutBankAccount       String? // Bank account number
 
   // Financials

@@ -51,7 +51,6 @@ export async function GET() {
             availableBalance: true,
             pendingBalance: true,
             shipsToCountries: true,
-            flutterwaveSubaccountId: true,
             payoutMethod: true,
             payoutPhone: true,
             payoutMobileProvider: true,
@@ -113,10 +112,6 @@ export async function GET() {
         bankCode: store.payoutBankCode || '',
         bankAccount: store.payoutBankAccount || '',
       },
-      flutterwave: {
-        subaccountId: store.flutterwaveSubaccountId || '',
-        isConfigured: !!store.flutterwaveSubaccountId,
-      },
       balances: {
         available: store.availableBalance,
         pending: store.pendingBalance,
@@ -155,7 +150,6 @@ export async function PUT(request: NextRequest) {
             name: true,
             email: true,
             country: true,
-            flutterwaveSubaccountId: true,
           }
         },
       },
@@ -205,30 +199,6 @@ export async function PUT(request: NextRequest) {
           payoutBankName: data.bankName || null,
           payoutBankCode: data.bankCode || null,
           payoutBankAccount: data.bankAccount || null,
-        }
-
-        // Create Flutterwave subaccount if not exists
-        if (!user.Store.flutterwaveSubaccountId && data.method) {
-          try {
-            const { createSellerSubaccount } = await import('@/lib/flutterwave/client')
-            const subaccount = await createSellerSubaccount({
-              storeId: user.Store.id,
-              storeName: user.Store.name,
-              email: user.Store.email || user.email,
-              country: user.Store.country,
-              payoutMethod: data.method,
-              payoutPhone: data.phone,
-              bankName: data.bankName,
-              bankAccount: data.bankAccount,
-            })
-            
-            if (subaccount) {
-              payoutData.flutterwaveSubaccountId = subaccount.subaccount_id
-            }
-          } catch (error) {
-            console.error('Error creating Flutterwave subaccount:', error)
-            // Continue without subaccount - can be created later
-          }
         }
 
         await prisma.store.update({

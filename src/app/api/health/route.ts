@@ -28,13 +28,11 @@ export async function GET() {
       CLOUDINARY_API_KEY: !!process.env.CLOUDINARY_API_KEY,
       CLOUDINARY_API_SECRET: !!process.env.CLOUDINARY_API_SECRET,
       NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET: !!process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET,
-      // Flutterwave
-      FLUTTERWAVE_SECRET_KEY: !!process.env.FLUTTERWAVE_SECRET_KEY,
-      NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY: !!process.env.NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY,
-      // MTN MoMo
-      MTN_MOMO_API_KEY: !!process.env.MTN_MOMO_API_KEY,
-      // Airtel Money
-      AIRTEL_MONEY_API_KEY: !!process.env.AIRTEL_MONEY_API_KEY,
+      // Pesapal
+      PESAPAL_CLIENT_ID: !!process.env.PESAPAL_CLIENT_ID,
+      PESAPAL_CLIENT_SECRET: !!process.env.PESAPAL_CLIENT_SECRET,
+      PESAPAL_IPN_ID: !!process.env.PESAPAL_IPN_ID,
+      NEXT_PUBLIC_PESAPAL_ENV: !!process.env.NEXT_PUBLIC_PESAPAL_ENV,
     }
 
     // Identify missing critical vars

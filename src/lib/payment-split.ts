@@ -1,7 +1,7 @@
 /**
  * DuukaAfrica Payment Split Logic
  * 
- * Handles Flutterwave split payments with the following distribution:
+ * Handles payment provider split payments with the following distribution:
  * 
  * BUYER PAYS:
  * - Product Price (in seller's currency, converted to buyer's currency)
@@ -37,9 +37,6 @@ export interface PaymentBreakdownInput {
   
   // Shipping
   productWeightKg: number;
-  
-  // Flutterwave subaccount
-  sellerSubaccountId?: string | null;
 }
 
 export interface PaymentBreakdown {
@@ -64,9 +61,6 @@ export interface PaymentBreakdown {
   sellerShippingEarnings: number;      // Shipping fee minus markup
   sellerTotalEarnings: number;
   
-  // For Flutterwave split
-  sellerSubaccountId?: string;
-  
   // Zone info
   shippingZoneType: string;
   estimatedDeliveryDays: string;
@@ -87,7 +81,6 @@ export async function calculatePaymentBreakdown(
     buyerCurrency,
     buyerCountry,
     productWeightKg,
-    sellerSubaccountId,
   } = input;
 
   // 1. Calculate shipping fee
@@ -152,93 +145,10 @@ export async function calculatePaymentBreakdown(
     sellerShippingEarnings,
     sellerTotalEarnings,
     
-    // Flutterwave subaccount
-    sellerSubaccountId: sellerSubaccountId || undefined,
-    
     // Zone info
     shippingZoneType: shippingResult.zoneType,
     estimatedDeliveryDays: deliveryEstimate.description,
   };
-}
-
-// ============================================
-// FLUTTERWAVE SPLIT PAYMENT CONFIGURATION
-// ============================================
-
-export interface FlutterwaveSplitConfig {
-  tx_ref: string;
-  amount: number;
-  currency: string;
-  customer: {
-    email: string;
-    phone_number?: string;
-    name: string;
-  };
-  customizations: {
-    title: string;
-    description: string;
-    logo?: string;
-  };
-  subaccounts?: Array<{
-    id: string;
-    transaction_charge_type?: string;  // 'flat' or 'percentage'
-    transaction_charge?: number;
-  }>;
-  meta?: Record<string, string | number>;
-}
-
-/**
- * Generate Flutterwave payment configuration with split payments
- */
-export function generateFlutterwaveSplitConfig(
-  breakdown: PaymentBreakdown,
-  orderDetails: {
-    orderId: string;
-    orderNumber: string;
-    customerEmail: string;
-    customerPhone?: string;
-    customerName: string;
-    platformName?: string;
-  }
-): FlutterwaveSplitConfig {
-  const config: FlutterwaveSplitConfig = {
-    tx_ref: `DUKA_${orderDetails.orderNumber}_${Date.now()}`,
-    amount: breakdown.totalBuyerPays,
-    currency: breakdown.buyerDisplayCurrency,
-    customer: {
-      email: orderDetails.customerEmail,
-      phone_number: orderDetails.customerPhone,
-      name: orderDetails.customerName,
-    },
-    customizations: {
-      title: orderDetails.platformName || 'DuukaAfrica',
-      description: `Order ${orderDetails.orderNumber}`,
-    },
-    meta: {
-      order_id: orderDetails.orderId,
-      order_number: orderDetails.orderNumber,
-      platform_commission: breakdown.platformProductCommission,
-      platform_shipping_markup: breakdown.platformShippingMarkup,
-      seller_earnings: breakdown.sellerTotalEarnings,
-    },
-  };
-
-  // Add subaccount for seller if configured
-  // Note: Flutterwave requires sellers to have subaccounts set up
-  // The split happens automatically based on subaccount configuration
-  if (breakdown.sellerSubaccountId) {
-    config.subaccounts = [
-      {
-        id: breakdown.sellerSubaccountId,
-        // Seller receives their total earnings
-        // Platform keeps the rest (commission + shipping markup)
-        transaction_charge_type: 'flat',
-        transaction_charge: breakdown.sellerTotalEarnings,
-      },
-    ];
-  }
-
-  return config;
 }
 
 // ============================================

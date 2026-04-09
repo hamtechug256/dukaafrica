@@ -48,12 +48,22 @@ async function getPlatformReserve(): Promise<{
 /**
  * Create escrow hold for an order
  * Called when payment is successful
+ * 
+ * In the Pesapal manual payout model, ALL money comes to the platform first.
+ * The escrow tracks the full seller entitlement (product earnings after commission
+ * and reserve, PLUS shipping earnings). This ensures sellers receive their complete
+ * payout when escrow releases.
+ * 
+ * Shipping earnings are NOT subject to commission or platform reserve —
+ * only the product price has commission applied. Shipping markup (5%) is
+ * kept by the platform and not passed through escrow.
  */
 export async function createEscrowHold(params: {
   orderId: string
   storeId: string
   buyerId: string
   grossAmount: number
+  shippingEarnings?: number  // Seller's net shipping earnings (after platform markup deduction)
   currency: string
   store: {
     verificationTier: string
@@ -75,18 +85,21 @@ export async function createEscrowHold(params: {
     const commissionRate = params.store.commissionRate || await getCommissionRate(params.store)
     const holdDays = await getEscrowHoldDays(params.store)
     
-    // Calculate amounts
+    // Calculate amounts (commission applies ONLY to product price, NOT shipping)
     const platformAmount = Math.round(params.grossAmount * (commissionRate / 100))
     const initialSellerAmount = params.grossAmount - platformAmount
     
     // Get platform reserve percentage
     const { reservePercent } = await getPlatformReserve()
     
-    // Calculate reserve amount from seller's earnings
+    // Calculate reserve amount from seller's product earnings only (not shipping)
     const reserveAmount = Math.round(initialSellerAmount * (reservePercent / 100))
     
-    // Final seller amount after reserve deduction
-    const sellerAmount = initialSellerAmount - reserveAmount
+    // Final seller amount: product earnings after commission & reserve, PLUS shipping earnings
+    // Shipping earnings are NOT subject to commission or reserve
+    const sellerProductEarnings = initialSellerAmount - reserveAmount
+    const sellerShippingEarnings = params.shippingEarnings || 0
+    const sellerAmount = sellerProductEarnings + sellerShippingEarnings
     
     // Calculate release date
     const releaseDate = new Date()
@@ -229,13 +242,15 @@ export async function releaseEscrow(params: {
           }
         })
         
-        // Move from escrow balance to pending balance
+        // Move from escrow balance to available balance
+        // Since the escrow hold period has already passed, funds go directly
+        // to availableBalance so sellers can withdraw them immediately.
         const sellerAmt = escrow.sellerAmount.toNumber()
         await tx.store.update({
           where: { id: escrow.storeId },
           data: {
             escrowBalance: { decrement: sellerAmt },
-            pendingBalance: { increment: sellerAmt },
+            availableBalance: { increment: sellerAmt },
             successfulDeliveries: { increment: 1 },
             totalOrders: { increment: 1 }
           }

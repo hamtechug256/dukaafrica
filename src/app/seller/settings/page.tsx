@@ -67,12 +67,6 @@ const MOBILE_MONEY_PROVIDERS: Record<string, { id: string, name: string }[]> = {
   ],
 }
 
-interface Bank {
-  code: string
-  name: string
-  id: number
-}
-
 interface StoreSettings {
   store: {
     id: string
@@ -100,10 +94,6 @@ interface StoreSettings {
     bankName: string
     bankCode: string
     bankAccount: string
-  }
-  flutterwave: {
-    subaccountId: string
-    isConfigured: boolean
   }
   balances: {
     available: number
@@ -150,8 +140,6 @@ export default function SellerSettingsPage() {
   const [uploadingBanner, setUploadingBanner] = useState(false)
   const [logoInputMode, setLogoInputMode] = useState<'upload' | 'url'>('upload')
   const [bannerInputMode, setBannerInputMode] = useState<'upload' | 'url'>('upload')
-  const [banks, setBanks] = useState<Bank[]>([])
-  const [loadingBanks, setLoadingBanks] = useState(false)
 
   // Read URL params to set active tab (e.g., ?payout=true)
   useEffect(() => {
@@ -169,13 +157,6 @@ export default function SellerSettingsPage() {
       setActiveTab('store')
     }
   }, [])
-
-  // Fetch banks when payout method changes to bank transfer
-  useEffect(() => {
-    if (payoutForm.method === 'BANK_TRANSFER' && settings?.store.country) {
-      fetchBanks(settings.store.country)
-    }
-  }, [payoutForm.method, settings?.store.country])
 
   useEffect(() => {
     if (isLoaded && user) {
@@ -218,11 +199,6 @@ export default function SellerSettingsPage() {
           logo: data.settings.store.logo || '',
           banner: data.settings.store.banner || '',
         })
-        
-        // Fetch banks if bank transfer method is selected
-        if (data.settings.payout.method === 'BANK_TRANSFER') {
-          fetchBanks(data.settings.store.country)
-        }
       } else if (res.status === 404) {
         const data = await res.json()
         if (data.needsOnboarding) {
@@ -233,21 +209,6 @@ export default function SellerSettingsPage() {
       console.error('Error fetching settings:', error)
     } finally {
       setIsLoading(false)
-    }
-  }
-
-  async function fetchBanks(country: string) {
-    setLoadingBanks(true)
-    try {
-      const res = await fetch(`/api/flutterwave/banks?country=${country}`)
-      if (res.ok) {
-        const data = await res.json()
-        setBanks(data.banks || [])
-      }
-    } catch (error) {
-      console.error('Error fetching banks:', error)
-    } finally {
-      setLoadingBanks(false)
     }
   }
 
@@ -804,16 +765,10 @@ export default function SellerSettingsPage() {
                 <CardHeader>
                   <CardTitle>Payout Method</CardTitle>
                   <CardDescription>
-                    Choose how you want to receive your earnings. Payments are processed via Flutterwave.
+                    Choose how you want to receive your earnings. Payouts are processed manually by the admin within 1-3 business days.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  {settings?.flutterwave.isConfigured && (
-                    <div className="bg-green-50 dark:bg-green-950/30 p-3 rounded-lg flex items-center gap-2">
-                      <CheckCircle className="w-5 h-5 text-green-500" />
-                      <span className="text-sm">Flutterwave account configured for automatic payouts</span>
-                    </div>
-                  )}
 
                   <div className="space-y-2">
                     <Label>Payout Method</Label>
@@ -876,36 +831,12 @@ export default function SellerSettingsPage() {
                   {payoutForm.method === 'BANK_TRANSFER' && (
                     <div className="space-y-4">
                       <div className="space-y-2">
-                        <Label>Select Bank</Label>
-                        {loadingBanks ? (
-                          <div className="flex items-center gap-2 p-2">
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            <span className="text-sm text-gray-500">Loading banks...</span>
-                          </div>
-                        ) : (
-                          <Select
-                            value={payoutForm.bankCode}
-                            onValueChange={(value) => {
-                              const selectedBank = banks.find(b => b.code === value)
-                              setPayoutForm({ 
-                                ...payoutForm, 
-                                bankCode: value,
-                                bankName: selectedBank?.name || ''
-                              })
-                            }}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select your bank" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {banks.map((bank) => (
-                                <SelectItem key={bank.code} value={bank.code}>
-                                  {bank.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        )}
+                        <Label>Bank Name</Label>
+                        <Input
+                          placeholder="e.g. Centenary Bank, Equity Bank, CRDB"
+                          value={payoutForm.bankName}
+                          onChange={(e) => setPayoutForm({ ...payoutForm, bankName: e.target.value })}
+                        />
                       </div>
                       <div className="space-y-2">
                         <Label>Account Number</Label>
@@ -915,13 +846,6 @@ export default function SellerSettingsPage() {
                           onChange={(e) => setPayoutForm({ ...payoutForm, bankAccount: e.target.value })}
                         />
                       </div>
-                      {payoutForm.bankName && (
-                        <div className="bg-blue-50 dark:bg-blue-950/30 p-3 rounded-lg">
-                          <p className="text-sm">
-                            <strong>Selected Bank:</strong> {payoutForm.bankName}
-                          </p>
-                        </div>
-                      )}
                     </div>
                   )}
 

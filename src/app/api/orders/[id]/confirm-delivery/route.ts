@@ -131,7 +131,7 @@ export async function POST(
             where: { id: escrow.storeId },
             data: {
               escrowBalance: { decrement: sellerAmt },
-              pendingBalance: { increment: sellerAmt },
+              availableBalance: { increment: sellerAmt },
               successfulDeliveries: { increment: 1 },
               totalOrders: { increment: 1 },
             },

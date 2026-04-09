@@ -110,7 +110,6 @@ export async function GET(request: NextRequest) {
         payoutPhone: store.payoutPhone,
         payoutBankName: store.payoutBankName,
         payoutBankAccount: store.payoutBankAccount,
-        flutterwaveSubaccountId: store.flutterwaveSubaccountId,
         commissionRate: toNum(store.commissionRate)
       },
       earnings: {
