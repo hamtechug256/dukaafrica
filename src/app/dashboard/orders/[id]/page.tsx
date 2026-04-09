@@ -343,7 +343,7 @@ export default function OrderDetailPage() {
               <CardContent className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-gray-500">Method</span>
-                  <span>{order.paymentMethod || 'Mobile Money'}</span>
+                  <span>{order.paymentMethod === 'MOBILE_MONEY' ? 'Pesapal' : order.paymentMethod || 'Pesapal'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">Status</span>

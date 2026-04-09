@@ -122,7 +122,7 @@ export default function OrdersPage() {
                             </div>
                             <div>
                               <p className="text-sm text-gray-500">Total</p>
-                              <p className="font-semibold">UGX {order.total.toLocaleString()}</p>
+                              <p className="font-semibold">{order.currency || 'UGX'} {order.total.toLocaleString()}</p>
                             </div>
                           </div>
                           <Badge className={config.color}>
@@ -152,7 +152,7 @@ export default function OrdersPage() {
                                 <div>
                                   <p className="font-medium text-sm line-clamp-1">{item.productName}</p>
                                   <p className="text-xs text-gray-500">Qty: {item.quantity}</p>
-                                  <p className="text-sm font-semibold">UGX {item.total.toLocaleString()}</p>
+                                  <p className="text-sm font-semibold">{order.currency || 'UGX'} {item.total.toLocaleString()}</p>
                                 </div>
                               </div>
                             ))}
