@@ -188,7 +188,7 @@ function inMemoryRateLimit(
 // ---------------------------------------------------------------------------
 
 export const RATE_LIMITS = {
-  /** Payment initiation (M-Pesa, MTN, Airtel, Paystack) */
+  /** Payment initiation (Pesapal) */
   PAYMENT_INIT: { maxRequests: 5, windowSeconds: 60 },
   /** Order creation */
   ORDER_CREATE: { maxRequests: 10, windowSeconds: 60 },

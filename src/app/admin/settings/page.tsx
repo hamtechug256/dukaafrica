@@ -113,7 +113,6 @@ export default function AdminSettingsPage() {
   })
   const [shippingRates, setShippingRates] = useState<any[]>([])
   const [exchangeRates, setExchangeRates] = useState<any>({})
-  const [testingConnection, setTestingConnection] = useState(false)
   const [payoutForm, setPayoutForm] = useState({
     method: '',
     phone: '',

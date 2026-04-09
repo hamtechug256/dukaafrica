@@ -32,10 +32,7 @@ export async function GET() {
       PESAPAL_CLIENT_ID: !!process.env.PESAPAL_CLIENT_ID,
       PESAPAL_CLIENT_SECRET: !!process.env.PESAPAL_CLIENT_SECRET,
       PESAPAL_IPN_ID: !!process.env.PESAPAL_IPN_ID,
-      // MTN MoMo
-      MTN_MOMO_API_KEY: !!process.env.MTN_MOMO_API_KEY,
-      // Airtel Money
-      AIRTEL_MONEY_API_KEY: !!process.env.AIRTEL_MONEY_API_KEY,
+      NEXT_PUBLIC_PESAPAL_ENV: !!process.env.NEXT_PUBLIC_PESAPAL_ENV,
     }
 
     // Identify missing critical vars
