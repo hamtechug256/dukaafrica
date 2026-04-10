@@ -14,7 +14,6 @@ import {
   Star,
   Package,
   Clock,
-  MessageCircle,
   ChevronRight,
   Loader2,
   ShoppingBag,
@@ -148,15 +147,7 @@ export default function StoreProfilePage() {
                 </div>
               </div>
 
-              {/* Actions */}
-              <div className="flex flex-col gap-2">
-                <Button asChild>
-                  <Link href={`/messages?store=${store.id}`}>
-                    <MessageCircle className="w-4 h-4 mr-2" />
-                    Contact Seller
-                  </Link>
-                </Button>
-              </div>
+
             </div>
           </div>
         </div>

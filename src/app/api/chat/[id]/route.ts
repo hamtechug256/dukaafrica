@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/db'
+import { filterMessageContent } from '@/lib/message-filter'
 
 // GET /api/chat/[id] - Get chat messages
 export async function GET(
@@ -180,11 +181,21 @@ export async function POST(
       return NextResponse.json({ error: 'Message too long (max 10000 characters)' }, { status: 400 })
     }
 
+    // Filter message content for contact info / off-platform attempts
+    let safeContent = content || ''
+    if (safeContent) {
+      const filtered = filterMessageContent(safeContent)
+      if (filtered.flagged) {
+        console.warn(`[Chat] Message flagged for violations: ${filtered.violations.join(', ')} — chat=${id}, user=${user.id}`)
+      }
+      safeContent = filtered.clean
+    }
+
     const message = await prisma.message.create({
       data: {
         chatId: id,
         userId: user.id,
-        content: content || '',
+        content: safeContent,
         type,
         fileUrl,
       },

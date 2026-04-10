@@ -11,7 +11,24 @@ export async function GET(
 
     const store = await prisma.store.findUnique({
       where: { slug },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        description: true,
+        logo: true,
+        banner: true,
+        city: true,
+        region: true,
+        country: true,
+        isVerified: true,
+        verificationTier: true,
+        isActive: true,
+        isFeatured: true,
+        rating: true,
+        reviewCount: true,
+        totalOrders: true,
+        createdAt: true,
         User: {
           select: {
             id: true,

@@ -51,6 +51,7 @@ interface CheckoutStore {
   discount: number
   notes: string
   orderId: string | null
+  idempotencyKey: string
   
   // Actions
   setStep: (step: number) => void
@@ -65,6 +66,7 @@ interface CheckoutStore {
   setDiscount: (amount: number) => void
   setNotes: (notes: string) => void
   setOrderId: (id: string) => void
+  regenerateIdempotencyKey: () => void
   reset: () => void
   
   // Computed
@@ -92,6 +94,7 @@ export const useCheckoutStore = create<CheckoutStore>()(
       discount: 0,
       notes: '',
       orderId: null,
+      idempotencyKey: typeof crypto !== 'undefined' ? crypto.randomUUID() : '',
 
       setStep: (step) => {
         set((state) => ({
@@ -170,6 +173,10 @@ export const useCheckoutStore = create<CheckoutStore>()(
         set({ orderId: id })
       },
 
+      regenerateIdempotencyKey: () => {
+        set({ idempotencyKey: crypto.randomUUID() })
+      },
+
       reset: () => {
         set({
           currentStep: 0,
@@ -178,6 +185,7 @@ export const useCheckoutStore = create<CheckoutStore>()(
           couponCode: null,
           discount: 0,
           orderId: null,
+          idempotencyKey: crypto.randomUUID(),
           // NOTE: shippingAddress, billingAddress, deliveryOption, and notes
           // are intentionally NOT reset here so returning users don't have
           // to re-enter them. Call clearAll() for a full reset.
@@ -197,6 +205,7 @@ export const useCheckoutStore = create<CheckoutStore>()(
           discount: 0,
           notes: '',
           orderId: null,
+          idempotencyKey: crypto.randomUUID(),
         })
       },
 

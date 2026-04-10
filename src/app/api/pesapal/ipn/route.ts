@@ -126,9 +126,18 @@ async function handleCompletedPayment(orderTrackingId: string, payload: PesapalI
 
   const order = payment.Order
 
-  // Check idempotency — skip if already PAID
-  if (payment.status === 'PAID') {
-    console.log('Payment already processed:', orderTrackingId)
+  // Check idempotency — atomically update only if not already PAID
+  const { count: paymentUpdated } = await prisma.payment.updateMany({
+    where: { id: payment.id, status: { not: 'PAID' } },
+    data: {
+      status: 'PAID',
+      providerRef: payload.order_tracking_id,
+      paidAt: new Date(),
+      providerResponse: JSON.stringify(payload),
+    },
+  })
+  if (paymentUpdated === 0) {
+    console.log('Payment already processed (atomic):', orderTrackingId)
     return
   }
 
@@ -145,16 +154,7 @@ async function handleCompletedPayment(orderTrackingId: string, payload: PesapalI
   // are all updated in a single transaction. If any step fails, everything
   // rolls back so we never end up in an inconsistent state.
   await prisma.$transaction(async (tx) => {
-    // 1. Update payment status
-    await tx.payment.update({
-      where: { id: payment.id },
-      data: {
-        status: 'PAID',
-        providerRef: payload.order_tracking_id,
-        paidAt: new Date(),
-        providerResponse: JSON.stringify(payload),
-      },
-    })
+    // 1. Payment status was already updated atomically above
 
     // 2. Update order status
     await tx.order.update({
@@ -165,7 +165,7 @@ async function handleCompletedPayment(orderTrackingId: string, payload: PesapalI
       },
     })
 
-    // 3. Per-store: decrement stock & increment totalSales
+    // 3. Per-store: increment purchaseCount (stock already reserved at order creation)
     for (const [storeId, storeTotal] of storeTotals) {
       const storeItems = order.OrderItem.filter(item => item.storeId === storeId)
 
@@ -173,7 +173,6 @@ async function handleCompletedPayment(orderTrackingId: string, payload: PesapalI
         await tx.product.update({
           where: { id: item.productId },
           data: {
-            quantity: { decrement: item.quantity },
             purchaseCount: { increment: item.quantity },
           },
         })
@@ -272,28 +271,47 @@ async function handleFailedPayment(orderTrackingId: string, payload: PesapalIPNP
     return
   }
 
-  if (payment.status === 'FAILED') {
-    console.log('Payment already marked as failed:', orderTrackingId)
-    return
-  }
-
-  await prisma.payment.update({
-    where: { id: payment.id },
+  // Atomic idempotency guard: only update if not already FAILED
+  const { count: paymentUpdated } = await prisma.payment.updateMany({
+    where: { id: payment.id, status: { not: 'FAILED' } },
     data: {
       status: 'FAILED',
       providerResponse: JSON.stringify(payload),
     },
   })
+  if (paymentUpdated === 0) {
+    console.log('Payment already marked as failed:', orderTrackingId)
+    return
+  }
 
   // Update order payment status
   await prisma.order.update({
     where: { id: payment.orderId },
     data: {
       paymentStatus: 'FAILED',
+      status: 'CANCELLED',
     },
   })
 
-  console.log(`Payment ${orderTrackingId} marked as FAILED`)
+  // Restore reserved stock (stock was decremented at order creation)
+  const orderItems = await prisma.orderItem.findMany({
+    where: { orderId: payment.orderId },
+    select: { productId: true, variantId: true, quantity: true },
+  })
+  for (const item of orderItems) {
+    await prisma.product.update({
+      where: { id: item.productId },
+      data: { quantity: { increment: item.quantity } },
+    })
+    if (item.variantId) {
+      await prisma.productVariant.update({
+        where: { id: item.variantId },
+        data: { quantity: { increment: item.quantity } },
+      })
+    }
+  }
+
+  console.log(`Payment ${orderTrackingId} marked as FAILED, stock restored`)
 }
 
 // ============================================================
@@ -310,26 +328,45 @@ async function handleCancelledPayment(orderTrackingId: string, payload: PesapalI
     return
   }
 
-  if (payment.status === 'CANCELLED') {
-    console.log('Payment already marked as cancelled:', orderTrackingId)
-    return
-  }
-
-  await prisma.payment.update({
-    where: { id: payment.id },
+  // Atomic idempotency guard: only update if not already CANCELLED
+  const { count: paymentUpdated } = await prisma.payment.updateMany({
+    where: { id: payment.id, status: { not: 'CANCELLED' } },
     data: {
       status: 'CANCELLED',
       providerResponse: JSON.stringify(payload),
     },
   })
+  if (paymentUpdated === 0) {
+    console.log('Payment already marked as cancelled:', orderTrackingId)
+    return
+  }
 
   // Update order payment status
   await prisma.order.update({
     where: { id: payment.orderId },
     data: {
       paymentStatus: 'CANCELLED',
+      status: 'CANCELLED',
     },
   })
 
-  console.log(`Payment ${orderTrackingId} marked as CANCELLED`)
+  // Restore reserved stock (stock was decremented at order creation)
+  const orderItems = await prisma.orderItem.findMany({
+    where: { orderId: payment.orderId },
+    select: { productId: true, variantId: true, quantity: true },
+  })
+  for (const item of orderItems) {
+    await prisma.product.update({
+      where: { id: item.productId },
+      data: { quantity: { increment: item.quantity } },
+    })
+    if (item.variantId) {
+      await prisma.productVariant.update({
+        where: { id: item.variantId },
+        data: { quantity: { increment: item.quantity } },
+      })
+    }
+  }
+
+  console.log(`Payment ${orderTrackingId} marked as CANCELLED, stock restored`)
 }

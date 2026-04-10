@@ -21,7 +21,6 @@ import {
   ChevronRight,
   Minus,
   Plus,
-  MessageCircle,
   CheckCircle,
   Eye,
   Clock,
@@ -703,9 +702,6 @@ export function ProductDetailClient({ product, images, relatedProducts, flashSal
                       Visit Store
                     </Button>
                   </Link>
-                  <Button variant="outline" size="sm" aria-label="Contact seller">
-                    <MessageCircle className="w-4 h-4" />
-                  </Button>
                 </div>
               </div>
             </div>

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/db'
+import { filterMessageContent } from '@/lib/message-filter'
 
 // GET /api/chat - Get all chats for the current user
 export async function GET(request: NextRequest) {
@@ -163,6 +164,9 @@ export async function POST(request: NextRequest) {
     if (recipientId === user.id) {
       return NextResponse.json({ error: 'Cannot start a chat with yourself' }, { status: 400 })
     }
+    if (!orderId) {
+      return NextResponse.json({ error: 'An order is required to start a conversation with a seller' }, { status: 400 })
+    }
 
     const recipientExists = await prisma.user.findUnique({
       where: { id: recipientId },
@@ -172,12 +176,51 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Recipient not found' }, { status: 404 })
     }
 
+    // Verify order exists and user is buyer or seller, and recipient is the other party
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: { OrderItem: { select: { storeId: true } } },
+    })
+    if (!order) {
+      return NextResponse.json({ error: 'Order not found' }, { status: 404 })
+    }
+    if (order.userId !== user.id) {
+      // Check if user is the seller (store owner)
+      const storeIds = [...new Set(order.OrderItem.map(i => i.storeId))]
+      const sellerStore = await prisma.store.findFirst({
+        where: { id: { in: storeIds }, userId: user.id },
+        select: { id: true },
+      })
+      if (!sellerStore) {
+        return NextResponse.json({ error: 'You are not a participant in this order' }, { status: 403 })
+      }
+    }
+    // Verify recipient is the other party (buyer or seller)
+    if (recipientId === order.userId) {
+      // Recipient is the buyer — ensure current user is the seller
+      const storeIds = [...new Set(order.OrderItem.map(i => i.storeId))]
+      const sellerStore = await prisma.store.findFirst({
+        where: { id: { in: storeIds }, userId: user.id },
+        select: { id: true },
+      })
+      if (!sellerStore) {
+        return NextResponse.json({ error: 'Recipient is not a participant in this order' }, { status: 403 })
+      }
+    } else {
+      // Recipient is not the buyer — verify they are the seller
+      const storeIds = [...new Set(order.OrderItem.map(i => i.storeId))]
+      const sellerStore = await prisma.store.findFirst({
+        where: { id: { in: storeIds }, userId: recipientId },
+        select: { id: true },
+      })
+      if (!sellerStore) {
+        return NextResponse.json({ error: 'Recipient is not a participant in this order' }, { status: 403 })
+      }
+    }
+
     const existingChat = await prisma.chat.findFirst({
       where: {
-        OR: [
-          { productId: productId || undefined },
-          { orderId: orderId || undefined },
-        ],
+        orderId,
         ChatParticipant: {
           every: {
             userId: { in: [user.id, recipientId] },
@@ -189,12 +232,19 @@ export async function POST(request: NextRequest) {
       },
     })
 
+    // Filter message content for contact info / off-platform attempts
+    const filtered = filterMessageContent(message)
+    if (filtered.flagged) {
+      console.warn(`[Chat] Message flagged for violations: ${filtered.violations.join(', ')} — chat user=${user.id}`)
+    }
+    const safeMessage = filtered.clean.trim()
+
     if (existingChat) {
       const newMessage = await prisma.message.create({
         data: {
           chatId: existingChat.id,
           userId: user.id,
-          content: message.trim(),
+          content: safeMessage,
         },
       })
 
@@ -219,7 +269,7 @@ export async function POST(request: NextRequest) {
         Message: {
           create: {
             userId: user.id,
-            content: message.trim(),
+            content: safeMessage,
           },
         },
       },

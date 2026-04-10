@@ -115,6 +115,7 @@ export default function CheckoutPage() {
     setDeliveryOption,
     setPaymentMethod,
     setOrderId,
+    idempotencyKey,
   } = useCheckoutStore()
 
   const [isLoading, setIsLoading] = useState(false)
@@ -249,7 +250,8 @@ export default function CheckoutPage() {
           shipping,
           total,
           buyerCountry: formData.country,
-          buyerCurrency
+          buyerCurrency,
+          idempotencyKey,
         }),
       })
 

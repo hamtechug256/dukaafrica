@@ -78,6 +78,7 @@ const CreateOrderSchema = z.object({
   coupon: CouponSchema.optional(),
   buyerCountry: z.string().optional(),
   buyerCurrency: z.string().optional(),
+  idempotencyKey: z.string().min(1).optional(),
 })
 
 // Generate unique order number
@@ -116,7 +117,26 @@ export async function POST(req: Request) {
       )
     }
 
-    const { items, shippingAddress, deliveryOption, paymentMethod, subtotal, shipping, total, coupon, buyerCountry, buyerCurrency } = validationResult.data
+    const { items, shippingAddress, deliveryOption, paymentMethod, subtotal, shipping, total, coupon, buyerCountry, buyerCurrency, idempotencyKey } = validationResult.data
+
+    // Idempotency: if a key is provided, check for an existing order
+    if (idempotencyKey) {
+      const existingOrder = await prisma.order.findFirst({
+        where: { orderNumber: `IDEM-${idempotencyKey}` },
+        include: {
+          Payment: { select: { id: true, amount: true, method: true, provider: true } },
+        },
+      })
+      if (existingOrder) {
+        const existingPayment = existingOrder.Payment?.[0]
+        return NextResponse.json({
+          order: serializeDecimal(existingOrder),
+          payment: existingPayment
+            ? { id: existingPayment.id, amount: existingPayment.amount.toNumber(), method: existingPayment.method, provider: existingPayment.provider }
+            : null,
+        })
+      }
+    }
 
     // Verify coupon exists early (fail fast before price verification)
     let couponDiscount = 0
@@ -265,8 +285,8 @@ export async function POST(req: Request) {
     const orderCurrency = resolveCurrency(buyerCurrency || dbUser?.currency, shippingAddress?.country || dbUser?.country)
     const orderBuyerCountry = resolveCountry(buyerCountry || shippingAddress?.country || dbUser?.country)
 
-    // Generate unique order number
-    const orderNumber = generateOrderNumber()
+    // Generate unique order number (use idempotency key if provided)
+    const orderNumber = idempotencyKey ? `IDEM-${idempotencyKey}` : generateOrderNumber()
 
     // Use transaction for atomic order creation
     const result = await prisma.$transaction(async (tx) => {
@@ -335,6 +355,27 @@ export async function POST(req: Request) {
           OrderItem: true,
         },
       })
+
+      // Stock reservation: decrement inventory atomically per item
+      for (const item of verifiedItems) {
+        const { count: productUpdated } = await tx.product.updateMany({
+          where: { id: item.productId, quantity: { gte: item.quantity } },
+          data: { quantity: { decrement: item.quantity } },
+        })
+        if (productUpdated === 0) {
+          throw new Error(`Insufficient stock for product ${item.productId}. Please refresh and try again.`)
+        }
+        // Handle variant stock if applicable
+        if (item.variantId) {
+          const { count: variantUpdated } = await tx.productVariant.updateMany({
+            where: { id: item.variantId, quantity: { gte: item.quantity } },
+            data: { quantity: { decrement: item.quantity } },
+          })
+          if (variantUpdated === 0) {
+            throw new Error(`Insufficient stock for variant ${item.variantId}. Please refresh and try again.`)
+          }
+        }
+      }
 
       // Create payment record
       const payment = await tx.payment.create({
