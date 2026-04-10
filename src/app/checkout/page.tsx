@@ -352,9 +352,9 @@ export default function CheckoutPage() {
         normalizedPhone = countryCode + normalizedPhone.substring(1)
       }
 
-      // Timeout: abort Pesapal init after 30 seconds
+      // Timeout: abort Pesapal init after 15 seconds (Vercel Hobby kills at 10s)
       const payController = new AbortController()
-      const payTimeout = setTimeout(() => payController.abort(), 30_000)
+      const payTimeout = setTimeout(() => payController.abort(), 15_000)
 
       const paymentResponse = await fetch('/api/pesapal/initialize', {
         method: 'POST',
@@ -386,7 +386,7 @@ export default function CheckoutPage() {
     } catch (error: any) {
       console.error('Error placing order:', error)
       if (error.name === 'AbortError') {
-        alert('Request timed out. The payment server is taking too long — please try again in a moment.')
+        alert('Payment is taking longer than expected. Click "Pay" again — the server just needs a moment to warm up.')
       } else {
         alert(error.message || 'Something went wrong. Please try again.')
       }
