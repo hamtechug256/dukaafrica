@@ -324,6 +324,12 @@ export default function CheckoutPage() {
         }),
       }).finally(() => clearTimeout(orderTimeout))
 
+      // Handle non-JSON responses (e.g., Clerk 403 HTML page)
+      const contentType = orderResponse.headers.get('content-type') || ''
+      if (!contentType.includes('application/json')) {
+        throw new Error(`Server returned ${orderResponse.status}. Please sign out and sign back in, then try again.`)
+      }
+
       const orderData = await orderResponse.json()
 
       if (!orderResponse.ok) {
@@ -361,6 +367,12 @@ export default function CheckoutPage() {
           customerName: formData.fullName,
         })
       }).finally(() => clearTimeout(payTimeout))
+
+      // Handle non-JSON responses
+      const payContentType = paymentResponse.headers.get('content-type') || ''
+      if (!payContentType.includes('application/json')) {
+        throw new Error(`Payment server returned ${paymentResponse.status}. Please try again.`)
+      }
 
       const paymentData = await paymentResponse.json()
 

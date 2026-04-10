@@ -20,6 +20,8 @@ const isPublicRoute = createRouteMatcher([
   '/api/search(.*)',
   '/api/homepage(.*)', // Homepage public APIs
   '/api/shipping(.*)', // Shipping calculation (needed at checkout before order is placed)
+  '/api/checkout(.*)', // Checkout API — has its own auth() check returning 401 JSON
+  '/api/pesapal(.*)', // Pesapal payment init — has its own auth() check returning 401 JSON
   '/api/newsletter(.*)', // Newsletter subscription
   '/admin/login(.*)', // Admin login page must be public
   '/api/admin/security(.*)', // Security API for rate limiting
