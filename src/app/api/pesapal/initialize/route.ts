@@ -15,6 +15,10 @@ import { calculatePaymentBreakdown } from '@/lib/payment-split'
 import { Country, Currency } from '@/lib/currency'
 import { Prisma } from '@prisma/client'
 
+// Extend Vercel serverless function timeout to 30 seconds
+// (default Hobby plan is 10s, which may not be enough for Pesapal API calls)
+export const maxDuration = 30
+
 // Helper to safely convert Prisma Decimal to number
 function toNum(val: unknown): number {
   if (val instanceof Prisma.Decimal) return val.toNumber()

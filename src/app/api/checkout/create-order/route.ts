@@ -6,6 +6,9 @@ import { Prisma } from '@prisma/client'
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 import { resolveCurrency, resolveCountry, getCurrencyForCountry } from '@/lib/currency'
 
+// Allow up to 15 seconds for order creation (DB transactions + stock checks)
+export const maxDuration = 15
+
 // Helper to serialize Decimal values to numbers for JSON responses
 function serializeDecimal<T>(obj: T): T {
   if (obj === null || obj === undefined) return obj
