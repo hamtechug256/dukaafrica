@@ -25,7 +25,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/db'
-import { pesapalClient, generateTransactionReference, PesapalCurrency, getIpnIdFast, saveIpnToDb } from '@/lib/pesapal/client'
+import { pesapalClient, generateTransactionReference, PesapalCurrency, getIpnIdFast, saveIpnToDb, getPublicPesapalConfig } from '@/lib/pesapal/client'
 import { Prisma } from '@prisma/client'
 
 function toNum(val: unknown): number {
@@ -85,8 +85,10 @@ function registerIpnAsync(origin: string) {
 export async function GET() {
   const t0 = Date.now()
   try {
+    const config = getPublicPesapalConfig()
+    console.log(`[Pesapal Warm] env=${config.env}, baseUrl=${config.baseUrl}`)
+
     // authenticate() checks L1 → L2 (DB) → L3 (Pesapal API)
-    // After this, token is cached in BOTH memory and DB
     const token = await pesapalClient.authenticate()
     const elapsed = Date.now() - t0
     console.log(`[Pesapal Warm] Token ready in ${elapsed}ms`)
@@ -95,14 +97,15 @@ export async function GET() {
     const ipnId = await getIpnIdFast()
     console.log(`[Pesapal Warm] IPN ID resolved: ${ipnId ? 'yes' : 'no'}`)
 
-    return NextResponse.json({ ok: true, elapsed })
+    return NextResponse.json({ ok: true, elapsed, env: config.env })
   } catch (error: unknown) {
     const elapsed = Date.now() - t0
     const message = error instanceof Error ? error.message : String(error)
     const name = error instanceof Error ? error.name : 'UnknownError'
+    const config = getPublicPesapalConfig()
     console.error(`[Pesapal Warm] Failed after ${elapsed}ms:`, name, message)
     // Return 200 with diagnostic info — don't block checkout
-    return NextResponse.json({ ok: false, error: `${name}: ${message}`, elapsed })
+    return NextResponse.json({ ok: false, error: `${name}: ${message}`, elapsed, env: config.env })
   }
 }
 

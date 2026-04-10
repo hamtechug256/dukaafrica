@@ -29,8 +29,12 @@ const PESAPAL_BASE_URLS: Record<PesapalEnv, string> = {
 }
 
 /**
- * Resolve the Pesapal environment from env vars.
+ * Resolve the Pesapal environment from env vars or DB.
  * Falls back to 'sandbox' for safety.
+ *
+ * NOTE: This is resolved at module load time from env var only.
+ * The runtime override from PlatformSettings.pesapalEnvironment is checked
+ * in resolvePesapalEnvAsync() and used by authenticate() / submitOrder.
  */
 function resolvePesapalEnv(): PesapalEnv {
   const env = process.env.NEXT_PUBLIC_PESAPAL_ENV as string | undefined
@@ -39,8 +43,26 @@ function resolvePesapalEnv(): PesapalEnv {
 }
 
 /** Singleton resolved once at module load. */
-const PESAPAL_ENV: PesapalEnv = resolvePesapalEnv()
-const PESAPAL_BASE_URL = PESAPAL_BASE_URLS[PESAPAL_ENV]
+const PESAPAL_ENV_FALLBACK: PesapalEnv = resolvePesapalEnv()
+const PESAPAL_BASE_URL_FALLBACK = PESAPAL_BASE_URLS[PESAPAL_ENV_FALLBACK]
+
+/**
+ * Resolve Pesapal env from DB (PlatformSettings.pesapalEnvironment).
+ * Falls back to the env-var-based resolution if DB is not available.
+ */
+async function resolvePesapalEnvAsync(): Promise<PesapalEnv> {
+  try {
+    const settings = await prisma.platformSettings.findFirst({
+      select: { pesapalEnvironment: true },
+    })
+    if (settings?.pesapalEnvironment === 'production' || settings?.pesapalEnvironment === 'sandbox') {
+      return settings.pesapalEnvironment
+    }
+  } catch {
+    // DB read failed — use fallback
+  }
+  return PESAPAL_ENV_FALLBACK
+}
 
 /**
  * Get Pesapal auth credentials (clientId + clientSecret only).
@@ -369,11 +391,8 @@ export interface PesapalCancelOrderResponse {
 // ============================================
 
 class PesapalClient {
-  private readonly baseUrl: string
-
   constructor() {
-    this.baseUrl = PESAPAL_BASE_URL
-    log.info(`Client initialised — env=${PESAPAL_ENV}, baseUrl=${this.baseUrl}`)
+    log.info(`Client initialised — fallback env=${PESAPAL_ENV_FALLBACK}, baseUrl=${PESAPAL_BASE_URL_FALLBACK}`)
   }
 
   // --------------------------------------------------
@@ -386,7 +405,10 @@ class PesapalClient {
     data?: unknown,
     requireAuth = true
   ): Promise<T> {
-    const url = `${this.baseUrl}${endpoint}`
+    // Resolve env dynamically from DB — admin may have changed it
+    const env = await resolvePesapalEnvAsync()
+    const baseUrl = PESAPAL_BASE_URLS[env]
+    const url = `${baseUrl}${endpoint}`
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -642,14 +664,14 @@ class PesapalClient {
   // Utility / Convenience
   // --------------------------------------------------
 
-  /** Which Pesapal environment is active. */
+  /** Which Pesapal environment is active (fallback). */
   get env(): PesapalEnv {
-    return PESAPAL_ENV
+    return PESAPAL_ENV_FALLBACK
   }
 
-  /** The resolved base URL. */
+  /** The resolved base URL (fallback). */
   get baseUrlValue(): string {
-    return this.baseUrl
+    return PESAPAL_BASE_URL_FALLBACK
   }
 }
 
@@ -685,11 +707,17 @@ function extractErrorMessage(body: unknown): string {
   if (typeof obj.errorMessage === 'string' && obj.errorMessage) {
     return obj.errorMessage
   }
+  // Pesapal sometimes returns nested error: { error: { message: "..." } }
+  if (obj.error && typeof obj.error === 'object') {
+    const nested = obj.error as Record<string, unknown>
+    if (typeof nested.message === 'string' && nested.message) {
+      return nested.message
+    }
+    // Sometimes error is just a string
+    if (typeof obj.error === 'string') return obj.error
+  }
   if (typeof obj.message === 'string' && obj.message) {
     return obj.message
-  }
-  if (typeof obj.error === 'string' && obj.error) {
-    return obj.error
   }
 
   return ''
@@ -704,7 +732,7 @@ export function getPublicPesapalConfig(): {
   baseUrl: string
 } {
   return {
-    env: PESAPAL_ENV,
-    baseUrl: PESAPAL_BASE_URL,
+    env: PESAPAL_ENV_FALLBACK,
+    baseUrl: PESAPAL_BASE_URL_FALLBACK,
   }
 }
