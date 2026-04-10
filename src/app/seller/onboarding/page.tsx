@@ -3,7 +3,7 @@
 
 import { useUser } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -48,10 +48,33 @@ const businessTypes = [
 ]
 
 export default function SellerOnboardingPage() {
-  const { user } = useUser()
+  const { user, isLoaded } = useUser()
   const router = useRouter()
   const [currentStep, setCurrentStep] = useState(1)
   const [isLoading, setIsLoading] = useState(false)
+  const [checkingStore, setCheckingStore] = useState(true)
+
+  // If user already has a store, redirect to dashboard instead of showing onboarding
+  useEffect(() => {
+    if (!isLoaded) return
+    const clerkId = user?.id
+    if (!clerkId) return
+
+    fetch('/api/seller/store')
+      .then(res => {
+        if (res.ok) {
+          // Store exists — redirect to dashboard
+          router.push('/seller/dashboard')
+        } else {
+          // No store yet — show onboarding form
+          setCheckingStore(false)
+        }
+      })
+      .catch(() => {
+        // On error, show onboarding form anyway
+        setCheckingStore(false)
+      })
+  }, [isLoaded, user, router])
 
   // Form state
   const [formData, setFormData] = useState({

@@ -69,16 +69,16 @@ export default async function SellerLayout({
   
   const isSeller = role === 'SELLER'
   const isAdmin = role === 'ADMIN' || role === 'SUPER_ADMIN'
-  const needsOnboarding = isSeller && !storeVerified
+  const needsOnboarding = isSeller && !hasStore
 
   // Allow access if:
-  // 1. User is already a seller with an active store
+  // 1. User is already a seller with a store (regardless of verification status)
   // 2. User is an admin
-  if ((isSeller && storeVerified) || isAdmin) {
+  if ((isSeller && hasStore) || isAdmin) {
     return <>{children}</>
   }
 
-  // If seller but needs onboarding, redirect (unless already there)
+  // If seller but needs onboarding (no store yet), redirect (unless already there)
   if (isSeller && needsOnboarding && !pathname.startsWith('/seller/onboarding')) {
     redirect('/seller/onboarding')
   }
