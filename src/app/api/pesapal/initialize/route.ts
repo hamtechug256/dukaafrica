@@ -112,6 +112,7 @@ export async function POST(request: NextRequest) {
       amount: toNum(order.total),
       description: `Order ${order.orderNumber}`,
       callback_url: `${origin}/checkout/success?orderId=${orderId}`,
+      cancellation_url: `${origin}/checkout/success?orderId=${orderId}&cancelled=true`,
       notification_id: ipnId,
       billing_address: {
         email_address: customerEmail || user.email || '',

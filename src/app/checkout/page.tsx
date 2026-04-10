@@ -208,6 +208,11 @@ export default function CheckoutPage() {
     if (itemCurrency !== buyerCurrency) {
       displaySavings = convertCurrency(rawSavings, itemCurrency, buyerCurrency)
     }
+    // Business rule: savings can never exceed what the customer actually pays.
+    // Showing "You save UGX 15,225" on a UGX 15,000 subtotal is confusing.
+    if (displaySavings > subtotal) {
+      displaySavings = subtotal
+    }
   } else if (cartCurrencies.length > 1) {
     // Mixed currencies — hide savings to avoid showing inaccurate amounts
     displaySavings = 0
@@ -242,6 +247,20 @@ export default function CheckoutPage() {
   }
 
   const handleAddressSubmit = () => {
+    // Validate all required address fields
+    const missing: string[] = []
+    if (!formData.fullName?.trim()) missing.push('Full name')
+    if (!formData.phone?.trim()) missing.push('Phone number')
+    if (!formData.country) missing.push('Country')
+    if (!formData.region?.trim()) missing.push('Region')
+    if (!formData.city?.trim()) missing.push('City')
+    if (!formData.addressLine1?.trim()) missing.push('Address')
+
+    if (missing.length > 0) {
+      alert(`Please fill in: ${missing.join(', ')}`)
+      return
+    }
+
     const error = validatePhone(formData.phone, formData.country)
     if (error) { setPhoneError(error); return }
     setShippingAddress(formData)
@@ -279,11 +298,22 @@ export default function CheckoutPage() {
       setOrderId(orderData.order.id)
 
       // Step 2: Initialize Pesapal payment
+      // Normalize phone to international format for Pesapal billing
+      // Users may enter "0742..." — Pesapal needs "+256742..."
+      let normalizedPhone = formData.phone.replace(/\s/g, '')
+      if (normalizedPhone.startsWith('0') && formData.country) {
+        const countryCode = COUNTRY_INFO[formData.country as Country]?.phoneCode || ''
+        normalizedPhone = countryCode + normalizedPhone.substring(1)
+      }
+
       const paymentResponse = await fetch('/api/pesapal/initialize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           orderId: orderData.order.id,
+          customerEmail: user?.emailAddresses?.[0]?.emailAddress || '',
+          customerPhone: normalizedPhone,
+          customerName: formData.fullName,
         })
       })
 
@@ -405,7 +435,12 @@ export default function CheckoutPage() {
                       <select
                         id="country"
                         value={formData.country}
-                        onChange={(e) => setFormData({ ...formData, country: e.target.value })}
+                        onChange={(e) => {
+                          setFormData({ ...formData, country: e.target.value })
+                          // Clear stale phone error when country changes
+                          // ("Please select your country first" should not persist)
+                          if (phoneError) setPhoneError('')
+                        }}
                         aria-label="Country"
                         className="w-full h-10 px-3 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800"
                       >
@@ -484,7 +519,7 @@ export default function CheckoutPage() {
                     <Button
                       size="lg"
                       onClick={handleAddressSubmit}
-                      disabled={!!phoneError || !formData.fullName || !formData.phone || !formData.city || !formData.addressLine1}
+                      disabled={!!phoneError || !formData.fullName || !formData.phone || !formData.country || !formData.region || !formData.city || !formData.addressLine1}
                     >
                       Continue to Delivery
                       <ArrowRight className="w-4 h-4 ml-2" />
