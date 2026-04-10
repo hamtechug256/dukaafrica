@@ -85,8 +85,12 @@ function registerIpnAsync(origin: string) {
 export async function GET() {
   const t0 = Date.now()
   try {
+    // Diagnostic: check where credentials come from and if env matches
     const config = getPublicPesapalConfig()
-    console.log(`[Pesapal Warm] env=${config.env}, baseUrl=${config.baseUrl}`)
+    const envFromDb = await prisma.platformSettings.findFirst({
+      select: { pesapalEnvironment: true, pesapalClientId: true },
+    })
+    console.log(`[Pesapal Warm] env=${config.env}, baseUrl=${config.baseUrl}, dbEnv=${envFromDb?.pesapalEnvironment || 'not set'}, hasDbClientId=${!!envFromDb?.pesapalClientId}`)
 
     // authenticate() checks L1 → L2 (DB) → L3 (Pesapal API)
     const token = await pesapalClient.authenticate()
@@ -97,15 +101,25 @@ export async function GET() {
     const ipnId = await getIpnIdFast()
     console.log(`[Pesapal Warm] IPN ID resolved: ${ipnId ? 'yes' : 'no'}`)
 
-    return NextResponse.json({ ok: true, elapsed, env: config.env })
+    return NextResponse.json({ ok: true, elapsed, env: config.env, dbEnv: envFromDb?.pesapalEnvironment || null, hasDbCreds: !!envFromDb?.pesapalClientId })
   } catch (error: unknown) {
     const elapsed = Date.now() - t0
     const message = error instanceof Error ? error.message : String(error)
     const name = error instanceof Error ? error.name : 'UnknownError'
     const config = getPublicPesapalConfig()
+    const envFromDb = await prisma.platformSettings.findFirst({
+      select: { pesapalEnvironment: true, pesapalClientId: true },
+    }).catch(() => null)
     console.error(`[Pesapal Warm] Failed after ${elapsed}ms:`, name, message)
     // Return 200 with diagnostic info — don't block checkout
-    return NextResponse.json({ ok: false, error: `${name}: ${message}`, elapsed, env: config.env })
+    return NextResponse.json({
+      ok: false,
+      error: `${name}: ${message}`,
+      elapsed,
+      env: config.env,
+      dbEnv: envFromDb?.pesapalEnvironment || null,
+      hasDbCreds: !!envFromDb?.pesapalClientId,
+    })
   }
 }
 
