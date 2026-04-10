@@ -295,52 +295,60 @@ export default function CheckoutPage() {
     if (isLoading) return // Prevent double-click / double-order
     setIsLoading(true)
     setProcessingError(null)
+
+    // Check if we already have an order ID from a previous attempt
+    // (e.g. order was created but Pesapal init timed out — don't create a duplicate order)
+    let orderId = useCheckoutStore.getState().orderId
+
     try {
-      // Step 1: Create order
-      setProcessingStage('creating')
-      const orderItems = items.map(({ productId, name, price, quantity, storeId, storeName, image, variantId, variantName }) => ({
-        productId, name, price, quantity, storeId, storeName, image, variantId, variantName,
-      }))
+      // Step 1: Create order (skip if already created from a previous attempt)
+      if (!orderId) {
+        setProcessingStage('creating')
+        const orderItems = items.map(({ productId, name, price, quantity, storeId, storeName, image, variantId, variantName }) => ({
+          productId, name, price, quantity, storeId, storeName, image, variantId, variantName,
+        }))
 
-      const { saveAddress: _sa, ...cleanAddress } = formData
+        const { saveAddress: _sa, ...cleanAddress } = formData
 
-      const orderController = new AbortController()
-      const orderTimeout = setTimeout(() => orderController.abort(), 30_000)
+        const orderController = new AbortController()
+        const orderTimeout = setTimeout(() => orderController.abort(), 30_000)
 
-      const orderResponse = await fetch('/api/checkout/create-order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        signal: orderController.signal,
-        body: JSON.stringify({
-          items: orderItems,
-          shippingAddress: cleanAddress,
-          deliveryOption,
-          paymentMethod: paymentMethod || { type: 'CARD', provider: 'PESAPAL', id: 'card', label: 'Visa / Mastercard' },
-          subtotal,
-          shipping,
-          total,
-          buyerCountry: formData.country,
-          buyerCurrency,
-          idempotencyKey,
-        }),
-      }).finally(() => clearTimeout(orderTimeout))
+        const orderResponse = await fetch('/api/checkout/create-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: orderController.signal,
+          body: JSON.stringify({
+            items: orderItems,
+            shippingAddress: cleanAddress,
+            deliveryOption,
+            paymentMethod: paymentMethod || { type: 'CARD', provider: 'PESAPAL', id: 'card', label: 'Visa / Mastercard' },
+            subtotal,
+            shipping,
+            total,
+            buyerCountry: formData.country,
+            buyerCurrency,
+            idempotencyKey,
+          }),
+        }).finally(() => clearTimeout(orderTimeout))
 
-      const contentType = orderResponse.headers.get('content-type') || ''
-      if (!contentType.includes('application/json')) {
-        throw new Error(`Server returned ${orderResponse.status}. Please sign out and sign back in, then try again.`)
+        const contentType = orderResponse.headers.get('content-type') || ''
+        if (!contentType.includes('application/json')) {
+          throw new Error(`Server returned ${orderResponse.status}. Please sign out and sign back in, then try again.`)
+        }
+
+        const orderData = await orderResponse.json()
+
+        if (!orderResponse.ok) {
+          console.error('[checkout] create-order error:', orderData.error, orderData.details)
+          const msg = orderData.details
+            ? `${orderData.error}: ${JSON.stringify(orderData.details.fieldErrors)}`
+            : orderData.error
+          throw new Error(msg || 'Failed to create order')
+        }
+
+        orderId = orderData.order.id
+        setOrderId(orderId)
       }
-
-      const orderData = await orderResponse.json()
-
-      if (!orderResponse.ok) {
-        console.error('[checkout] create-order error:', orderData.error, orderData.details)
-        const msg = orderData.details
-          ? `${orderData.error}: ${JSON.stringify(orderData.details.fieldErrors)}`
-          : orderData.error
-        throw new Error(msg || 'Failed to create order')
-      }
-
-      setOrderId(orderData.order.id)
 
       // Step 2: Initialize Pesapal payment
       setProcessingStage('connecting')
@@ -358,7 +366,7 @@ export default function CheckoutPage() {
         headers: { 'Content-Type': 'application/json' },
         signal: payController.signal,
         body: JSON.stringify({
-          orderId: orderData.order.id,
+          orderId,
           customerEmail: user?.emailAddresses?.[0]?.emailAddress || '',
           customerPhone: normalizedPhone,
           customerName: formData.fullName,
@@ -383,12 +391,12 @@ export default function CheckoutPage() {
     } catch (error: any) {
       console.error('Error placing order:', error)
       setProcessingStage('idle')
-      if (error.name === 'AbortError' && retryCount < 2) {
-        // Auto-retry on timeout
-        console.log(`[checkout] Timeout, auto-retrying (${retryCount + 1}/2)...`)
+      // Only auto-retry on Pesapal timeout (AbortError from step 2)
+      // and only if we have a valid orderId (order was created successfully)
+      if (error.name === 'AbortError' && retryCount < 1 && orderId) {
+        console.log('[checkout] Pesapal timeout, retrying with existing order...')
         setProcessingStage('connecting')
-        // Small delay before retry to let the serverless function cool down
-        await new Promise(r => setTimeout(r, 2000))
+        await new Promise(r => setTimeout(r, 1500))
         return handlePlaceOrder(retryCount + 1)
       }
       const message = error.name === 'AbortError'

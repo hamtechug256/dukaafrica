@@ -166,6 +166,52 @@ function isTokenValid(): boolean {
 }
 
 // ============================================
+// DATABASE TOKEN CACHE (L2 — survives serverless cold starts)
+// ============================================
+// Pesapal tokens last ~20 min. On Vercel Hobby, each serverless invocation
+// may spin up a fresh process (L1 in-memory cache is empty). The L2 DB cache
+// lets us skip the slow Pesapal auth API call on almost every request.
+//
+// Stored in the Setting table (key-value) — no schema migration needed.
+
+async function getCachedTokenFromDb(): Promise<CachedToken | null> {
+  try {
+    const [tokenRow, expiryRow] = await Promise.all([
+      prisma.setting.findUnique({ where: { key: 'pesapal_access_token' } }),
+      prisma.setting.findUnique({ where: { key: 'pesapal_token_expires_at' } }),
+    ])
+    if (!tokenRow?.value || !expiryRow?.value) return null
+
+    const expiresAt = new Date(expiryRow.value).getTime()
+    if (Date.now() >= expiresAt - TOKEN_BUFFER_MS) return null // expired
+
+    return { token: tokenRow.value, expiry: expiresAt }
+  } catch {
+    return null
+  }
+}
+
+async function saveTokenToDb(token: string, expiry: number): Promise<void> {
+  try {
+    await prisma.$transaction([
+      prisma.setting.upsert({
+        where: { key: 'pesapal_access_token' },
+        create: { key: 'pesapal_access_token', value: token, type: 'STRING' },
+        update: { value: token },
+      }),
+      prisma.setting.upsert({
+        where: { key: 'pesapal_token_expires_at' },
+        create: { key: 'pesapal_token_expires_at', value: new Date(expiry).toISOString(), type: 'STRING' },
+        update: { value: new Date(expiry).toISOString() },
+      }),
+    ])
+    log.info('Token cached to DB')
+  } catch (err) {
+    log.warn('Failed to cache token to DB', err)
+  }
+}
+
+// ============================================
 // TYPED ERRORS
 // ============================================
 
@@ -405,10 +451,20 @@ class PesapalClient {
    * Results are cached for up to ~19 minutes (tokens last 20 min).
    */
   async authenticate(): Promise<string> {
+    // L1: In-memory cache (instant — same serverless invocation)
     if (isTokenValid() && cachedToken) {
       return cachedToken.token
     }
 
+    // L2: Database cache (~100ms — survives serverless cold starts)
+    const dbToken = await getCachedTokenFromDb()
+    if (dbToken) {
+      cachedToken = dbToken // populate L1 from L2
+      log.info('Token loaded from DB cache')
+      return dbToken.token
+    }
+
+    // L3: Pesapal API call (3-5s from Vercel — only on first call or expiry)
     const { clientId, clientSecret } = await getCredentials()
 
     if (!clientId || !clientSecret) {
@@ -437,15 +493,18 @@ class PesapalClient {
       )
     }
 
-    // Cache token
+    // Cache token in both L1 (memory) and L2 (DB)
     const expiryMs = new Date(result.expiryDate).getTime()
     cachedToken = {
       token: result.token,
       expiry: expiryMs,
     }
 
+    // Save to DB — fire-and-forget so it doesn't block the caller
+    saveTokenToDb(result.token, expiryMs)
+
     const ttlSec = Math.round((expiryMs - Date.now()) / 1000)
-    log.info(`Token obtained, TTL ~${ttlSec}s`)
+    log.info(`Token obtained from Pesapal API, TTL ~${ttlSec}s`)
 
     return result.token
   }

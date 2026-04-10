@@ -3,18 +3,16 @@
  *
  * POST /api/pesapal/initialize
  *
- * OPTIMIZED for Vercel Hobby's 10-second function timeout.
+ * Designed to work within Vercel Hobby's 10-second function timeout.
  *
- * Key insight: Vercel Hobby serverless functions have NO shared memory between
- * requests (each may spin up a fresh instance), so in-process token caching
- * is unreliable. Pre-warming via a separate endpoint also fails because that
- * endpoint itself times out at 10s.
+ * Token caching strategy (2-tier, no external dependencies):
+ * - L1: In-memory cache within same serverless invocation (instant)
+ * - L2: Database Setting table (persists across cold starts, ~100ms)
  *
- * Strategy: Eliminate ALL non-essential Pesapal API calls from the critical path.
- * Only auth + submitOrder are needed. IPN ID is read from DB (fast, no API call).
- * If no IPN is stored yet, we proceed without it and register it async after.
+ * Critical path: DB reads (~1s) + submitOrder (3-5s) = ~4-6s on cached token
+ * Edge case (first call / token expired): +auth (3-5s) = ~7-10s, single retry available
  *
- * Timeline: auth(1-3s) → DB(1-2s) → submitOrder(2-5s) → DB(0.5s) = 4.5-10.5s
+ * IPN resolution: env var → DB (PlatformSettings) → empty string + async register
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -81,12 +79,19 @@ function registerIpnAsync(origin: string) {
         console.log(`[Pesapal] Registered IPN: ${registered.ipn_id} → ${ipnUrl}`)
 
         // Save to DB for future requests
+        // PlatformSettings is a singleton — use findFirst + update (id is auto-generated UUID)
         try {
-          await prisma.platformSettings.upsert({
-            where: { id: 'default' },
-            create: { id: 'default', pesapalIpnId: registered.ipn_id },
-            update: { pesapalIpnId: registered.ipn_id },
-          })
+          const existing = await prisma.platformSettings.findFirst({ select: { id: true } })
+          if (existing) {
+            await prisma.platformSettings.update({
+              where: { id: existing.id },
+              data: { pesapalIpnId: registered.ipn_id },
+            })
+          } else {
+            await prisma.platformSettings.create({
+              data: { pesapalIpnId: registered.ipn_id },
+            })
+          }
           console.log(`[Pesapal] IPN ID saved to DB`)
         } catch (dbErr) {
           console.error('[Pesapal] Failed to save IPN to DB:', dbErr)
