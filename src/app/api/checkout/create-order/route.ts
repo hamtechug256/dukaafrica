@@ -24,13 +24,15 @@ function serializeDecimal<T>(obj: T): T {
 }
 
 // Zod validation schema for order creation
+// Use coerce for numeric fields — localStorage (zustand persist) can sometimes
+// deserialise numbers as strings, and Decimal→JSON round-trips may also produce strings.
 const OrderItemSchema = z.object({
   productId: z.string().min(1),
   variantId: z.string().nullable().optional(),
   name: z.string().min(1),
   variantName: z.string().nullable().optional(),
-  quantity: z.number().int().positive(),
-  price: z.number().positive(),
+  quantity: z.coerce.number().int().positive(),
+  price: z.coerce.number().positive(),
   storeId: z.string().min(1),
   storeName: z.string().min(1),
   image: z.string().nullable().optional(),
@@ -112,7 +114,13 @@ export async function POST(req: Request) {
     const validationResult = CreateOrderSchema.safeParse(body)
     if (!validationResult.success) {
       const flat = validationResult.error.flatten()
-      console.error('[create-order] Validation failed:', JSON.stringify(flat.fieldErrors, null, 2))
+      // Log per-item field errors for precise debugging
+      const itemErrors = (flat.fieldErrors.items as any[]) || []
+      itemErrors.forEach((err: any, idx: number) => {
+        const item = body.items?.[idx]
+        console.error(`[create-order] Item[${idx}] validation error:`, err, '| raw item:', JSON.stringify(item))
+      })
+      console.error('[create-order] Full validation errors:', JSON.stringify(flat.fieldErrors, null, 2))
       return NextResponse.json(
         { error: 'Validation failed', details: flat },
         { status: 400 }
