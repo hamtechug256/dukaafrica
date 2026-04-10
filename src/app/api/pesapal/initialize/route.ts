@@ -10,7 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/db'
-import { pesapalClient, generateTransactionReference, PesapalCurrency } from '@/lib/pesapal/client'
+import { pesapalClient, generateTransactionReference, PesapalCurrency, getCredentials } from '@/lib/pesapal/client'
 import { calculatePaymentBreakdown } from '@/lib/payment-split'
 import { Country, Currency } from '@/lib/currency'
 import { Prisma } from '@prisma/client'
@@ -99,13 +99,20 @@ export async function POST(request: NextRequest) {
 
     // Build Pesapal order submission request
     const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_APP_URL || ''
+    const { ipnId } = await getCredentials()
+    if (!ipnId) {
+      return NextResponse.json(
+        { error: 'IPN not configured. Please set PESAPAL_IPN_ID or register an IPN URL in Pesapal dashboard.' },
+        { status: 500 }
+      )
+    }
     const pesapalOrderRequest = {
       id: orderTrackingId,
       currency: order.currency as PesapalCurrency,
       amount: toNum(order.total),
       description: `Order ${order.orderNumber}`,
       callback_url: `${origin}/checkout/success?orderId=${orderId}`,
-      notification_id: process.env.PESAPAL_IPN_ID || '',
+      notification_id: ipnId,
       billing_address: {
         email_address: customerEmail || user.email || '',
         phone_number: customerPhone || '',

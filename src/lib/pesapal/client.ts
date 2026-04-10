@@ -40,30 +40,86 @@ const PESAPAL_ENV: PesapalEnv = resolvePesapalEnv()
 const PESAPAL_BASE_URL = PESAPAL_BASE_URLS[PESAPAL_ENV]
 
 /**
- * Get credentials from environment variables.
+ * Get credentials from environment variables or PlatformSettings DB.
  *
- * NOTE: Pesapal credentials are stored in PlatformSettings (pesapalClientId,
- * pesapalClientSecret, pesapalIpnId) and read from the database. Falls back
- * to env vars: PESAPAL_CLIENT_ID, PESAPAL_CLIENT_SECRET, PESAPAL_IPN_ID
+ * Priority: PlatformSettings (DB) → env vars
+ * If PESAPAL_IPN_ID is missing, auto-fetches it from Pesapal's GetIPNList API
+ * by matching the registered URL against NEXT_PUBLIC_APP_URL.
+ *
+ * NOTE: The auto-fetched IPN ID is cached in-process so it only calls
+ * Pesapal's API once per serverless function invocation.
  */
-async function getCredentials(): Promise<{
+let autoFetchedIpnId: string | null = null
+
+async function resolveIpnId(): Promise<string> {
+  // 1. Return cached auto-fetched ID if available
+  if (autoFetchedIpnId) return autoFetchedIpnId
+
+  // 2. Check env var first
+  const envIpn = process.env.PESAPAL_IPN_ID
+  if (envIpn) return envIpn
+
+  // 3. Auto-fetch from Pesapal API by listing registered IPNs
+  try {
+    const client = new PesapalClient()
+    const ipnList = await client.getIPNList()
+
+    if (ipnList.ipn_list && ipnList.ipn_list.length > 0) {
+      // Try to match by our app domain
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || ''
+      const domain = appUrl.replace(/^https?:\/\/(www\.)?/, '').replace(/\/.*$/, '')
+
+      const match = ipnList.ipn_list.find(
+        (ipn) =>
+          ipn.url.includes(domain) ||
+          ipn.url.includes('duukaafrica.com')
+      )
+
+      if (match) {
+        autoFetchedIpnId = match.ipn_id
+        log.info(`Auto-resolved IPN ID: ${match.ipn_id} (${match.url})`)
+        return match.ipn_id
+      }
+
+      // No match found — use the first active one as fallback
+      const firstActive = ipnList.ipn_list.find(
+        (ipn) => ipn.status?.toLowerCase() === 'active' || ipn.status === '200'
+      )
+      if (firstActive) {
+        autoFetchedIpnId = firstActive.ipn_id
+        log.info(`Auto-resolved IPN ID (first active): ${firstActive.ipn_id} (${firstActive.url})`)
+        return firstActive.ipn_id
+      }
+
+      // Last resort: use any registered IPN
+      autoFetchedIpnId = ipnList.ipn_list[0].ipn_id
+      log.warn(`Auto-resolved IPN ID (first available): ${autoFetchedIpnId} (${ipnList.ipn_list[0].url})`)
+      return autoFetchedIpnId
+    }
+  } catch (err) {
+    log.error('Failed to auto-fetch IPN ID from Pesapal API', err)
+  }
+
+  return ''
+}
+
+export async function getCredentials(): Promise<{
   clientId: string
   clientSecret: string
   ipnId: string
 }> {
   // Attempt database lookup if pesapal fields exist on PlatformSettings.
-  // Use a try/catch with type assertion so this degrades gracefully when
-  // the columns have not yet been migrated.
   try {
     const settings = await prisma.platformSettings.findFirst()
-    // Type assertion needed to access pesapal fields that may not yet exist
-    // in the Prisma schema (added via future migration).
     const raw = settings as unknown as Record<string, unknown>
     if (typeof raw?.pesapalClientId === 'string' && raw.pesapalClientId) {
+      const dbIpnId = typeof raw.pesapalIpnId === 'string' && raw.pesapalIpnId
+        ? raw.pesapalIpnId
+        : ''
       return {
         clientId: raw.pesapalClientId,
         clientSecret: typeof raw.pesapalClientSecret === 'string' ? raw.pesapalClientSecret : (process.env.PESAPAL_CLIENT_SECRET || ''),
-        ipnId: typeof raw.pesapalIpnId === 'string' ? raw.pesapalIpnId : (process.env.PESAPAL_IPN_ID || ''),
+        ipnId: dbIpnId || await resolveIpnId(),
       }
     }
   } catch {
@@ -73,7 +129,7 @@ async function getCredentials(): Promise<{
   return {
     clientId: process.env.PESAPAL_CLIENT_ID || '',
     clientSecret: process.env.PESAPAL_CLIENT_SECRET || '',
-    ipnId: process.env.PESAPAL_IPN_ID || '',
+    ipnId: await resolveIpnId(),
   }
 }
 
