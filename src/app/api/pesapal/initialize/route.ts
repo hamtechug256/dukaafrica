@@ -89,17 +89,20 @@ export async function GET() {
     // After this, token is cached in BOTH memory and DB
     const token = await pesapalClient.authenticate()
     const elapsed = Date.now() - t0
-    console.log(`[Pesapal Warm] Token ready in ${elapsed}ms (source: ${token ? 'cached/api' : 'failed'})`)
+    console.log(`[Pesapal Warm] Token ready in ${elapsed}ms`)
 
     // Also pre-resolve IPN ID so it's ready for the POST
     const ipnId = await getIpnIdFast()
     console.log(`[Pesapal Warm] IPN ID resolved: ${ipnId ? 'yes' : 'no'}`)
 
     return NextResponse.json({ ok: true, elapsed })
-  } catch (error) {
-    console.error(`[Pesapal Warm] Failed after ${Date.now() - t0}ms:`, error)
-    // Return 200 anyway — don't block checkout if pre-warming fails
-    return NextResponse.json({ ok: false, error: 'warm-up failed' })
+  } catch (error: unknown) {
+    const elapsed = Date.now() - t0
+    const message = error instanceof Error ? error.message : String(error)
+    const stack = error instanceof Error ? error.stack : ''
+    console.error(`[Pesapal Warm] Failed after ${elapsed}ms:`, message, stack)
+    // Return 200 with diagnostic info — don't block checkout
+    return NextResponse.json({ ok: false, error: message, elapsed })
   }
 }
 

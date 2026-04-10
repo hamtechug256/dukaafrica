@@ -265,8 +265,8 @@ export default function CheckoutPage() {
     const timeout = setTimeout(() => controller.abort(), 15_000)
     fetch('/api/pesapal/initialize', { method: 'GET', signal: controller.signal })
       .then(r => r.json())
-      .then(data => console.log('[checkout] Pesapal warm-up:', data.ok ? 'ready' : 'failed'))
-      .catch(() => {})
+      .then(data => console.log('[checkout] Pesapal warm-up:', data.ok ? 'ready' : 'failed', data.error || '', `${data.elapsed||0}ms`))
+      .catch((e) => console.log('[checkout] Pesapal warm-up network error:', e.message))
     return () => { clearTimeout(timeout); controller.abort() }
   }
 
