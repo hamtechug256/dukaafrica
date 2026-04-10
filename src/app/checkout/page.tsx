@@ -24,7 +24,8 @@ import {
   AlertCircle,
   Bus,
   CreditCard,
-  Smartphone
+  Smartphone,
+  Wallet
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
@@ -113,6 +114,17 @@ export default function CheckoutPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [shippingResult, setShippingResult] = useState<ShippingResult | null>(null)
   const [isCalculatingShipping, setIsCalculatingShipping] = useState(false)
+
+  // Processing popup state
+  const [processingStage, setProcessingStage] = useState<'idle' | 'creating' | 'connecting' | 'redirecting'>('idle')
+  const [processingError, setProcessingError] = useState<string | null>(null)
+
+  // Pre-warm Pesapal connection when user reaches payment step
+  useEffect(() => {
+    if (currentStep === 2) {
+      fetch('/api/pesapal/warm').catch(() => { /* non-critical */ })
+    }
+  }, [currentStep])
   const [formData, setFormData] = useState({
     fullName: user?.fullName || '',
     phone: '',
@@ -181,9 +193,6 @@ export default function CheckoutPage() {
         shipsToCountries: anyRestrictedCountries?.shipsToCountries || null,
       }
 
-      // Debug: log what we're sending so Vercel logs show the actual values
-      console.log('[checkout] calculateShipping request:', JSON.stringify(requestBody))
-      console.log('[checkout] cart item raw sellerCountry:', firstItem.sellerCountry, '| normalized:', normalizeCountryCode(firstItem.sellerCountry), '| formData.country:', formData.country)
       
       const response = await fetch('/api/shipping/calculate', {
         method: 'POST',
@@ -289,20 +298,19 @@ export default function CheckoutPage() {
     nextStep()
   }
 
-  const handlePlaceOrder = async () => {
+  const handlePlaceOrder = async (retryCount = 0) => {
     if (isLoading) return // Prevent double-click / double-order
     setIsLoading(true)
+    setProcessingError(null)
     try {
       // Step 1: Create order
-      // Sanitize cart items: only send fields expected by the API schema
+      setProcessingStage('creating')
       const orderItems = items.map(({ productId, name, price, quantity, storeId, storeName, image, variantId, variantName }) => ({
         productId, name, price, quantity, storeId, storeName, image, variantId, variantName,
       }))
 
-      // Sanitize shipping address: remove UI-only fields like saveAddress
       const { saveAddress: _sa, ...cleanAddress } = formData
 
-      // Timeout: abort create-order after 30 seconds
       const orderController = new AbortController()
       const orderTimeout = setTimeout(() => orderController.abort(), 30_000)
 
@@ -324,7 +332,6 @@ export default function CheckoutPage() {
         }),
       }).finally(() => clearTimeout(orderTimeout))
 
-      // Handle non-JSON responses (e.g., Clerk 403 HTML page)
       const contentType = orderResponse.headers.get('content-type') || ''
       if (!contentType.includes('application/json')) {
         throw new Error(`Server returned ${orderResponse.status}. Please sign out and sign back in, then try again.`)
@@ -333,7 +340,6 @@ export default function CheckoutPage() {
       const orderData = await orderResponse.json()
 
       if (!orderResponse.ok) {
-        // Log full validation details so we can debug field-level issues
         console.error('[checkout] create-order error:', orderData.error, orderData.details)
         const msg = orderData.details
           ? `${orderData.error}: ${JSON.stringify(orderData.details.fieldErrors)}`
@@ -344,17 +350,15 @@ export default function CheckoutPage() {
       setOrderId(orderData.order.id)
 
       // Step 2: Initialize Pesapal payment
-      // Normalize phone to international format for Pesapal billing
-      // Users may enter "0742..." — Pesapal needs "+256742..."
+      setProcessingStage('connecting')
       let normalizedPhone = formData.phone.replace(/\s/g, '')
       if (normalizedPhone.startsWith('0') && formData.country) {
         const countryCode = COUNTRY_INFO[formData.country as Country]?.phoneCode || ''
         normalizedPhone = countryCode + normalizedPhone.substring(1)
       }
 
-      // Timeout: abort Pesapal init after 15 seconds (Vercel Hobby kills at 10s)
       const payController = new AbortController()
-      const payTimeout = setTimeout(() => payController.abort(), 15_000)
+      const payTimeout = setTimeout(() => payController.abort(), 20_000)
 
       const paymentResponse = await fetch('/api/pesapal/initialize', {
         method: 'POST',
@@ -368,7 +372,6 @@ export default function CheckoutPage() {
         })
       }).finally(() => clearTimeout(payTimeout))
 
-      // Handle non-JSON responses
       const payContentType = paymentResponse.headers.get('content-type') || ''
       if (!payContentType.includes('application/json')) {
         throw new Error(`Payment server returned ${paymentResponse.status}. Please try again.`)
@@ -378,6 +381,7 @@ export default function CheckoutPage() {
 
       if (paymentData.success && (paymentData.redirectUrl || paymentData.paymentLink)) {
         // Step 3: Redirect to Pesapal payment page
+        setProcessingStage('redirecting')
         window.location.href = paymentData.redirectUrl || paymentData.paymentLink
       } else {
         throw new Error(paymentData.error || 'Failed to initialize payment')
@@ -385,11 +389,19 @@ export default function CheckoutPage() {
 
     } catch (error: any) {
       console.error('Error placing order:', error)
-      if (error.name === 'AbortError') {
-        alert('Payment is taking longer than expected. Click "Pay" again — the server just needs a moment to warm up.')
-      } else {
-        alert(error.message || 'Something went wrong. Please try again.')
+      setProcessingStage('idle')
+      if (error.name === 'AbortError' && retryCount < 2) {
+        // Auto-retry on timeout — the warmup on retry will be faster
+        console.log(`[checkout] Timeout, auto-retrying (${retryCount + 1}/2)...`)
+        setProcessingStage('connecting')
+        // Re-warm Pesapal before retry
+        await fetch('/api/pesapal/warm').catch(() => {})
+        return handlePlaceOrder(retryCount + 1)
       }
+      const message = error.name === 'AbortError'
+        ? 'The payment server took too long to respond. Please try clicking Pay again.'
+        : (error.message || 'Something went wrong. Please try again.')
+      setProcessingError(message)
     } finally {
       setIsLoading(false)
     }
@@ -409,6 +421,47 @@ export default function CheckoutPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      {/* Processing Popup Overlay */}
+      {processingStage !== 'idle' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 mx-4 max-w-sm w-full text-center">
+            {processingError ? (
+              <>
+                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                  <AlertCircle className="w-8 h-8 text-red-500" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2">Payment Delayed</h3>
+                <p className="text-gray-600 dark:text-gray-400 mb-6">{processingError}</p>
+                <Button onClick={() => setProcessingError(null)}>
+                  Got it
+                </Button>
+              </>
+            ) : (
+              <>
+                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Wallet className="w-8 h-8 text-primary" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2">
+                  {processingStage === 'creating' && 'Creating your order...'}
+                  {processingStage === 'connecting' && 'Connecting to payment...'}
+                  {processingStage === 'redirecting' && 'Redirecting to payment...'}
+                </h3>
+                <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">
+                  {processingStage === 'creating' && 'Please wait while we set up your order.'}
+                  {processingStage === 'connecting' && 'Connecting to Pesapal secure payment. This may take a few seconds.'}
+                  {processingStage === 'redirecting' && 'You will be redirected to complete your payment.'}
+                </p>
+                <div className="flex justify-center">
+                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                </div>
+                <p className="text-xs text-gray-400 mt-4">
+                  Do not close this page
+                </p>
+              </>
+            )}
+          </div>
+        </div>
+      )}
       {/* Header */}
       <div className="bg-white dark:bg-gray-800 border-b sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
