@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
         where: { id: orderId },
         include: {
           Store: true,
-          Payment: { take: 1 }, // Get payment record inline — saves one DB round-trip
+          Payment: true, // Get payment record inline — saves one DB round-trip
         },
       }),
       prisma.user.findUnique({ where: { clerkId: userId } }),
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
-    const payment = order.Payment?.[0]
+    const payment = order.Payment
     if (!payment) {
       return NextResponse.json({ error: 'Payment record not found' }, { status: 404 })
     }
