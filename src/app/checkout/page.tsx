@@ -347,7 +347,7 @@ export default function CheckoutPage() {
         }
 
         orderId = orderData.order.id
-        setOrderId(orderId)
+        setOrderId(orderId!)
       }
 
       // Step 2: Initialize Pesapal payment
