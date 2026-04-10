@@ -48,6 +48,7 @@ import {
   Play,
 } from 'lucide-react'
 import Link from 'next/link'
+import { formatPrice } from '@/lib/currency'
 
 interface FlashSaleProduct {
   id: string
@@ -111,6 +112,12 @@ async function fetchProducts() {
   return res.json()
 }
 
+async function fetchStore() {
+  const res = await fetch('/api/seller/store')
+  if (!res.ok) throw new Error('Failed to fetch store')
+  return res.json()
+}
+
 function getFlashSaleStatus(product: FlashSaleProduct): 'active' | 'upcoming' | 'ended' | 'none' {
   if (!product.isFlashSale) return 'none'
   const now = new Date()
@@ -143,11 +150,13 @@ function formatTimeLeft(endDate: Date | string): string {
   return `${hours}h ${minutes}m ${seconds}s left`
 }
 
-function FlashSaleCard({ product, onEdit, onEnd }: { 
+function FlashSaleCard({ product, onEdit, onEnd, storeCurrency }: { 
   product: FlashSaleProduct
   onEdit: (product: FlashSaleProduct) => void
   onEnd: (productId: string) => void
+  storeCurrency?: string
 }) {
+  const currency = storeCurrency || 'UGX'
   const status = getFlashSaleStatus(product)
   const images = product.images ? JSON.parse(product.images) : []
   const salePrice = product.flashSaleDiscount 
@@ -200,14 +209,14 @@ function FlashSaleCard({ product, onEdit, onEnd }: {
           {product.flashSaleDiscount ? (
             <>
               <span className="text-lg font-bold text-red-600">
-                UGX {Math.round(salePrice).toLocaleString()}
+                {formatPrice(Math.round(salePrice), currency)}
               </span>
               <span className="text-sm text-gray-500 line-through">
-                UGX {product.price.toLocaleString()}
+                {formatPrice(product.price, currency)}
               </span>
             </>
           ) : (
-            <span className="text-lg font-bold">UGX {product.price.toLocaleString()}</span>
+            <span className="text-lg font-bold">{formatPrice(product.price, currency)}</span>
           )}
         </div>
 
@@ -286,6 +295,13 @@ export default function FlashSalesPage() {
     queryKey: ['seller-products'],
     queryFn: fetchProducts,
   })
+
+  const { data: storeData } = useQuery({
+    queryKey: ['seller-store'],
+    queryFn: fetchStore,
+  })
+
+  const storeCurrency = storeData?.store?.currency || 'UGX'
 
   const createMutation = useMutation({
     mutationFn: createFlashSale,
@@ -451,9 +467,7 @@ export default function FlashSalesPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Total Saved</p>
-                  <p className="text-xl font-bold text-orange-600">
-                    UGX {Math.round(stats.totalSaved).toLocaleString()}
-                  </p>
+                  {formatPrice(Math.round(stats.totalSaved), storeCurrency)}
                 </div>
                 <TrendingUp className="w-8 h-8 text-orange-500" />
               </div>
@@ -510,6 +524,7 @@ export default function FlashSalesPage() {
                 product={product}
                 onEdit={handleOpenEdit}
                 onEnd={handleEnd}
+                storeCurrency={storeCurrency}
               />
             ))}
           </div>
@@ -608,14 +623,14 @@ export default function FlashSalesPage() {
                   <p className="text-sm font-medium mb-2">Preview</p>
                   <div className="flex items-center gap-2">
                     <span className="text-lg font-bold text-red-600">
-                      {Math.round((selectedProduct?.price || 0) * (1 - parseInt(formData.discount) / 100)).toLocaleString()} UGX
+                      {formatPrice(Math.round((selectedProduct?.price || 0) * (1 - parseInt(formData.discount) / 100)), storeCurrency)}
                     </span>
                     <span className="text-sm text-gray-500 line-through">
-                      {(selectedProduct?.price || 0).toLocaleString()} UGX
+                      {formatPrice(selectedProduct?.price || 0, storeCurrency)}
                     </span>
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
-                    Customers save {Math.round((selectedProduct?.price || 0) * parseInt(formData.discount) / 100).toLocaleString()} UGX
+                    Customers save {formatPrice(Math.round((selectedProduct?.price || 0) * parseInt(formData.discount) / 100), storeCurrency)}
                   </p>
                 </CardContent>
               </Card>

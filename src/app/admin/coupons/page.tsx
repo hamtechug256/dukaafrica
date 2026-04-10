@@ -38,6 +38,7 @@ import {
   Check,
 } from 'lucide-react'
 import { MobileNav, DesktopSidebar, BottomNav } from '@/components/dashboard/mobile-nav'
+import { formatPrice } from '@/lib/currency'
 import { adminNavItems } from '@/lib/admin-nav'
 
 async function fetchCoupons() {
@@ -266,7 +267,7 @@ export default function AdminCouponsPage() {
                         <div>
                           <p className="text-2xl font-bold">
                             {coupon.type === 'PERCENTAGE' ? `${coupon.value}%` :
-                             coupon.type === 'FIXED' ? `UGX ${coupon.value.toLocaleString()}` :
+                             coupon.type === 'FIXED' ? formatPrice(coupon.value, coupon.currency || 'UGX') :
                              'Free Shipping'}
                           </p>
                           <p className="text-xs text-gray-500">{coupon.type}</p>
@@ -291,10 +292,10 @@ export default function AdminCouponsPage() {
 
                     <div className="text-sm text-gray-500 space-y-1">
                       {coupon.minOrder && (
-                        <p>Min order: UGX {coupon.minOrder.toLocaleString()}</p>
+                        <p>Min order: {formatPrice(coupon.minOrder, coupon.currency || 'UGX')}</p>
                       )}
                       {coupon.maxDiscount && (
-                        <p>Max discount: UGX {coupon.maxDiscount.toLocaleString()}</p>
+                        <p>Max discount: {formatPrice(coupon.maxDiscount, coupon.currency || 'UGX')}</p>
                       )}
                       <p>Used: {coupon.usageCount} / {coupon.usageLimit || '∞'}</p>
                       <p>Per user: {coupon.perUserLimit}x</p>

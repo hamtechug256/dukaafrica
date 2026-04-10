@@ -3,10 +3,11 @@ import { Footer } from '@/components/home/footer'
 import { Card, CardContent } from '@/components/ui/card'
 import { Truck, MapPin, Clock, Package, CheckCircle } from 'lucide-react'
 import { Metadata } from 'next'
+import { COUNTRY_INFO, type Country } from '@/lib/currency'
 
 export const metadata: Metadata = {
   title: 'Shipping Information - DuukaAfrica | Delivery Across East Africa',
-  description: 'Learn about DuukaAfrica shipping zones, delivery times, and costs across Uganda, Kenya, Tanzania, and Rwanda. Free shipping on orders over UGX 100,000.',
+  description: 'Learn about DuukaAfrica shipping zones, delivery times, and costs across East Africa. Free shipping on qualifying orders.',
   openGraph: {
     title: 'Shipping Information - DuukaAfrica',
     description: 'Fast, reliable delivery across East Africa. Free shipping on qualifying orders.',
@@ -15,14 +16,26 @@ export const metadata: Metadata = {
 }
 
 export default function ShippingPage() {
-  const zones = [
-    { name: 'Kampala Metro', time: 'Same day - 24 hours', price: 'UGX 5,000 - 10,000' },
-    { name: 'Kenya (Nairobi)', time: '1-2 days', price: 'KES 200 - 500' },
-    { name: 'Tanzania (Dar es Salaam)', time: '2-3 days', price: 'TZS 5,000 - 15,000' },
-    { name: 'Rwanda (Kigali)', time: '1-2 days', price: 'RWF 2,000 - 5,000' },
+  // Build zone list dynamically from supported countries
+  const zones = (Object.keys(COUNTRY_INFO) as Country[]).map(code => {
+    const info = COUNTRY_INFO[code]
+    // Use the capital/major city for each country as the primary zone
+    const capitalCity = code === 'UGANDA' ? 'Kampala Metro'
+      : code === 'KENYA' ? 'Kenya (Nairobi)'
+      : code === 'TANZANIA' ? 'Tanzania (Dar es Salaam)'
+      : code === 'RWANDA' ? 'Rwanda (Kigali)'
+      : code === 'SOUTH_SUDAN' ? 'South Sudan (Juba)'
+      : code === 'BURUNDI' ? 'Burundi (Bujumbura)'
+      : `${info.name}`
+    return {
+      name: `${info.flag} ${capitalCity}`,
+      time: code === 'UGANDA' ? 'Same day - 24 hours' : '1-3 days',
+      price: 'Varies by distance & weight',
+    }
+  }).concat([
     { name: 'Regional (Other cities)', time: '3-5 days', price: 'Varies by weight' },
     { name: 'Rural Areas', time: '5-10 days', price: 'Varies by distance' },
-  ]
+  ])
 
   return (
     <div className="min-h-screen flex flex-col bg-[oklch(0.99_0.005_85)] dark:bg-[oklch(0.12_0.02_45)]">
@@ -99,7 +112,7 @@ export default function ShippingPage() {
                 <ul className="space-y-2 text-gray-600">
                   <li className="flex items-start gap-2">
                     <CheckCircle className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
-                    <span>Orders over UGX 100,000 qualify for free shipping within Kampala</span>
+                    <span>Qualifying orders receive free shipping within their local metro area</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <CheckCircle className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
@@ -126,7 +139,7 @@ export default function ShippingPage() {
                   </li>
                   <li className="flex items-start gap-2">
                     <Clock className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                    <span>Signature required for orders over UGX 500,000</span>
+                    <span>Signature required for high-value orders</span>
                   </li>
                 </ul>
               </CardContent>

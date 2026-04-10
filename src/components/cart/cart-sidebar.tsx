@@ -8,6 +8,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Minus, Plus, Trash2, ShoppingBag, ArrowRight } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
+import { formatPrice } from '@/lib/currency'
 
 export function CartSidebar() {
   const { items, isOpen, closeCart, removeItem, updateQuantity, getSubtotal, getTotalSavings, getItemCount } = useCartStore()
@@ -111,11 +112,11 @@ export function CartSidebar() {
                     {/* Price */}
                     <div className="text-right shrink-0 min-w-[80px]">
                       <p className="font-semibold text-gray-900 dark:text-white text-sm">
-                        UGX {(item.price * item.quantity).toLocaleString()}
+                        {formatPrice(item.price * item.quantity, item.currency || 'UGX')}
                       </p>
                       {item.comparePrice && (
                         <p className="text-sm text-gray-500 line-through">
-                          UGX {(item.comparePrice * item.quantity).toLocaleString()}
+                          {formatPrice(item.comparePrice * item.quantity, item.currency || 'UGX')}
                         </p>
                       )}
                     </div>
@@ -129,14 +130,14 @@ export function CartSidebar() {
               {savings > 0 && (
                 <div className="flex items-center justify-between text-green-600">
                   <span>You save</span>
-                  <span className="font-semibold">UGX {savings.toLocaleString()}</span>
+                  <span className="font-semibold">{formatPrice(savings, items[0]?.currency || 'UGX')}</span>
                 </div>
               )}
 
               {/* Subtotal */}
               <div className="flex items-center justify-between text-lg font-semibold">
                 <span>Subtotal</span>
-                <span>UGX {subtotal.toLocaleString()}</span>
+                <span>{formatPrice(subtotal, items[0]?.currency || 'UGX')}</span>
               </div>
 
               <Separator />

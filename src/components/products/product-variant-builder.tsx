@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Plus, X, ChevronDown, ChevronUp, Package } from 'lucide-react'
+import { formatPrice } from '@/lib/currency'
 
 interface VariantOption {
   name: string
@@ -31,6 +32,7 @@ interface ProductVariantBuilderProps {
   variantOptions: VariantOption[]
   onChange: (variants: Variant[], variantOptions: VariantOption[]) => void
   basePrice: number
+  currency?: string
 }
 
 const colors = [
@@ -46,7 +48,8 @@ export function ProductVariantBuilder({
   variants, 
   variantOptions, 
   onChange, 
-  basePrice 
+  basePrice,
+  currency = 'UGX',
 }: ProductVariantBuilderProps) {
   const [expandedVariant, setExpandedVariant] = useState<string | null>(null)
 
@@ -292,7 +295,7 @@ export function ProductVariantBuilder({
                       </Badge>
                       <span className="font-medium">{variant.name}</span>
                       <span className="text-sm text-gray-500">
-                        UGX {variant.price.toLocaleString()}
+                        {formatPrice(variant.price, currency)}
                       </span>
                       <span className="text-sm text-gray-500">
                         Stock: {variant.quantity}
@@ -331,7 +334,7 @@ export function ProductVariantBuilder({
                           />
                         </div>
                         <div>
-                          <Label className="text-xs text-gray-500">Price (UGX)</Label>
+                          <Label className="text-xs text-gray-500">Price ({currency})</Label>
                           <Input
                             type="number"
                             value={variant.price}

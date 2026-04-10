@@ -23,6 +23,7 @@ import {
   Settings,
 } from 'lucide-react'
 import { MobileNav, BottomNav } from '@/components/dashboard/mobile-nav'
+import { formatPrice } from '@/lib/currency'
 
 async function fetchUserOrders() {
   const res = await fetch('/api/user/orders')
@@ -263,7 +264,7 @@ export default function BuyerDashboardPage() {
                             </div>
                           </div>
                           <div className="text-right shrink-0">
-                            <p className="font-semibold text-sm md:text-base">UGX {order.total.toLocaleString()}</p>
+                            <p className="font-semibold text-sm md:text-base">{formatPrice(order.total, order.currency)}</p>
                             <Badge className={`${statusColors[order.status]} text-xs mt-1`}>
                               {order.status.replace(/_/g, ' ')}
                             </Badge>

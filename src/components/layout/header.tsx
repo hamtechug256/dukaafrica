@@ -31,6 +31,7 @@ import {
 import { useAuth, SignInButton, useClerk } from "@clerk/nextjs";
 import { useCartStore } from "@/store/cart-store";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { COUNTRY_INFO } from "@/lib/currency";
 
 const categories = [
   { name: "Electronics", href: "/categories/electronics", icon: "📱" },
@@ -60,6 +61,7 @@ export function Header() {
   
   const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [roleLoading, setRoleLoading] = useState(true);
+  const [userCountry, setUserCountry] = useState<string | null>(null);
 
   // Fetch user role when signed in
   useEffect(() => {
@@ -77,6 +79,7 @@ export function Header() {
                 isSeller: data.user.isSeller,
                 isSuperAdmin: data.user.isSuperAdmin,
               });
+              setUserCountry(data.user.country || null);
             }
           }
         } catch (error) {
@@ -140,10 +143,10 @@ export function Header() {
           <div className="flex items-center gap-4">
             <span className="flex items-center gap-1">
               <MapPin className="h-3.5 w-3.5" />
-              Deliver to Uganda
+              Deliver to {userCountry ? COUNTRY_INFO[userCountry as keyof typeof COUNTRY_INFO]?.name || 'East Africa' : 'East Africa'}
             </span>
             <span className="hidden md:inline">|</span>
-            <span className="hidden md:inline">Free delivery on orders over USh 100,000</span>
+            <span className="hidden md:inline">Free delivery on qualifying orders</span>
           </div>
           <div className="flex items-center gap-4">
             {/* Show "Sell on DuukaAfrica" only for non-sellers, "Seller Dashboard" for sellers */}

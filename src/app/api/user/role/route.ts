@@ -48,6 +48,7 @@ export async function GET() {
         firstName: true,
         lastName: true,
         avatar: true,
+        country: true,
       }
     })
 
@@ -75,6 +76,7 @@ export async function GET() {
           firstName: true,
           lastName: true,
           avatar: true,
+          country: true,
         }
       })
 
@@ -113,6 +115,7 @@ export async function GET() {
             firstName: true,
             lastName: true,
             avatar: true,
+            country: true,
           }
         })
 
@@ -134,6 +137,7 @@ export async function GET() {
         firstName: user!.firstName,
         lastName: user!.lastName,
         avatar: user!.avatar,
+        country: user!.country,
         isAdmin,
         isSuperAdmin,
         isSeller,

@@ -33,6 +33,7 @@ import {
   Loader2,
   Eye,
 } from 'lucide-react'
+import { formatPrice } from '@/lib/currency'
 import { MobileNav, DesktopSidebar, BottomNav } from '@/components/dashboard/mobile-nav'
 import { adminNavItems } from '@/lib/admin-nav'
 
@@ -213,7 +214,7 @@ export default function AdminOrdersPage() {
                   <div>
                     <p className="text-sm text-gray-600 dark:text-gray-400">Revenue</p>
                     <p className="text-2xl font-bold text-primary">
-                      UGX {stats.revenue?.toLocaleString() || 0}
+                      {formatPrice(stats.revenue || 0, 'UGX')}
                     </p>
                   </div>
                   <DollarSign className="w-8 h-8 text-primary" />
@@ -330,7 +331,7 @@ export default function AdminOrdersPage() {
                           <TableCell>
                             <div>
                               <p className="font-medium">
-                                {order.currency} {order.total?.toLocaleString()}
+                                {formatPrice(order.total || 0, order.currency || 'UGX')}
                               </p>
                             </div>
                           </TableCell>

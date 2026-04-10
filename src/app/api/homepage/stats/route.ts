@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { COUNTRY_CURRENCY } from '@/lib/currency'
 
 /**
  * API: Homepage Statistics
@@ -58,8 +59,8 @@ export async function GET() {
     })
     const averageRating = ratingAggregate._avg.rating || 0
 
-    // Countries we serve (static - true)
-    const countriesServed = 4 // Uganda, Kenya, Tanzania, Rwanda
+    // Countries we serve — derived from the single source of truth
+    const countriesServed = Object.keys(COUNTRY_CURRENCY).length
 
     // Determine if we should show each stat (only show if meaningful)
     const stats = {
@@ -133,7 +134,7 @@ export async function GET() {
           customers: { total: 0, showCount: false, milestone: null },
           orders: { total: 0, delivered: 0, showCount: false },
           reviews: { total: 0, averageRating: '0.0', showCount: false },
-          countries: { count: 4, showCount: true },
+          countries: { count: Object.keys(COUNTRY_CURRENCY).length, showCount: true },
         },
         platform: {
           hasProducts: false,

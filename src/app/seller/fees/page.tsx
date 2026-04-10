@@ -22,6 +22,7 @@ import {
   CreditCard,
   Truck,
 } from 'lucide-react'
+import { formatPrice } from '@/lib/currency'
 
 const fadeIn = {
   initial: { opacity: 0, y: 20 },
@@ -40,7 +41,7 @@ export default function SellerFeesPage() {
       commission: '15%',
       escrowHold: '7 days',
       maxProducts: '10',
-      maxTransaction: 'UGX 500,000',
+      maxTransactionAmount: 500000,
       description: 'Perfect for new sellers getting started',
       requirements: 'Just sign up — no verification needed',
       popular: false,
@@ -64,7 +65,7 @@ export default function SellerFeesPage() {
       commission: '10%',
       escrowHold: '5 days',
       maxProducts: 'Unlimited',
-      maxTransaction: 'UGX 2,000,000',
+      maxTransactionAmount: 2000000,
       description: 'For serious sellers ready to grow',
       requirements: 'ID verification + selfie verification',
       popular: true,
@@ -87,7 +88,7 @@ export default function SellerFeesPage() {
       commission: '8%',
       escrowHold: '3 days',
       maxProducts: 'Unlimited',
-      maxTransaction: 'UGX 5,000,000',
+      maxTransactionAmount: 5000000,
       description: 'For established businesses at scale',
       requirements: 'Business docs + tax docs + physical location',
       popular: false,
@@ -299,7 +300,7 @@ export default function SellerFeesPage() {
                       </div>
                       <div className="flex items-center gap-2 text-sm">
                         <TrendingUp className="w-4 h-4 text-gray-500" />
-                        <span>Max transaction: <strong>{tier.maxTransaction}</strong></span>
+                        <span>Max transaction: <strong>{formatPrice(tier.maxTransactionAmount, 'UGX')}</strong></span>
                       </div>
                     </div>
 

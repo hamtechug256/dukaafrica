@@ -9,6 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Heart, Trash2, ShoppingCart, Loader2, Package } from 'lucide-react'
 import { useCartStore } from '@/store/cart-store'
 import { useState } from 'react'
+import { formatPrice } from '@/lib/currency'
 
 async function fetchWishlist() {
   const res = await fetch('/api/wishlist')
@@ -191,10 +192,10 @@ export default function WishlistPage() {
                     <p className="text-sm text-gray-500 mt-1">{item.product.store.name}</p>
                     <div className="flex items-center justify-between mt-2">
                       <div>
-                        <p className="font-bold text-lg">UGX {item.product.price.toLocaleString()}</p>
+                        <p className="font-bold text-lg">{formatPrice(item.product.price, item.product.store?.currency)}</p>
                         {item.product.comparePrice && (
                           <p className="text-sm text-gray-500 line-through">
-                            UGX {item.product.comparePrice.toLocaleString()}
+                            {formatPrice(item.product.comparePrice, item.product.store?.currency)}
                           </p>
                         )}
                       </div>

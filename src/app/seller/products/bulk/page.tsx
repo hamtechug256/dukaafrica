@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -51,6 +51,7 @@ import {
   FileText,
   Check,
 } from 'lucide-react'
+import { formatPrice } from '@/lib/currency'
 
 // Types
 interface ParsedProduct {
@@ -290,6 +291,15 @@ export default function BulkUploadPage() {
   const [parseError, setParseError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const queryClient = useQueryClient()
+
+  // Fetch store currency for dynamic price display
+  const [storeCurrency, setStoreCurrency] = useState('UGX')
+  useEffect(() => {
+    fetch('/api/seller/store')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => { if (data?.store?.currency) setStoreCurrency(data.store.currency) })
+      .catch(() => {})
+  }, [])
 
   // Fetch categories for mapping
   const { data: categoriesData } = useQuery({
@@ -794,7 +804,7 @@ export default function BulkUploadPage() {
                             <span className="capitalize">{product.category || '—'}</span>
                           </TableCell>
                           <TableCell>
-                            {product.price ? `UGX ${product.price.toLocaleString()}` : '—'}
+                            {product.price ? formatPrice(product.price, storeCurrency) : '—'}
                           </TableCell>
                           <TableCell>{product.quantity}</TableCell>
                           <TableCell>
@@ -882,9 +892,9 @@ export default function BulkUploadPage() {
                             </div>
                           </TableCell>
                           <TableCell className="capitalize">{product.category || '—'}</TableCell>
-                          <TableCell>UGX {product.price?.toLocaleString()}</TableCell>
+                          <TableCell>{product.price != null ? formatPrice(product.price, storeCurrency) : '—'}</TableCell>
                           <TableCell>
-                            {product.comparePrice ? `UGX ${product.comparePrice.toLocaleString()}` : '—'}
+                            {product.comparePrice ? formatPrice(product.comparePrice, storeCurrency) : '—'}
                           </TableCell>
                           <TableCell>{product.quantity}</TableCell>
                           <TableCell>
@@ -1101,7 +1111,7 @@ export default function BulkUploadPage() {
 
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <Label htmlFor="price">Price (UGX) *</Label>
+                  <Label htmlFor="price">Price ({storeCurrency}) *</Label>
                   <Input
                     id="price"
                     type="number"

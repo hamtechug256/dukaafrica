@@ -36,6 +36,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { AccessDeniedPage } from '@/components/admin/access-denied-page'
 import { MobileNav, DesktopSidebar, BottomNav } from '@/components/dashboard/mobile-nav'
 import { adminNavItems } from '@/lib/admin-nav'
+import { DEFAULT_SHIPPING_RATES } from '@/lib/shipping-calculator'
 
 const COUNTRIES = ['UGANDA', 'KENYA', 'TANZANIA', 'RWANDA']
 
@@ -175,12 +176,11 @@ export default function AdminSettingsPage() {
   // This prevents redirecting to the wrong dashboard
 
   function getDefaultShippingRates() {
-    return [
-      { zoneType: 'LOCAL', baseFee: 5000, perKgFee: 500, crossBorderFee: 0, currency: 'UGX', platformMarkupPercent: 5 },
-      { zoneType: 'DOMESTIC', baseFee: 8000, perKgFee: 800, crossBorderFee: 0, currency: 'UGX', platformMarkupPercent: 5 },
-      { zoneType: 'REGIONAL', baseFee: 15000, perKgFee: 1500, crossBorderFee: 3000, currency: 'UGX', platformMarkupPercent: 5 },
-      { zoneType: 'CROSS_BORDER', baseFee: 25000, perKgFee: 2500, crossBorderFee: 5000, currency: 'UGX', platformMarkupPercent: 5 },
-    ]
+    return Object.entries(DEFAULT_SHIPPING_RATES).map(([zoneType, rate]) => ({
+      zoneType,
+      ...rate,
+      currency: 'UGX',
+    }))
   }
 
   function handleSaveSection(section: string, data: any) {
@@ -351,7 +351,7 @@ export default function AdminSettingsPage() {
                 <CardHeader>
                   <CardTitle>Shipping Rates</CardTitle>
                   <CardDescription>
-                    Configure shipping fees for each zone. Rates are in the base currency (UGX) and converted for buyers.
+                    Configure shipping fees for each zone. Rates are in the base currency and converted for buyers.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -360,7 +360,7 @@ export default function AdminSettingsPage() {
                       <TableHeader>
                         <TableRow>
                           <TableHead>Zone Type</TableHead>
-                          <TableHead>Base Fee (UGX)</TableHead>
+                          <TableHead>Base Fee</TableHead>
                           <TableHead>Per Kg Fee</TableHead>
                           <TableHead>Cross-Border Fee</TableHead>
                           <TableHead>Platform Markup %</TableHead>

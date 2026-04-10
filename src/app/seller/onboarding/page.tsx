@@ -22,6 +22,7 @@ import {
   Loader2,
   Upload
 } from 'lucide-react'
+import { COUNTRY_INFO, COUNTRY_CURRENCY, type Country, type Currency } from '@/lib/currency'
 
 const steps = [
   { id: 1, title: 'Store Information', icon: Store },
@@ -30,14 +31,12 @@ const steps = [
   { id: 4, title: 'Verification', icon: CheckCircle },
 ]
 
-const countries = [
-  { code: 'UGANDA', name: 'Uganda', currency: 'UGX', flag: '🇺🇬' },
-  { code: 'KENYA', name: 'Kenya', currency: 'KES', flag: '🇰🇪' },
-  { code: 'TANZANIA', name: 'Tanzania', currency: 'TZS', flag: '🇹🇿' },
-  { code: 'RWANDA', name: 'Rwanda', currency: 'RWF', flag: '🇷🇼' },
-  { code: 'SOUTH_SUDAN', name: 'South Sudan', currency: 'SSP', flag: '🇸🇸' },
-  { code: 'BURUNDI', name: 'Burundi', currency: 'BIF', flag: '🇧🇮' },
-]
+const countries = (Object.keys(COUNTRY_INFO) as Country[]).map((code) => ({
+  code,
+  name: COUNTRY_INFO[code].name,
+  currency: COUNTRY_CURRENCY[code],
+  flag: COUNTRY_INFO[code].flag,
+}))
 
 const businessTypes = [
   'Individual / Sole Proprietor',

@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Loader2, Zap, Calendar, Package, AlertCircle, CheckCircle } from 'lucide-react'
+import { formatPrice } from '@/lib/currency'
 
 interface Product {
   id: string
@@ -45,6 +46,7 @@ interface FlashSaleFormDialogProps {
   mode: 'create' | 'edit'
   onSubmit: (data: FlashSaleFormData) => Promise<void>
   isLoading?: boolean
+  currency?: string
 }
 
 export interface FlashSaleFormData {
@@ -94,6 +96,7 @@ export function FlashSaleFormDialog({
   mode,
   onSubmit,
   isLoading = false,
+  currency = 'UGX',
 }: FlashSaleFormDialogProps) {
   const [selectedProductId, setSelectedProductId] = useState<string>('')
   const [discount, setDiscount] = useState(20)
@@ -296,7 +299,7 @@ export function FlashSaleFormDialog({
                     <div className="flex items-center gap-2 mt-1">
                       <Badge variant="outline">Stock: {selectedProduct.quantity}</Badge>
                       <span className="text-sm text-gray-500">
-                        UGX {selectedProduct.price.toLocaleString()}
+                        {formatPrice(selectedProduct.price, currency)}
                       </span>
                     </div>
                   </div>
@@ -417,10 +420,10 @@ export function FlashSaleFormDialog({
               <div className="flex items-center gap-4">
                 <div>
                   <p className="text-sm text-gray-500 line-through">
-                    UGX {selectedProduct.price.toLocaleString()}
+                    {formatPrice(selectedProduct.price, currency)}
                   </p>
                   <p className="text-2xl font-bold text-red-500">
-                    UGX {flashSalePrice.toLocaleString()}
+                    {formatPrice(flashSalePrice, currency)}
                   </p>
                 </div>
                 <div className="ml-auto">
@@ -431,7 +434,7 @@ export function FlashSaleFormDialog({
               </div>
               <div className="mt-3 flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                 <CheckCircle className="w-4 h-4 text-green-500" />
-                Customers save UGX {(selectedProduct.price - flashSalePrice).toLocaleString()}
+                Customers save {formatPrice(selectedProduct.price - flashSalePrice, currency)}
               </div>
             </div>
           )}

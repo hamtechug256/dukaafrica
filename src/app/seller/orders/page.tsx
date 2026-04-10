@@ -32,6 +32,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useToast } from '@/hooks/use-toast'
+import { formatPrice } from '@/lib/currency'
 
 const statusColors: Record<string, string> = {
   PENDING: 'bg-yellow-100 text-yellow-700',
@@ -157,7 +158,7 @@ export default function SellerOrdersPage() {
           </Card>
           <Card>
             <CardContent className="pt-6 text-center">
-              <p className="text-2xl font-bold text-primary">UGX {stats.revenue.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-primary">{formatPrice(stats.revenue, orders[0]?.currency || 'UGX')}</p>
               <p className="text-xs text-gray-500">Revenue</p>
             </CardContent>
           </Card>
@@ -235,7 +236,7 @@ export default function SellerOrdersPage() {
                         </div>
                       </TableCell>
                       <TableCell className="font-medium">
-                        UGX {order.total?.toLocaleString()}
+                        {formatPrice(order.total, order.currency)}
                       </TableCell>
                       <TableCell>
                         <Badge className={statusColors[order.status]}>

@@ -30,6 +30,7 @@ import {
   BarChart3,
 } from 'lucide-react'
 import { MobileNav, BottomNav } from '@/components/dashboard/mobile-nav'
+import { formatPrice } from '@/lib/currency'
 
 // Fetch store data
 async function fetchStore() {
@@ -254,7 +255,7 @@ export default function SellerDashboardPage() {
                 <div>
                   <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">Total Sales</p>
                   <p className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white">
-                    UGX {store.totalSales?.toLocaleString() || '0'}
+                    {formatPrice(store.totalSales || 0, store.currency)}
                   </p>
                 </div>
                 <div className="p-2 md:p-3 bg-green-50 dark:bg-green-950/30 rounded-full">
@@ -393,7 +394,7 @@ export default function SellerDashboardPage() {
                           {product.name}
                         </p>
                         <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">
-                          UGX {product.price?.toLocaleString()}
+                          {formatPrice(product.price, store.currency)}
                         </p>
                       </div>
                       <Badge variant={product.status === 'ACTIVE' ? 'default' : 'secondary'} className="text-xs">

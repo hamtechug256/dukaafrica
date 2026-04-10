@@ -58,6 +58,7 @@ import {
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { MobileNav, DesktopSidebar, BottomNav } from '@/components/dashboard/mobile-nav'
+import { formatPrice } from '@/lib/currency'
 import { adminNavItems } from '@/lib/admin-nav'
 
 async function fetchUserRole() {
@@ -370,10 +371,10 @@ export default function AdminProductsPage() {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <p className="font-medium">UGX {product.price?.toLocaleString()}</p>
+                            <p className="font-medium">{formatPrice(product.price || 0, product.currency || product.store?.currency || 'UGX')}</p>
                             {product.comparePrice && (
                               <p className="text-xs text-gray-400 line-through">
-                                UGX {product.comparePrice.toLocaleString()}
+                                {formatPrice(product.comparePrice, product.currency || product.store?.currency || 'UGX')}
                               </p>
                             )}
                           </TableCell>

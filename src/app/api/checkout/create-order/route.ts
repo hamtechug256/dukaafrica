@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db'
 import { z } from 'zod'
 import { Prisma } from '@prisma/client'
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
+import { resolveCurrency, resolveCountry, getCurrencyForCountry } from '@/lib/currency'
 
 // Helper to serialize Decimal values to numbers for JSON responses
 function serializeDecimal<T>(obj: T): T {
@@ -260,6 +261,10 @@ export async function POST(req: Request) {
       })
     }
 
+    // Resolve currency and country from user context or shipping address — never hardcode
+    const orderCurrency = resolveCurrency(buyerCurrency || dbUser?.currency, shippingAddress?.country || dbUser?.country)
+    const orderBuyerCountry = resolveCountry(buyerCountry || shippingAddress?.country || dbUser?.country)
+
     // Generate unique order number
     const orderNumber = generateOrderNumber()
 
@@ -289,16 +294,16 @@ export async function POST(req: Request) {
           couponCode: coupon?.code || null,
           couponDiscount: discount,
           total: serverTotal,
-          currency: dbUser!.currency || 'UGX',
+          currency: orderCurrency,
           
           // Delivery
           deliveryMethod: deliveryOption.id.toUpperCase(),
           
           // Buyer/Seller country for commission & shipping calculations
-          buyerCountry: buyerCountry || 'UGANDA',
+          buyerCountry: orderBuyerCountry,
           sellerCountry: (() => {
             const firstProduct = productPriceMap.get(items[0].productId)
-            return firstProduct?.Store?.country || 'UGANDA'
+            return firstProduct?.Store?.country || orderBuyerCountry
           })(),
           
           // Payment — save the user-friendly label (e.g. 'MTN Mobile Money', 'Visa / Mastercard')
@@ -337,7 +342,7 @@ export async function POST(req: Request) {
           orderId: order.id,
           userId: dbUser!.id,
           amount: serverTotal,
-          currency: dbUser!.currency || 'UGX',
+          currency: orderCurrency,
           method: paymentMethod.type,
           provider: paymentMethod.provider,
           phone: paymentMethod.mobileMoneyCode || null,

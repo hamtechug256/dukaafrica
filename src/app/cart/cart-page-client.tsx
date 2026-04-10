@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { Minus, Plus, Trash2, ShoppingBag, ArrowRight, Tag, Store, X, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import { useState } from 'react'
+import { formatPrice } from '@/lib/currency'
 
 export default function CartPageClient() {
   const { items, removeItem, updateQuantity, getSubtotal, getTotalSavings, getItemsByStore, clearCart } = useCartStore()
@@ -198,15 +199,15 @@ export default function CartPageClient() {
                         {/* Price */}
                         <div className="text-right">
                           <p className="font-bold text-lg text-gray-900 dark:text-white">
-                            UGX {(item.price * item.quantity).toLocaleString()}
+                            {formatPrice(item.price * item.quantity, item.currency || 'UGX')}
                           </p>
                           {item.comparePrice && (
                             <p className="text-sm text-gray-500 line-through">
-                              UGX {(item.comparePrice * item.quantity).toLocaleString()}
+                              {formatPrice(item.comparePrice * item.quantity, item.currency || 'UGX')}
                             </p>
                           )}
                           <p className="text-sm text-gray-500 mt-1">
-                            UGX {item.price.toLocaleString()} each
+                            {formatPrice(item.price, item.currency || 'UGX')} each
                           </p>
                         </div>
                       </div>
@@ -245,7 +246,7 @@ export default function CartPageClient() {
                       <div className="flex items-center gap-2">
                         <Tag className="w-4 h-4 text-green-600" />
                         <span className="text-sm font-medium text-green-700 dark:text-green-400">{appliedCouponCode}</span>
-                        <Badge variant="secondary" className="bg-green-100 text-green-700">-{effectiveDiscount > 0 ? `UGX ${effectiveDiscount.toLocaleString()}` : 'Free Shipping'}</Badge>
+                        <Badge variant="secondary" className="bg-green-100 text-green-700">-{effectiveDiscount > 0 ? formatPrice(effectiveDiscount, items[0]?.currency || 'UGX') : 'Free Shipping'}</Badge>
                       </div>
                       <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleRemoveCoupon}>
                         <X className="w-3 h-3" />
@@ -259,20 +260,20 @@ export default function CartPageClient() {
                   <div className="space-y-2">
                     <div className="flex justify-between text-gray-600 dark:text-gray-400">
                       <span>Subtotal ({items.length} items)</span>
-                      <span>UGX {subtotal.toLocaleString()}</span>
+                      <span>{formatPrice(subtotal, items[0]?.currency || 'UGX')}</span>
                     </div>
                     
                     {effectiveDiscount > 0 && (
                       <div className="flex justify-between text-green-600">
                         <span>Coupon ({appliedCouponCode})</span>
-                        <span>-UGX {effectiveDiscount.toLocaleString()}</span>
+                        <span>-{formatPrice(effectiveDiscount, items[0]?.currency || 'UGX')}</span>
                       </div>
                     )}
 
                     {savings > 0 && (
                       <div className="flex justify-between text-green-600">
                         <span>Discount Savings</span>
-                        <span>-UGX {savings.toLocaleString()}</span>
+                        <span>-{formatPrice(savings, items[0]?.currency || 'UGX')}</span>
                       </div>
                     )}
 
@@ -286,7 +287,7 @@ export default function CartPageClient() {
 
                   <div className="flex justify-between text-lg font-bold">
                     <span>Total</span>
-                    <span>UGX {displayTotal.toLocaleString()}</span>
+                    <span>{formatPrice(displayTotal, items[0]?.currency || 'UGX')}</span>
                   </div>
 
                   <Button className="w-full" size="lg" asChild>

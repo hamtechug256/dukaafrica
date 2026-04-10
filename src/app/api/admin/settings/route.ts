@@ -15,6 +15,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/db'
+import { EXCHANGE_RATES, type Currency } from '@/lib/currency'
+
+// Build flat exchange-rate map from the single source of truth
+// (e.g. { UGX_TO_KES: 0.035, KES_TO_UGX: 28.57, … })
+function buildDefaultExchangeRates(): Record<string, number> {
+  const rates: Record<string, number> = {}
+  for (const from of Object.keys(EXCHANGE_RATES) as Currency[]) {
+    for (const to of Object.keys(EXCHANGE_RATES[from]) as Currency[]) {
+      if (from !== to) {
+        rates[`${from}_TO_${to}`] = EXCHANGE_RATES[from][to]
+      }
+    }
+  }
+  return rates
+}
 
 // Default settings structure
 const DEFAULT_SETTINGS = {
@@ -30,18 +45,7 @@ const DEFAULT_SETTINGS = {
     environment: 'sandbox', // 'sandbox' or 'production'
   },
   exchangeRates: {
-    UGX_TO_KES: 0.035,
-    UGX_TO_TZS: 0.27,
-    UGX_TO_RWF: 0.26,
-    KES_TO_UGX: 28.5,
-    KES_TO_TZS: 7.7,
-    KES_TO_RWF: 7.5,
-    TZS_TO_UGX: 3.7,
-    TZS_TO_KES: 0.13,
-    TZS_TO_RWF: 0.97,
-    RWF_TO_UGX: 3.85,
-    RWF_TO_KES: 0.13,
-    RWF_TO_TZS: 1.03,
+    ...buildDefaultExchangeRates(),
     lastUpdated: new Date().toISOString(),
   },
   general: {

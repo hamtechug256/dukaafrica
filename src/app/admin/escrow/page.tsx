@@ -33,6 +33,7 @@ import {
 } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
 import Link from 'next/link'
+import { formatPrice } from '@/lib/currency'
 import { useToast } from '@/hooks/use-toast'
 import {
   ArrowLeft,
@@ -420,7 +421,7 @@ export default function AdminEscrowPage() {
                   <CardDescription>Total Held</CardDescription>
                   <CardTitle className="text-2xl flex items-center gap-2">
                     <Clock className="w-5 h-5 text-[oklch(0.6_0.2_35)]" />
-                    UGX {(escrowSummary?.totalHeld || 0).toLocaleString()}
+                    {formatPrice(escrowSummary?.totalHeld || 0, escrowSettings.currency || 'UGX')}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -435,7 +436,7 @@ export default function AdminEscrowPage() {
                   <CardDescription>Released This Month</CardDescription>
                   <CardTitle className="text-2xl flex items-center gap-2">
                     <CheckCircle className="w-5 h-5 text-[oklch(0.55_0.15_140)]" />
-                    UGX {(escrowSummary?.totalReleased || 0).toLocaleString()}
+                    {formatPrice(escrowSummary?.totalReleased || 0, escrowSettings.currency || 'UGX')}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -450,7 +451,7 @@ export default function AdminEscrowPage() {
                   <CardDescription>Total Refunded</CardDescription>
                   <CardTitle className="text-2xl flex items-center gap-2">
                     <DollarSign className="w-5 h-5 text-[oklch(0.5_0.15_200)]" />
-                    UGX {(escrowSummary?.totalRefunded || 0).toLocaleString()}
+                    {formatPrice(escrowSummary?.totalRefunded || 0, escrowSettings.currency || 'UGX')}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -465,7 +466,7 @@ export default function AdminEscrowPage() {
                   <CardDescription>Under Dispute</CardDescription>
                   <CardTitle className="text-2xl flex items-center gap-2">
                     <AlertTriangle className="w-5 h-5 text-[oklch(0.6_0.2_35)]" />
-                    UGX {(escrowSummary?.totalDisputed || 0).toLocaleString()}
+                    {formatPrice(escrowSummary?.totalDisputed || 0, escrowSettings.currency || 'UGX')}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -677,7 +678,7 @@ export default function AdminEscrowPage() {
                         <p className="text-xl font-bold">
                           {tier.maxTransactionAmount === -1 
                             ? 'Unlimited' 
-                            : `UGX ${tier.maxTransactionAmount.toLocaleString()}`}
+                            : formatPrice(tier.maxTransactionAmount, escrowSettings.currency || 'UGX')}
                         </p>
                       </div>
                     </div>
@@ -1008,7 +1009,7 @@ export default function AdminEscrowPage() {
                   />
                 </div>
                 <div className="space-y-2 col-span-2">
-                  <Label>Max Transaction Amount (UGX)</Label>
+                  <Label>Max Transaction Amount ({escrowSettings.currency || 'UGX'})</Label>
                   <Input 
                     type="number"
                     value={tierForm.maxTransactionAmount}

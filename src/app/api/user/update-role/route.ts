@@ -1,15 +1,13 @@
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { type Country, type Currency, COUNTRY_CURRENCY, CURRENCY_INFO } from '@/lib/currency'
 
-// Types for our string-based fields
-type Country = 'UGANDA' | 'KENYA' | 'TANZANIA' | 'RWANDA'
-type Currency = 'UGX' | 'KES' | 'TZS' | 'RWF'
 type UserRole = 'BUYER' | 'SELLER' // ADMIN removed - cannot self-assign
 
-// Valid countries and currencies
-const VALID_COUNTRIES: Country[] = ['UGANDA', 'KENYA', 'TANZANIA', 'RWANDA']
-const VALID_CURRENCIES: Currency[] = ['UGX', 'KES', 'TZS', 'RWF']
+// Valid countries and currencies — derived from the single source of truth
+const VALID_COUNTRIES = Object.keys(COUNTRY_CURRENCY) as Country[]
+const VALID_CURRENCIES = Object.keys(CURRENCY_INFO) as Currency[]
 
 export async function POST(req: Request) {
   try {
@@ -69,6 +67,8 @@ export async function POST(req: Request) {
         name: [user.firstName, user.lastName].filter(Boolean).join(' ') || null,
         avatar: user.imageUrl,
         role: (role as UserRole) || 'BUYER',
+        // Default to UGANDA/UGX for new users who haven't selected a country yet;
+        // these defaults match the platform's primary market.
         country: (country as Country) || 'UGANDA',
         currency: (currency as Currency) || 'UGX',
       },

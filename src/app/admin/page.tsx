@@ -28,6 +28,7 @@ import {
   Home,
 } from 'lucide-react'
 import { AccessDeniedPage } from '@/components/admin/access-denied-page'
+import { formatPrice } from '@/lib/currency'
 import { MobileNav, DesktopSidebar, BottomNav } from '@/components/dashboard/mobile-nav'
 import { Skeleton } from '@/components/ui/skeleton'
 import { adminNavItems } from '@/lib/admin-nav'
@@ -223,7 +224,7 @@ export default function AdminDashboard() {
                     {statsLoading ? (
                       <Skeleton className="h-7 md:h-9 w-24 mt-1" />
                     ) : (
-                      <p className="text-lg md:text-3xl font-bold truncate">UGX {(stats?.revenue?.total || 0).toLocaleString()}</p>
+                      <p className="text-lg md:text-3xl font-bold truncate">{formatPrice(stats?.revenue?.total || 0, stats?.revenue?.currency || 'UGX')}</p>
                     )}
                   </div>
                   <div className="p-2 md:p-3 bg-orange-50 dark:bg-orange-950/30 rounded-full shrink-0">

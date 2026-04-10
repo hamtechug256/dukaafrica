@@ -3,6 +3,7 @@
 // exhaustion in development (hot-reload creates many connections) and inconsistent
 // transaction behavior in production.
 import { prisma } from '@/lib/db'
+import { formatPrice } from '@/lib/currency'
 
 // Define notification type locally since Prisma schema uses string, not enum
 export type NotificationType = string
@@ -34,13 +35,14 @@ export async function createNotification(data: CreateNotificationData) {
 }
 
 // Helper functions for common notifications
+// All amount-displaying functions now accept a currency parameter
 export const notifications = {
-  orderPlaced: (userId: string, orderNumber: string, total: number) =>
+  orderPlaced: (userId: string, orderNumber: string, total: number, currency: string = 'UGX') =>
     createNotification({
       userId,
       type: 'ORDER_PLACED',
       title: 'Order Placed',
-      message: `Your order ${orderNumber} for UGX ${total.toLocaleString()} has been placed successfully.`,
+      message: `Your order ${orderNumber} for ${formatPrice(total, currency)} has been placed successfully.`,
       data: { orderNumber },
     }),
 
@@ -80,12 +82,12 @@ export const notifications = {
       data: { orderNumber, reason },
     }),
 
-  paymentReceived: (userId: string, orderNumber: string, amount: number) =>
+  paymentReceived: (userId: string, orderNumber: string, amount: number, currency: string = 'UGX') =>
     createNotification({
       userId,
       type: 'PAYMENT_RECEIVED',
       title: 'Payment Received',
-      message: `Payment of UGX ${amount.toLocaleString()} for order ${orderNumber} has been confirmed.`,
+      message: `Payment of ${formatPrice(amount, currency)} for order ${orderNumber} has been confirmed.`,
       data: { orderNumber, amount },
     }),
 
@@ -98,12 +100,12 @@ export const notifications = {
       data: { senderName },
     }),
 
-  priceDrop: (userId: string, productName: string, oldPrice: number, newPrice: number) =>
+  priceDrop: (userId: string, productName: string, oldPrice: number, newPrice: number, currency: string = 'UGX') =>
     createNotification({
       userId,
       type: 'PRICE_DROP',
       title: 'Price Drop Alert',
-      message: `${productName} price dropped from UGX ${oldPrice.toLocaleString()} to UGX ${newPrice.toLocaleString()}!`,
+      message: `${productName} price dropped from ${formatPrice(oldPrice, currency)} to ${formatPrice(newPrice, currency)}!`,
       data: { productName, oldPrice, newPrice },
     }),
 

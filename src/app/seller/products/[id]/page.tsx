@@ -41,6 +41,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { VariantManager, VariantOption, ProductVariant } from '@/components/products/variant-manager'
+import { formatPrice } from '@/lib/currency'
 
 async function fetchProduct(id: string) {
   const res = await fetch(`/api/seller/products/${id}`)
@@ -51,6 +52,12 @@ async function fetchProduct(id: string) {
 async function fetchCategories() {
   const res = await fetch('/api/categories')
   if (!res.ok) throw new Error('Failed to fetch categories')
+  return res.json()
+}
+
+async function fetchStore() {
+  const res = await fetch('/api/seller/store')
+  if (!res.ok) throw new Error('Failed to fetch store')
   return res.json()
 }
 
@@ -100,7 +107,13 @@ export default function EditProductPage() {
     queryFn: fetchCategories,
   })
 
+  const { data: storeData } = useQuery({
+    queryKey: ['seller-store'],
+    queryFn: fetchStore,
+  })
+
   const categories = categoriesData?.categories || []
+  const storeCurrency = storeData?.store?.currency || 'UGX'
 
   // Populate form when product data loads
   useEffect(() => {
@@ -461,7 +474,7 @@ export default function EditProductPage() {
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="price">Selling Price (UGX) *</Label>
+                        <Label htmlFor="price">Selling Price ({storeCurrency}) *</Label>
                         <Input
                           id="price"
                           type="number"
@@ -472,7 +485,7 @@ export default function EditProductPage() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="comparePrice">Compare at Price (UGX)</Label>
+                        <Label htmlFor="comparePrice">Compare at Price ({storeCurrency})</Label>
                         <Input
                           id="comparePrice"
                           type="number"
@@ -486,7 +499,7 @@ export default function EditProductPage() {
 
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="costPrice">Cost per Item (UGX)</Label>
+                        <Label htmlFor="costPrice">Cost per Item ({storeCurrency})</Label>
                         <Input
                           id="costPrice"
                           type="number"
@@ -570,6 +583,7 @@ export default function EditProductPage() {
                   variants={variants}
                   basePrice={parseFloat(formData.price) || 0}
                   baseSku={formData.sku}
+                  currency={storeCurrency}
                   onHasVariantsChange={setHasVariants}
                   onVariantOptionsChange={setVariantOptions}
                   onVariantsChange={setVariants}
@@ -714,7 +728,7 @@ export default function EditProductPage() {
                 </div>
                 <p className="font-medium line-clamp-2">{formData.name || 'Product Name'}</p>
                 <p className="text-lg font-bold text-primary mt-1">
-                  UGX {parseInt(formData.price || '0').toLocaleString()}
+                  {formatPrice(parseInt(formData.price || '0'), storeCurrency)}
                 </p>
               </CardContent>
             </Card>

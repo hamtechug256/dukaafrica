@@ -16,7 +16,7 @@
  * Platform earnings can be withdrawn by admin via configured payout method.
  */
 
-import { Country, Currency } from '@/lib/currency';
+import { Country, Currency, CURRENCY_INFO, MOBILE_MONEY_PROVIDERS } from '@/lib/currency';
 import { calculateShippingFee, getConversionRate } from './shipping-calculator';
 import { prisma } from '@/lib/db';
 
@@ -292,50 +292,25 @@ export async function getPlatformEarnings(): Promise<{
 
 // ============================================
 // CURRENCY DISPLAY HELPERS
+// Use centralized CURRENCY_INFO from @/lib/currency
 // ============================================
-
-const CURRENCY_SYMBOLS: Record<Currency, { symbol: string; name: string }> = {
-  UGX: { symbol: 'UGX', name: 'Ugandan Shilling' },
-  KES: { symbol: 'KES', name: 'Kenyan Shilling' },
-  TZS: { symbol: 'TZS', name: 'Tanzanian Shilling' },
-  RWF: { symbol: 'RWF', name: 'Rwandan Franc' },
-};
 
 export function formatCurrency(
   amount: number,
   currency: Currency
 ): string {
-  const { symbol } = CURRENCY_SYMBOLS[currency];
-  return `${symbol} ${amount.toLocaleString()}`;
+  const info = CURRENCY_INFO[currency];
+  return `${info.symbol} ${amount.toLocaleString()}`;
 }
 
 export function getCurrencyName(currency: Currency): string {
-  return CURRENCY_SYMBOLS[currency].name;
+  return CURRENCY_INFO[currency].name;
 }
 
 export function getMobileMoneyMethods(country: Country): Array<{
   name: string;
   code: string;
 }> {
-  const methods: Record<Country, Array<{ name: string; code: string }>> = {
-    UGANDA: [
-      { name: 'MTN Mobile Money', code: 'MTN_MONEY_UG' },
-      { name: 'Airtel Money', code: 'AIRTEL_MONEY_UG' },
-    ],
-    KENYA: [
-      { name: 'M-Pesa', code: 'MPESA' },
-      { name: 'Airtel Money', code: 'AIRTEL_MONEY_KE' },
-    ],
-    TANZANIA: [
-      { name: 'M-Pesa', code: 'MPESA_TZ' },
-      { name: 'Airtel Money', code: 'AIRTEL_MONEY_TZ' },
-      { name: 'Tigo Pesa', code: 'TIGO_PESA' },
-    ],
-    RWANDA: [
-      { name: 'MTN Mobile Money', code: 'MTN_MONEY_RW' },
-      { name: 'Airtel Money', code: 'AIRTEL_MONEY_RW' },
-    ],
-  };
-
-  return methods[country] || [];
+  const providers = MOBILE_MONEY_PROVIDERS[country] || [];
+  return providers.map(p => ({ name: p.name, code: p.paymentCode }));
 }

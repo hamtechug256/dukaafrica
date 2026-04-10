@@ -39,32 +39,20 @@ import {
   Globe,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { COUNTRY_INFO, COUNTRY_CURRENCY, MOBILE_MONEY_PROVIDERS as MM_PROVIDERS, type Country } from '@/lib/currency'
 
-const COUNTRIES = [
-  { code: 'UGANDA', name: 'Uganda', flag: '🇺🇬', currency: 'UGX' },
-  { code: 'KENYA', name: 'Kenya', flag: '🇰🇪', currency: 'KES' },
-  { code: 'TANZANIA', name: 'Tanzania', flag: '🇹🇿', currency: 'TZS' },
-  { code: 'RWANDA', name: 'Rwanda', flag: '🇷🇼', currency: 'RWF' },
-]
+// Build country list from single source of truth
+const COUNTRIES = (Object.keys(COUNTRY_INFO) as Country[]).map(code => ({
+  code,
+  name: COUNTRY_INFO[code].name,
+  flag: COUNTRY_INFO[code].flag,
+  currency: COUNTRY_CURRENCY[code],
+}))
 
-const MOBILE_MONEY_PROVIDERS: Record<string, { id: string, name: string }[]> = {
-  UGANDA: [
-    { id: 'MTN', name: 'MTN Mobile Money' },
-    { id: 'AIRTEL', name: 'Airtel Money' }
-  ],
-  KENYA: [
-    { id: 'MPESA', name: 'M-Pesa' },
-    { id: 'AIRTEL', name: 'Airtel Money' }
-  ],
-  TANZANIA: [
-    { id: 'VODACOM', name: 'M-Pesa (Vodacom)' },
-    { id: 'AIRTEL', name: 'Airtel Money' },
-    { id: 'TIGO', name: 'Tigo Pesa' }
-  ],
-  RWANDA: [
-    { id: 'MTN', name: 'MTN Mobile Money' },
-    { id: 'AIRTEL', name: 'Airtel Money' }
-  ],
+// Mobile money providers from single source of truth
+const MOBILE_MONEY_PROVIDERS: Record<string, { id: string, name: string }[]> = {} as any
+for (const [country, providers] of Object.entries(MM_PROVIDERS)) {
+  MOBILE_MONEY_PROVIDERS[country] = providers.map(p => ({ id: p.id, name: p.name }))
 }
 
 interface StoreSettings {
@@ -808,7 +796,7 @@ export default function SellerSettingsPage() {
                             <SelectValue placeholder="Select provider" />
                           </SelectTrigger>
                           <SelectContent>
-                            {(MOBILE_MONEY_PROVIDERS[settings?.store.country || 'UGANDA'] || MOBILE_MONEY_PROVIDERS['UGANDA']).map((provider) => (
+                            {(MOBILE_MONEY_PROVIDERS[settings?.store.country || 'UGANDA'] || []).map((provider) => (
                               <SelectItem key={provider.id} value={provider.id}>
                                 {provider.name}
                               </SelectItem>
@@ -819,7 +807,7 @@ export default function SellerSettingsPage() {
                       <div className="space-y-2">
                         <Label>Mobile Money Number</Label>
                         <Input
-                          placeholder={settings?.store.country === 'KENYA' ? "+254 7XX XXX XXX" : settings?.store.country === 'TANZANIA' ? "+255 7XX XXX XXX" : settings?.store.country === 'RWANDA' ? "+250 7XX XXX XXX" : "+256 7XX XXX XXX"}
+                          placeholder={`${COUNTRY_INFO[(settings?.store.country || 'UGANDA') as Country]?.phoneCode || '+256'} 7XX XXX XXX`}
                           value={payoutForm.phone}
                           onChange={(e) => setPayoutForm({ ...payoutForm, phone: e.target.value })}
                         />

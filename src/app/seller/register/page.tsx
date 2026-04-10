@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox'
 import { Store, Mail, Phone, Loader2, CheckCircle } from 'lucide-react'
 import Link from 'next/link'
+import { COUNTRY_INFO, type Country } from '@/lib/currency'
 
 export default function SellerRegisterPage() {
   const { redirectToSignUp } = useClerk()
@@ -71,12 +72,11 @@ export default function SellerRegisterPage() {
     }
   }
 
-  const countries = [
-    { value: 'UGANDA', label: 'Uganda' },
-    { value: 'KENYA', label: 'Kenya' },
-    { value: 'TANZANIA', label: 'Tanzania' },
-    { value: 'RWANDA', label: 'Rwanda' },
-  ]
+  // Build country options from single source of truth
+  const countries = (Object.keys(COUNTRY_INFO) as Country[]).map(code => ({
+    value: code,
+    label: COUNTRY_INFO[code].name,
+  }))
 
   const businessTypes = [
     { value: 'individual', label: 'Individual / Sole Proprietor' },

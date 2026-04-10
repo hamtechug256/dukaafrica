@@ -32,6 +32,7 @@ import {
   XCircle,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { formatPrice } from '@/lib/currency'
 
 async function fetchOrder(orderId: string) {
   const res = await fetch(`/api/admin/orders/${orderId}`)
@@ -187,14 +188,14 @@ export default function AdminOrderDetailPage() {
                         <div className="flex-1">
                           <p className="font-medium">{item.product?.name || 'Product'}</p>
                           <p className="text-sm text-gray-500">
-                            Qty: {item.quantity} × UGX {item.price?.toLocaleString()}
+                            Qty: {item.quantity} × {formatPrice(item.price || 0, order.currency || 'UGX')}
                           </p>
                           {item.variant && (
                             <p className="text-xs text-gray-400">Variant: {item.variant}</p>
                           )}
                         </div>
                         <div className="text-right">
-                          <p className="font-medium">UGX {(item.quantity * item.price)?.toLocaleString()}</p>
+                          <p className="font-medium">{formatPrice((item.quantity * item.price) || 0, order.currency || 'UGX')}</p>
                         </div>
                       </div>
                     ))}
@@ -203,22 +204,22 @@ export default function AdminOrderDetailPage() {
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">Subtotal</span>
-                      <span>UGX {order.subtotal?.toLocaleString()}</span>
+                      <span>{formatPrice(order.subtotal || 0, order.currency || 'UGX')}</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">Shipping</span>
-                      <span>UGX {order.shippingFee?.toLocaleString()}</span>
+                      <span>{formatPrice(order.shippingFee || 0, order.currency || 'UGX')}</span>
                     </div>
                     {order.discount > 0 && (
                       <div className="flex justify-between text-sm text-green-600">
                         <span>Discount</span>
-                        <span>-UGX {order.discount?.toLocaleString()}</span>
+                        <span>-{formatPrice(order.discount || 0, order.currency || 'UGX')}</span>
                       </div>
                     )}
                     <Separator />
                     <div className="flex justify-between font-semibold text-lg">
                       <span>Total</span>
-                      <span>{order.currency} {order.total?.toLocaleString()}</span>
+                      <span>{formatPrice(order.total || 0, order.currency || 'UGX')}</span>
                     </div>
                   </div>
                 </CardContent>

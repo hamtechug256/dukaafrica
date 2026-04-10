@@ -28,15 +28,17 @@ import {
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { formatPrice, COUNTRY_INFO, COUNTRY_CURRENCY, Currency } from '@/lib/currency'
+import { formatPrice, COUNTRY_INFO, COUNTRY_CURRENCY, Currency, Country, PHONE_PATTERNS, getRegulatorForCountry } from '@/lib/currency'
 
-// Countries we support (East Africa only)
-const countries = [
-  { code: 'UGANDA', name: 'Uganda', flag: '🇺🇬', currency: 'UGX', phoneCode: '+256' },
-  { code: 'KENYA', name: 'Kenya', flag: '🇰🇪', currency: 'KES', phoneCode: '+254' },
-  { code: 'TANZANIA', name: 'Tanzania', flag: '🇹🇿', currency: 'TZS', phoneCode: '+255' },
-  { code: 'RWANDA', name: 'Rwanda', flag: '🇷🇼', currency: 'RWF', phoneCode: '+250' },
-]
+// Countries we support — derived from currency.ts (single source of truth)
+const countries: Array<{ code: Country; name: string; flag: string; currency: Currency; phoneCode: string }> =
+  Object.entries(COUNTRY_INFO).map(([code, info]) => ({
+    code: code as Country,
+    name: info.name,
+    flag: info.flag,
+    currency: COUNTRY_CURRENCY[code as Country],
+    phoneCode: info.phoneCode,
+  }))
 
 interface ShippingResult {
   success: boolean
@@ -121,7 +123,7 @@ export default function CheckoutPage() {
   const [formData, setFormData] = useState({
     fullName: user?.fullName || '',
     phone: '',
-    country: 'UGANDA',
+    country: '',
     region: '',
     city: '',
     addressLine1: '',
@@ -131,17 +133,12 @@ export default function CheckoutPage() {
   })
   const [phoneError, setPhoneError] = useState('')
 
-  // Phone validation patterns by country
-  const PHONE_PATTERNS: Record<string, { pattern: RegExp; placeholder: string; label: string }> = {
-    UGANDA: { pattern: /^(\+256|0)7[0-9]{8}$/, placeholder: '+256 7XX XXX XXX', label: 'Ugandan' },
-    KENYA:  { pattern: /^(\+254|0)(7[0-9]{8}|1[01][0-9]{7})$/, placeholder: '+254 7XX XXX XXX', label: 'Kenyan' },
-    TANZANIA: { pattern: /^(\+255|0)(6[0-9]{8}|7[0-9]{8})$/, placeholder: '+255 6XX XXX XXX', label: 'Tanzanian' },
-    RWANDA: { pattern: /^(\+250|0)7[38][0-9]{7}$/, placeholder: '+250 7XX XXX XXX', label: 'Rwandan' },
-  }
+  // Phone validation patterns imported from currency.ts (centralized)
 
   function validatePhone(phone: string, country: string): string {
     if (!phone.trim()) return 'Phone number is required'
-    const config = PHONE_PATTERNS[country]
+    if (!country) return 'Please select your country first'
+    const config = PHONE_PATTERNS[country as Country]
     if (!config) return 'Invalid country'
     const cleaned = phone.replace(/\s/g, '')
     if (!config.pattern.test(cleaned)) return `Enter a valid ${config.label} phone number (e.g. ${config.placeholder})`
@@ -653,7 +650,7 @@ export default function CheckoutPage() {
                     {/* Security notice */}
                     <div className="flex items-center gap-2 text-sm text-gray-500 bg-green-50 dark:bg-green-950/30 p-3 rounded-lg">
                       <Shield className="w-4 h-4 text-green-500 shrink-0" />
-                      <span>Payments are processed securely by Pesapal — regulated by Bank of Uganda</span>
+                      <span>Payments are processed securely by Pesapal — regulated by {getRegulatorForCountry(formData.country)}</span>
                     </div>
                   </div>
 
@@ -831,7 +828,7 @@ export default function CheckoutPage() {
                 <div className="mt-4 p-3 bg-green-50 dark:bg-green-950/30 rounded-lg">
                   <div className="flex items-center gap-2 text-green-600 text-sm">
                     <Shield className="w-4 h-4" />
-                    <span>Secure payment via Pesapal — regulated by Bank of Uganda</span>
+                    <span>Secure payment via Pesapal — regulated by {getRegulatorForCountry(formData.country)}</span>
                   </div>
                 </div>
               </CardContent>

@@ -11,7 +11,7 @@
  * Seller handles actual shipping via bus - no platform coordination needed
  */
 
-import { Country, Currency } from '@/lib/currency';
+import { Country, Currency, EXCHANGE_RATES, CURRENCY_INFO } from '@/lib/currency';
 import { prisma } from './db';
 import { Prisma } from '@prisma/client';
 
@@ -32,28 +32,52 @@ export type ShippingZoneType = 'LOCAL' | 'DOMESTIC' | 'REGIONAL' | 'CROSS_BORDER
 
 export const ZONE_MATRIX: Record<Country, Record<Country, ShippingZoneType>> = {
   UGANDA: {
-    UGANDA: 'LOCAL',      // Same country = Local
-    KENYA: 'REGIONAL',    // Neighboring = Regional
-    TANZANIA: 'CROSS_BORDER', // Not neighboring = Cross-Border
-    RWANDA: 'REGIONAL',   // Neighboring = Regional
+    UGANDA: 'LOCAL',
+    KENYA: 'REGIONAL',
+    TANZANIA: 'CROSS_BORDER',
+    RWANDA: 'REGIONAL',
+    SOUTH_SUDAN: 'CROSS_BORDER',
+    BURUNDI: 'CROSS_BORDER',
   },
   KENYA: {
     UGANDA: 'REGIONAL',
     KENYA: 'LOCAL',
     TANZANIA: 'REGIONAL',
     RWANDA: 'CROSS_BORDER',
+    SOUTH_SUDAN: 'CROSS_BORDER',
+    BURUNDI: 'CROSS_BORDER',
   },
   TANZANIA: {
     UGANDA: 'CROSS_BORDER',
     KENYA: 'REGIONAL',
     TANZANIA: 'LOCAL',
     RWANDA: 'CROSS_BORDER',
+    SOUTH_SUDAN: 'CROSS_BORDER',
+    BURUNDI: 'REGIONAL',
   },
   RWANDA: {
     UGANDA: 'REGIONAL',
     KENYA: 'CROSS_BORDER',
     TANZANIA: 'CROSS_BORDER',
     RWANDA: 'LOCAL',
+    SOUTH_SUDAN: 'CROSS_BORDER',
+    BURUNDI: 'LOCAL',
+  },
+  SOUTH_SUDAN: {
+    UGANDA: 'CROSS_BORDER',
+    KENYA: 'CROSS_BORDER',
+    TANZANIA: 'CROSS_BORDER',
+    RWANDA: 'CROSS_BORDER',
+    SOUTH_SUDAN: 'LOCAL',
+    BURUNDI: 'CROSS_BORDER',
+  },
+  BURUNDI: {
+    UGANDA: 'CROSS_BORDER',
+    KENYA: 'CROSS_BORDER',
+    TANZANIA: 'REGIONAL',
+    RWANDA: 'LOCAL',
+    SOUTH_SUDAN: 'CROSS_BORDER',
+    BURUNDI: 'LOCAL',
   },
 };
 
@@ -96,17 +120,9 @@ export const DEFAULT_SHIPPING_RATES: Record<ShippingZoneType, {
 };
 
 // ============================================
-// CURRENCY CONVERSION RATES (approximate)
-// Used for displaying shipping estimates
-// Pesapal handles actual conversion
+// CURRENCY CONVERSION
+// Uses centralized EXCHANGE_RATES from @/lib/currency
 // ============================================
-
-export const CURRENCY_RATES: Record<Currency, Record<Currency, number>> = {
-  UGX: { UGX: 1, KES: 0.035, TZS: 0.27, RWF: 0.26 },
-  KES: { UGX: 28.5, KES: 1, TZS: 7.7, RWF: 7.5 },
-  TZS: { UGX: 3.7, KES: 0.13, TZS: 1, RWF: 0.97 },
-  RWF: { UGX: 3.85, KES: 0.13, TZS: 1.03, RWF: 1 },
-};
 
 // ============================================
 // WEIGHT TIER DEFINITIONS
@@ -278,13 +294,14 @@ async function getShippingRates(
 
 /**
  * Get conversion rate between currencies
+ * Uses centralized EXCHANGE_RATES from currency.ts
  */
 export function getConversionRate(
   fromCurrency: Currency,
   toCurrency: Currency
 ): number {
   if (fromCurrency === toCurrency) return 1;
-  return CURRENCY_RATES[fromCurrency]?.[toCurrency] || 1;
+  return EXCHANGE_RATES[fromCurrency]?.[toCurrency] || 1;
 }
 
 /**
@@ -321,14 +338,8 @@ export function formatShippingFee(
   amount: number,
   currency: Currency
 ): string {
-  const symbols: Record<Currency, string> = {
-    UGX: 'UGX',
-    KES: 'KES',
-    TZS: 'TZS',
-    RWF: 'RWF',
-  };
-
-  return `${symbols[currency]} ${amount.toLocaleString()}`;
+  const info = CURRENCY_INFO[currency] || CURRENCY_INFO.UGX;
+  return `${info.symbol} ${amount.toLocaleString()}`;
 }
 
 /**

@@ -13,22 +13,19 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/db'
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
+import { COUNTRY_CURRENCY, formatPrice } from '@/lib/currency'
 
 // Minimum withdrawal amounts per currency
 const MIN_WITHDRAWAL: Record<string, number> = {
   UGX: 10000,  // 10,000 UGX
   KES: 500,    // 500 KES
   TZS: 5000,   // 5,000 TZS
-  RWF: 2000    // 2,000 RWF
+  RWF: 2000,   // 2,000 RWF
+  SSP: 500,    // 500 SSP
+  BIF: 2000    // 2,000 BIF
 }
 
-// Currency per country
-const COUNTRY_CURRENCY: Record<string, string> = {
-  UGANDA: 'UGX',
-  KENYA: 'KES',
-  TANZANIA: 'TZS',
-  RWANDA: 'RWF'
-}
+// COUNTRY_CURRENCY imported from @/lib/currency — single source of truth
 
 export async function POST(request: NextRequest) {
   try {
@@ -84,7 +81,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const currency = COUNTRY_CURRENCY[store.country] || 'UGX'
+    const currency = COUNTRY_CURRENCY[store.country as keyof typeof COUNTRY_CURRENCY] || 'UGX'
 
     // Check minimum withdrawal
     const minWithdrawal = MIN_WITHDRAWAL[currency] || 1000

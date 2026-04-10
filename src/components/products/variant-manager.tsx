@@ -71,6 +71,7 @@ interface VariantManagerProps {
   variants: ProductVariant[]
   basePrice: number
   baseSku: string
+  currency?: string
   onHasVariantsChange: (hasVariants: boolean) => void
   onVariantOptionsChange: (options: VariantOption[]) => void
   onVariantsChange: (variants: ProductVariant[]) => void
@@ -92,6 +93,7 @@ export function VariantManager({
   variants,
   basePrice,
   baseSku,
+  currency = 'UGX',
   onHasVariantsChange,
   onVariantOptionsChange,
   onVariantsChange,
@@ -498,7 +500,7 @@ export function VariantManager({
                   <div className="flex items-center gap-2">
                     <Input
                       type="number"
-                      placeholder="Price (UGX)"
+                      placeholder={`Price (${currency})`}
                       value={bulkPrice}
                       onChange={(e) => setBulkPrice(e.target.value)}
                       className="w-32"
@@ -531,7 +533,7 @@ export function VariantManager({
                         <TableRow>
                           <TableHead className="min-w-32">Variant</TableHead>
                           <TableHead className="w-28">SKU</TableHead>
-                          <TableHead className="w-28">Price (UGX)</TableHead>
+                          <TableHead className="w-28">Price ({currency})</TableHead>
                           <TableHead className="w-32">Compare Price</TableHead>
                           <TableHead className="w-20">Quantity</TableHead>
                           <TableHead className="w-16">Status</TableHead>

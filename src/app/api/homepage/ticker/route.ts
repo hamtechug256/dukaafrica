@@ -8,11 +8,14 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { getSettingsByGroup } from '@/lib/site-settings'
+import { COUNTRY_CITIES, getRandomCity, Country } from '@/lib/currency'
 
-const UGANDAN_CITIES = [
-  'Kampala', 'Entebbe', 'Jinja', 'Mbarara', 'Gulu', 'Fort Portal',
-  'Mbale', 'Arua', 'Lira', 'Mukono', 'Nansana', 'Kira', 'Wakiso',
-]
+// Helper: pick a random city from any supported country
+function getRandomCityFromAll(): string {
+  const countries = Object.keys(COUNTRY_CITIES) as Country[]
+  const randomCountry = countries[Math.floor(Math.random() * countries.length)]
+  return getRandomCity(randomCountry)
+}
 
 const FIRST_NAMES = [
   'Sarah', 'David', 'Grace', 'Joseph', 'Patience', 'Robert', 'Mercy',
@@ -53,7 +56,9 @@ export async function GET() {
     })
 
     for (const order of recentOrders) {
-      const city = UGANDAN_CITIES[Math.floor(Math.random() * UGANDAN_CITIES.length)]
+      const city = order.User?.country
+        ? getRandomCity(order.User.country)
+        : getRandomCityFromAll()
       const name = FIRST_NAMES[Math.floor(Math.random() * FIRST_NAMES.length)]
       const productName = order.OrderItem[0]?.productName || 'a product'
       const template = tickerSettings.ticker_template_buy || '{name} from {city} just purchased a {product}'
@@ -81,7 +86,9 @@ export async function GET() {
     })
 
     for (const store of recentSellers) {
-      const city = UGANDAN_CITIES[Math.floor(Math.random() * UGANDAN_CITIES.length)]
+      const city = store.User?.country
+        ? getRandomCity(store.User.country)
+        : getRandomCityFromAll()
       const template = tickerSettings.ticker_template_seller || 'A new verified seller from {city} joined today'
 
       items.push({

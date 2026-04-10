@@ -56,6 +56,7 @@ import {
   MessageSquare,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { formatPrice } from '@/lib/currency'
 import { MobileNav, DesktopSidebar, BottomNav } from '@/components/dashboard/mobile-nav'
 import { adminNavItems } from '@/lib/admin-nav'
 
@@ -315,10 +316,10 @@ export default function ModerationPage() {
                             </div>
                           </div>
                           <div className="text-right">
-                            <p className="font-bold text-lg">UGX {product.price?.toLocaleString()}</p>
+                            <p className="font-bold text-lg">{formatPrice(product.price || 0, product.currency || 'UGX')}</p>
                             {product.comparePrice && (
                               <p className="text-sm text-gray-500 line-through">
-                                UGX {product.comparePrice.toLocaleString()}
+                                {formatPrice(product.comparePrice, product.currency || 'UGX')}
                               </p>
                             )}
                           </div>
