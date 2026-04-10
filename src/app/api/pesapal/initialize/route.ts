@@ -25,7 +25,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/db'
-import { pesapalClient, generateTransactionReference, PesapalCurrency, getIpnIdFast, saveIpnToDb, getPublicPesapalConfig } from '@/lib/pesapal/client'
+import { pesapalClient, generateTransactionReference, PesapalCurrency, getIpnIdFast, saveIpnToDb, getPublicPesapalConfig, PesapalAuthError } from '@/lib/pesapal/client'
 import { Prisma } from '@prisma/client'
 
 function toNum(val: unknown): number {
@@ -104,19 +104,27 @@ export async function GET() {
     return NextResponse.json({ ok: true, elapsed, env: config.env, dbEnv: envFromDb?.pesapalEnvironment || null, hasDbCreds: !!envFromDb?.pesapalClientId })
   } catch (error: unknown) {
     const elapsed = Date.now() - t0
-    const message = error instanceof Error ? error.message : String(error)
     const name = error instanceof Error ? error.name : 'UnknownError'
-    const config = getPublicPesapalConfig()
+    const message = error instanceof Error ? error.message : String(error)
+
+    // Extract Pesapal's actual rejection reason if available
+    let pesapalDetail: unknown = null
+    if (error instanceof PesapalAuthError && error.pesapalResponse) {
+      pesapalDetail = error.pesapalResponse
+    }
+
     const envFromDb = await prisma.platformSettings.findFirst({
       select: { pesapalEnvironment: true, pesapalClientId: true },
     }).catch(() => null)
-    console.error(`[Pesapal Warm] Failed after ${elapsed}ms:`, name, message)
+    console.error(`[Pesapal Warm] Failed after ${elapsed}ms:`, name, message, pesapalDetail)
+
     // Return 200 with diagnostic info — don't block checkout
     return NextResponse.json({
       ok: false,
       error: `${name}: ${message}`,
       elapsed,
-      env: config.env,
+      pesapalResponse: pesapalDetail,
+      env: getPublicPesapalConfig().env,
       dbEnv: envFromDb?.pesapalEnvironment || null,
       hasDbCreds: !!envFromDb?.pesapalClientId,
     })

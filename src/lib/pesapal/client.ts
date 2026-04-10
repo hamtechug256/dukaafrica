@@ -7,7 +7,7 @@
  * - IPN (Instant Payment Notification) webhook management
  * - Order submission, status polling, refund, and cancellation
  *
- * Configuration: Reads from environment variables.
+ * Configuration: Reads from PlatformSettings DB first, then env vars.
  * Pesapal uses OAuth2-style token auth (client_id + client_secret → bearer token).
  * Tokens last ~20 minutes — this client caches and reuses them.
  */
@@ -28,77 +28,90 @@ const PESAPAL_BASE_URLS: Record<PesapalEnv, string> = {
   production: 'https://pay.pesapal.com/v3',
 }
 
+/** Fallback env from env var — used if DB is unreachable. */
+const PESAPAL_ENV_FALLBACK: PesapalEnv =
+  (process.env.NEXT_PUBLIC_PESAPAL_ENV === 'production' ? 'production' : 'sandbox')
+
 /**
- * Resolve the Pesapal environment from env vars or DB.
- * Falls back to 'sandbox' for safety.
- *
- * NOTE: This is resolved at module load time from env var only.
- * The runtime override from PlatformSettings.pesapalEnvironment is checked
- * in resolvePesapalEnvAsync() and used by authenticate() / submitOrder.
+ * Cached Pesapal configuration resolved from DB.
+ * Populated once per serverless invocation on first authenticate() call.
+ * This avoids multiple DB queries — env, clientId, clientSecret all read in one query.
  */
-function resolvePesapalEnv(): PesapalEnv {
-  const env = process.env.NEXT_PUBLIC_PESAPAL_ENV as string | undefined
-  if (env === 'production') return 'production'
-  return 'sandbox'
+interface ResolvedConfig {
+  env: PesapalEnv
+  clientId: string
+  clientSecret: string
+  source: string // 'DB PlatformSettings' | 'env vars'
 }
 
-/** Singleton resolved once at module load. */
-const PESAPAL_ENV_FALLBACK: PesapalEnv = resolvePesapalEnv()
-const PESAPAL_BASE_URL_FALLBACK = PESAPAL_BASE_URLS[PESAPAL_ENV_FALLBACK]
+let resolvedConfig: ResolvedConfig | null = null
 
 /**
- * Resolve Pesapal env from DB (PlatformSettings.pesapalEnvironment).
- * Falls back to the env-var-based resolution if DB is not available.
+ * Read Pesapal config from DB (PlatformSettings) in a SINGLE query.
+ * Falls back to env vars if DB has no credentials.
+ *
+ * Returns: { env, clientId, clientSecret, source }
  */
-async function resolvePesapalEnvAsync(): Promise<PesapalEnv> {
-  try {
-    const settings = await prisma.platformSettings.findFirst({
-      select: { pesapalEnvironment: true },
-    })
-    if (settings?.pesapalEnvironment === 'production' || settings?.pesapalEnvironment === 'sandbox') {
-      return settings.pesapalEnvironment
-    }
-  } catch {
-    // DB read failed — use fallback
-  }
-  return PESAPAL_ENV_FALLBACK
-}
+async function resolveConfig(): Promise<ResolvedConfig> {
+  if (resolvedConfig) return resolvedConfig
 
-/**
- * Get Pesapal auth credentials (clientId + clientSecret only).
- *
- * IMPORTANT: This function does NOT resolve IPN ID. The IPN ID is handled
- * separately by getIpnIdFast() in the initialize route. This prevents
- * authenticate() from triggering unnecessary Pesapal API calls (GetIPNList)
- * which would blow the Vercel 10s timeout.
- *
- * Priority: PlatformSettings (DB) → env vars
- */
-async function getAuthCredentials(): Promise<{ clientId: string; clientSecret: string; source: string }> {
   try {
     const settings = await prisma.platformSettings.findFirst({
-      select: { pesapalClientId: true, pesapalClientSecret: true },
+      select: {
+        pesapalClientId: true,
+        pesapalClientSecret: true,
+        pesapalEnvironment: true,
+      },
     })
-    const clientId = settings?.pesapalClientId
-    const clientSecret = settings?.pesapalClientSecret
+
+    const clientId = (settings?.pesapalClientId || '').trim()
+    const clientSecret = (settings?.pesapalClientSecret || '').trim()
+    const dbEnv = settings?.pesapalEnvironment?.trim()
+
+    // Use DB credentials if both are present
     if (clientId && clientSecret) {
-      return { clientId, clientSecret, source: 'DB PlatformSettings' }
+      const env: PesapalEnv = (dbEnv === 'production' || dbEnv === 'sandbox')
+        ? dbEnv
+        : PESAPAL_ENV_FALLBACK
+
+      resolvedConfig = { env, clientId, clientSecret, source: 'DB PlatformSettings' }
+      log.info(`Config resolved from DB: env=${env}, clientId=${clientId.slice(0, 8)}...`)
+      return resolvedConfig
+    }
+
+    // DB has env but no creds — use DB env, fall back to env var creds
+    if (dbEnv === 'production' || dbEnv === 'sandbox') {
+      const envClientId = (process.env.PESAPAL_CLIENT_ID || '').trim()
+      const envClientSecret = (process.env.PESAPAL_CLIENT_SECRET || '').trim()
+      resolvedConfig = {
+        env: dbEnv,
+        clientId: envClientId,
+        clientSecret: envClientSecret,
+        source: `env vars (env from DB: ${dbEnv})`,
+      }
+      log.info(`Config: env=${dbEnv} from DB, creds from env vars`)
+      return resolvedConfig
     }
   } catch {
     // DB read failed — fall through to env vars
   }
-  return {
-    clientId: process.env.PESAPAL_CLIENT_ID || '',
-    clientSecret: process.env.PESAPAL_CLIENT_SECRET || '',
+
+  // Fallback: everything from env vars
+  const envClientId = (process.env.PESAPAL_CLIENT_ID || '').trim()
+  const envClientSecret = (process.env.PESAPAL_CLIENT_SECRET || '').trim()
+  resolvedConfig = {
+    env: PESAPAL_ENV_FALLBACK,
+    clientId: envClientId,
+    clientSecret: envClientSecret,
     source: 'env vars',
   }
+  log.info(`Config: everything from env vars, env=${PESAPAL_ENV_FALLBACK}`)
+  return resolvedConfig
 }
 
 // ============================================
 // DATABASE IPN CACHE (L2 — survives serverless cold starts)
 // ============================================
-// The IPN ID is cached in the Setting table so getIpnIdFast() in the
-// initialize route can read it instantly without any Pesapal API calls.
 
 async function getCachedIpnFromDb(): Promise<string | null> {
   try {
@@ -130,7 +143,7 @@ async function saveIpnToDb(ipnId: string): Promise<void> {
  */
 export async function getIpnIdFast(): Promise<string> {
   // 1. Environment variable (instant)
-  const envIpn = process.env.PESAPAL_IPN_ID
+  const envIpn = (process.env.PESAPAL_IPN_ID || '').trim()
   if (envIpn) return envIpn
 
   // 2. DB Setting table (fast, ~50ms)
@@ -186,11 +199,6 @@ function isTokenValid(): boolean {
 // ============================================
 // DATABASE TOKEN CACHE (L2 — survives serverless cold starts)
 // ============================================
-// Pesapal tokens last ~20 min. On Vercel Hobby, each serverless invocation
-// may spin up a fresh process (L1 in-memory cache is empty). The L2 DB cache
-// lets us skip the slow Pesapal auth API call on almost every request.
-//
-// Stored in the Setting table (key-value) — no schema migration needed.
 
 async function getCachedTokenFromDb(): Promise<CachedToken | null> {
   try {
@@ -234,7 +242,7 @@ async function saveTokenToDb(token: string, expiry: number): Promise<void> {
 // ============================================
 
 export class PesapalAuthError extends Error {
-  constructor(message: string, public statusCode?: number) {
+  constructor(message: string, public statusCode?: number, public pesapalResponse?: unknown) {
     super(message)
     this.name = 'PesapalAuthError'
   }
@@ -295,13 +303,13 @@ export interface PesapalOrderLineItem {
 }
 
 export interface PesapalSubmitOrderRequest {
-  id: string // merchant reference / order tracking id
+  id: string
   currency: PesapalCurrency
   amount: number
   description: string
   callback_url: string
   cancellation_url?: string
-  notification_id: string // IPN ID
+  notification_id: string
   billing_address: {
     email_address: string
     phone_number?: string
@@ -392,22 +400,27 @@ export interface PesapalCancelOrderResponse {
 
 class PesapalClient {
   constructor() {
-    log.info(`Client initialised — fallback env=${PESAPAL_ENV_FALLBACK}, baseUrl=${PESAPAL_BASE_URL_FALLBACK}`)
+    log.info(`Client initialised — fallback env=${PESAPAL_ENV_FALLBACK}`)
   }
 
   // --------------------------------------------------
   // Low-level request helper
   // --------------------------------------------------
 
+  /**
+   * Make a request to the Pesapal API.
+   * Uses cached config (env + base URL) from resolveConfig().
+   * No extra DB queries on the hot path.
+   */
   private async request<T>(
     endpoint: string,
     method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'GET',
     data?: unknown,
     requireAuth = true
   ): Promise<T> {
-    // Resolve env dynamically from DB — admin may have changed it
-    const env = await resolvePesapalEnvAsync()
-    const baseUrl = PESAPAL_BASE_URLS[env]
+    // Use cached config — resolved once per invocation, no DB query here
+    const config = await resolveConfig()
+    const baseUrl = PESAPAL_BASE_URLS[config.env]
     const url = `${baseUrl}${endpoint}`
 
     const headers: Record<string, string> = {
@@ -426,14 +439,12 @@ class PesapalClient {
       options.body = JSON.stringify(data)
     }
 
-    // Timeout: abort after 8 seconds — fail fast instead of burning Vercel's 10s budget.
-    // Pesapal typically responds in 3-5s from Vercel US-East. If it takes >8s,
-    // something is wrong and we should let the client retry rather than hang.
+    // Timeout: abort after 8 seconds — fail fast
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 8_000)
     options.signal = controller.signal
 
-    log.info(`→ ${method} ${endpoint}`)
+    log.info(`→ ${method} ${endpoint} (${config.env})`)
 
     const response = await fetch(url, options).finally(() => clearTimeout(timeout))
 
@@ -469,6 +480,9 @@ class PesapalClient {
   /**
    * Authenticate with Pesapal and return a bearer token.
    * Results are cached for up to ~19 minutes (tokens last 20 min).
+   *
+   * Flow: L1 memory → L2 DB → L3 Pesapal API
+   * Config (env + creds) resolved from ONE DB query, cached in memory.
    */
   async authenticate(): Promise<string> {
     // L1: In-memory cache (instant — same serverless invocation)
@@ -477,15 +491,15 @@ class PesapalClient {
     }
 
     // Deduplicate: if a token refresh is already in progress, wait for it
-    // instead of starting a second concurrent Pesapal API call
     if (tokenRefreshPromise) {
       log.info('Waiting for in-progress token refresh')
       return tokenRefreshPromise
     }
 
-    // L2: Database cache (~100ms — survives serverless cold starts)
+    // L2: Database cache (~100ms) → L3: Pesapal API (3-5s)
     tokenRefreshPromise = (async () => {
       try {
+        // Check DB for cached token
         const dbToken = await getCachedTokenFromDb()
         if (dbToken) {
           cachedToken = dbToken // populate L1 from L2
@@ -493,22 +507,21 @@ class PesapalClient {
           return dbToken.token
         }
 
-        // L3: Pesapal API call (3-5s from Vercel — only on first call or expiry)
-        // Use getAuthCredentials() — NOT getCredentials() — to avoid triggering
-        // resolveIpnId() which would make ANOTHER Pesapal API call (GetIPNList).
-        const { clientId, clientSecret, source: credSource } = await getAuthCredentials()
+        // Resolve config (env + creds) from ONE DB query, cached in memory
+        const config = await resolveConfig()
 
-        log.info(`Auth: L1/L2 miss, calling Pesapal API (creds from: ${credSource}, clientId: ${clientId ? clientId.slice(0, 8) + '...' : 'EMPTY'})`)
+        log.info(`Auth: L1/L2 miss → Pesapal API (env=${config.env}, creds from: ${config.source}, clientId: ${config.clientId ? config.clientId.slice(0, 8) + '...' : 'EMPTY'})`)
 
-        if (!clientId || !clientSecret) {
+        if (!config.clientId || !config.clientSecret) {
           throw new PesapalAuthError(
-            'PESAPAL_CLIENT_ID and PESAPAL_CLIENT_SECRET are required'
+            'PESAPAL_CLIENT_ID and PESAPAL_CLIENT_SECRET are required. Set them in Vercel env vars or the admin panel.'
           )
         }
 
+        // Call Pesapal auth API
         const body: PesapalTokenRequest = {
-          client_id: clientId,
-          client_secret: clientSecret,
+          client_id: config.clientId,
+          client_secret: config.clientSecret,
         }
 
         // Auth endpoint does NOT require auth header itself
@@ -516,28 +529,28 @@ class PesapalClient {
           '/api/Auth/RequestToken',
           'POST',
           body,
-          false // no auth header for token request
+          false
         )
 
         if (result.error || result.status !== '200') {
+          // Log the FULL Pesapal response for debugging
+          log.error('Pesapal auth rejected:', JSON.stringify(result))
           throw new PesapalAuthError(
-            result.errorMessage || 'Authentication failed',
-            parseInt(result.status, 10) || 401
+            result.errorMessage || result.error || 'Authentication failed',
+            parseInt(result.status, 10) || 401,
+            result // attach full response for diagnostics
           )
         }
 
         // Cache token in both L1 (memory) and L2 (DB)
         const expiryMs = new Date(result.expiryDate).getTime()
-        cachedToken = {
-          token: result.token,
-          expiry: expiryMs,
-        }
+        cachedToken = { token: result.token, expiry: expiryMs }
 
-        // Save to DB — MUST await so the token persists even if the caller times out.
+        // MUST await — fire-and-forget loses the token on Vercel timeout
         await saveTokenToDb(result.token, expiryMs)
 
         const ttlSec = Math.round((expiryMs - Date.now()) / 1000)
-        log.info(`Token obtained from Pesapal API, TTL ~${ttlSec}s`)
+        log.info(`Token obtained from Pesapal API (${config.env}), TTL ~${ttlSec}s`)
 
         return result.token
       } finally {
@@ -553,17 +566,14 @@ class PesapalClient {
    */
   invalidateToken(): void {
     cachedToken = null
-    log.info('Token cache cleared')
+    resolvedConfig = null // also clear config cache
+    log.info('Token + config cache cleared')
   }
 
   // --------------------------------------------------
   // Submit Order
   // --------------------------------------------------
 
-  /**
-   * Submit a payment order to Pesapal.
-   * Returns the redirect URL the buyer should be sent to.
-   */
   async submitOrder(
     orderData: PesapalSubmitOrderRequest
   ): Promise<PesapalSubmitOrderResponse> {
@@ -578,9 +588,6 @@ class PesapalClient {
   // Transaction Status
   // --------------------------------------------------
 
-  /**
-   * Check the status of a transaction by its order tracking id.
-   */
   async getTransactionStatus(
     orderTrackingId: string
   ): Promise<PesapalTransactionStatusResponse> {
@@ -594,30 +601,17 @@ class PesapalClient {
   // IPN (Webhooks)
   // --------------------------------------------------
 
-  /**
-   * Register an IPN (Instant Payment Notification) URL.
-   * The returned ipn_id should be stored and used when submitting orders.
-   */
   async registerIPN(
     url: string,
     notificationType: 'GET' | 'POST' = 'POST'
   ): Promise<PesapalIPNResponse> {
-    const body: PesapalRegisterIPNRequest = {
-      url,
-      ipn_notification_type: notificationType,
-    }
     return this.request<PesapalIPNResponse>(
       '/api/URLSetup/RegisterIPN',
       'POST',
-      body
+      { url, ipn_notification_type: notificationType }
     )
   }
 
-  /**
-   * List all registered IPN URLs.
-   * WARNING: This makes a Pesapal API call (~3-5s). Only use in background tasks,
-   * NEVER on the payment critical path.
-   */
   async getIPNList(): Promise<PesapalIPNListResponse> {
     return this.request<PesapalIPNListResponse>(
       '/api/URLSetup/GetIPNList'
@@ -628,10 +622,6 @@ class PesapalClient {
   // Refund
   // --------------------------------------------------
 
-  /**
-   * Request a refund for a confirmed (COMPLETED) transaction.
-   * Requires the Pesapal confirmation_code for the transaction.
-   */
   async refundOrder(
     data: PesapalRefundRequest
   ): Promise<PesapalRefundResponse> {
@@ -646,13 +636,9 @@ class PesapalClient {
   // Cancel Order
   // --------------------------------------------------
 
-  /**
-   * Cancel a pending order that has not yet been paid.
-   */
   async cancelOrder(
     orderTrackingId: string
   ): Promise<PesapalCancelOrderResponse> {
-    // Pesapal cancel endpoint expects the tracking id in the body
     return this.request<PesapalCancelOrderResponse>(
       '/api/Transactions/CancelOrder',
       'POST',
@@ -661,34 +647,26 @@ class PesapalClient {
   }
 
   // --------------------------------------------------
-  // Utility / Convenience
+  // Utility
   // --------------------------------------------------
 
-  /** Which Pesapal environment is active (fallback). */
   get env(): PesapalEnv {
     return PESAPAL_ENV_FALLBACK
   }
 
-  /** The resolved base URL (fallback). */
   get baseUrlValue(): string {
-    return PESAPAL_BASE_URL_FALLBACK
+    return PESAPAL_BASE_URLS[PESAPAL_ENV_FALLBACK]
   }
 }
 
 // Export singleton instance
 export const pesapalClient = new PesapalClient()
-
-// Re-export saveIpnToDb for use in the initialize route's background registration
 export { saveIpnToDb }
 
 // ============================================
 // HELPER FUNCTIONS
 // ============================================
 
-/**
- * Generate a unique transaction reference in the format DUKA_XXXXXXXX.
- * Uses a random hex suffix for uniqueness (no timestamp — avoids leakage).
- */
 export function generateTransactionReference(prefix = 'DUKA'): string {
   const random = crypto
     .getRandomValues(new Uint8Array(4))
@@ -697,9 +675,6 @@ export function generateTransactionReference(prefix = 'DUKA'): string {
   return `${prefix}_${random.slice(0, 8)}`
 }
 
-/**
- * Extract a human-readable error message from a Pesapal API response.
- */
 function extractErrorMessage(body: unknown): string {
   if (!body || typeof body !== 'object') return ''
 
@@ -707,13 +682,11 @@ function extractErrorMessage(body: unknown): string {
   if (typeof obj.errorMessage === 'string' && obj.errorMessage) {
     return obj.errorMessage
   }
-  // Pesapal sometimes returns nested error: { error: { message: "..." } }
   if (obj.error && typeof obj.error === 'object') {
     const nested = obj.error as Record<string, unknown>
     if (typeof nested.message === 'string' && nested.message) {
       return nested.message
     }
-    // Sometimes error is just a string
     if (typeof obj.error === 'string') return obj.error
   }
   if (typeof obj.message === 'string' && obj.message) {
@@ -723,16 +696,12 @@ function extractErrorMessage(body: unknown): string {
   return ''
 }
 
-/**
- * Public config (safe for client-side).
- * Never exposes secrets.
- */
 export function getPublicPesapalConfig(): {
   env: PesapalEnv
   baseUrl: string
 } {
   return {
     env: PESAPAL_ENV_FALLBACK,
-    baseUrl: PESAPAL_BASE_URL_FALLBACK,
+    baseUrl: PESAPAL_BASE_URLS[PESAPAL_ENV_FALLBACK],
   }
 }
