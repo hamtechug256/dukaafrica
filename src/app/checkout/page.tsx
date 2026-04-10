@@ -252,16 +252,28 @@ export default function CheckoutPage() {
     }
   }, [paymentMethod, paymentMethods, setPaymentMethod])
 
-  // Pre-cache Pesapal auth token in DB when user enters the checkout page (step 0).
-  // This runs silently in the background. By the time the user reaches step 4
-  // and clicks "Pay", the token will be in the DB (~100ms read instead of 3-5s API call).
-  // We fire early (step 0) because Vercel cold starts + Pesapal latency = ~5-8s.
-  useEffect(() => {
+  // Pre-warm Pesapal by calling GET /api/pesapal/initialize.
+  // CRITICAL: This MUST be the same route as the POST (not /ensure-token).
+  // Vercel treats each route as a separate function instance. The GET warms
+  // THIS function instance AND caches the token in memory (L1). When the user
+  // clicks Pay (POST), there's zero cold start and authenticate() returns from
+  // L1 cache instantly (<1ms).
+  //
+  // Fires at page load (step 0) AND when user enters Review (step 3) as a safety net.
+  const warmPesapal = () => {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 15_000)
-    fetch('/api/pesapal/ensure-token', { signal: controller.signal }).catch(() => {})
+    fetch('/api/pesapal/initialize', { method: 'GET', signal: controller.signal })
+      .then(r => r.json())
+      .then(data => console.log('[checkout] Pesapal warm-up:', data.ok ? 'ready' : 'failed'))
+      .catch(() => {})
     return () => { clearTimeout(timeout); controller.abort() }
-  }, [])
+  }
+
+  useEffect(warmPesapal, [])
+  useEffect(() => {
+    if (currentStep === 3) warmPesapal()
+  }, [currentStep])
 
   // Redirect if cart is empty
   if (items.length === 0) {

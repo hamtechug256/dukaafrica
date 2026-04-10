@@ -403,9 +403,11 @@ class PesapalClient {
       options.body = JSON.stringify(data)
     }
 
-    // Timeout: abort after 15 seconds to prevent hanging requests
+    // Timeout: abort after 8 seconds — fail fast instead of burning Vercel's 10s budget.
+    // Pesapal typically responds in 3-5s from Vercel US-East. If it takes >8s,
+    // something is wrong and we should let the client retry rather than hang.
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 15_000)
+    const timeout = setTimeout(() => controller.abort(), 8_000)
     options.signal = controller.signal
 
     log.info(`→ ${method} ${endpoint}`)
