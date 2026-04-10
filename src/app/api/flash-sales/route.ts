@@ -30,6 +30,9 @@ export async function GET(request: NextRequest) {
             id: true,
             name: true,
             slug: true,
+            isVerified: true,
+            rating: true,
+            country: true,
           },
         },
         Category: {
@@ -69,6 +72,10 @@ export async function GET(request: NextRequest) {
         store: product.Store,
         category: product.Category,
         currency: product.currency,
+        weight: product.weight ? toNum(product.weight) : null,
+        freeShipping: !!product.freeShipping,
+        localShippingOnly: !!product.localShippingOnly,
+        shipsToCountries: product.shipsToCountries || null,
       }
     })
 

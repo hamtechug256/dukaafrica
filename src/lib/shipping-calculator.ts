@@ -310,7 +310,7 @@ export function getConversionRate(
 export function canShipToCountry(
   sellerCountry: Country,
   buyerCountry: Country,
-  shipsToCountries: string | null,
+  shipsToCountries: string | string[] | null,
   localShippingOnly: boolean
 ): boolean {
   // Same country - always allowed
@@ -322,13 +322,19 @@ export function canShipToCountry(
   // No restrictions - ships everywhere
   if (!shipsToCountries) return true;
 
-  // Check if buyer's country is in the allowed list
-  try {
-    const allowedCountries = JSON.parse(shipsToCountries) as string[];
-    return allowedCountries.includes(buyerCountry);
-  } catch {
-    return false;
+  // Handle both parsed array (string[]) and raw JSON string (string)
+  let allowedCountries: string[];
+  if (Array.isArray(shipsToCountries)) {
+    allowedCountries = shipsToCountries;
+  } else {
+    try {
+      allowedCountries = JSON.parse(shipsToCountries) as string[];
+    } catch {
+      return false;
+    }
   }
+
+  return allowedCountries.includes(buyerCountry);
 }
 
 /**

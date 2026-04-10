@@ -43,12 +43,17 @@ export async function GET() {
         rating: true,
         reviewCount: true,
         currency: true,
+        freeShipping: true,
+        localShippingOnly: true,
+        shipsToCountries: true,
+        weight: true,
         Store: {
           select: {
             id: true,
             name: true,
             slug: true,
             isVerified: true,
+            country: true,
           }
         }
       },
@@ -110,7 +115,12 @@ export async function GET() {
           name: product.Store.name,
           slug: product.Store.slug,
           isVerified: product.Store.isVerified,
-        }
+          country: product.Store.country,
+        },
+        freeShipping: !!product.freeShipping,
+        localShippingOnly: !!product.localShippingOnly,
+        shipsToCountries: product.shipsToCountries || null,
+        weight: product.weight ? toNum(product.weight) : null,
       }
     })
 

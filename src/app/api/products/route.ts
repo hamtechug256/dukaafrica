@@ -60,6 +60,7 @@ export async function GET(request: Request) {
               slug: true,
               isVerified: true,
               rating: true,
+              country: true,
             },
           },
           Category: {

@@ -35,6 +35,9 @@ export async function GET() {
         purchaseCount: true,
         quantity: true,
         freeShipping: true,
+        localShippingOnly: true,
+        shipsToCountries: true,
+        weight: true,
         currency: true,
         Store: {
           select: {
@@ -42,6 +45,7 @@ export async function GET() {
             name: true,
             slug: true,
             isVerified: true,
+            country: true,
           }
         },
         Category: {
@@ -104,6 +108,7 @@ export async function GET() {
           name: product.Store.name,
           slug: product.Store.slug,
           isVerified: product.Store.isVerified,
+          country: product.Store.country,
         }
       }
     })

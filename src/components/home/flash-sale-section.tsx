@@ -24,6 +24,10 @@ interface FlashSaleProduct {
   rating: number
   reviewCount: number
   isSoldOut: boolean
+  weight?: number | null
+  freeShipping?: boolean
+  localShippingOnly?: boolean
+  shipsToCountries?: string | null
   store: {
     id: string
     name: string
@@ -216,6 +220,10 @@ export function FlashSaleSection() {
                   flashSaleDiscount: product.discount,
                   flashSaleStock: product.flashSaleStock,
                   flashSaleClaimed: product.flashSaleClaimed,
+                  weight: product.weight ?? undefined,
+                  freeShipping: !!product.freeShipping,
+                  localShippingOnly: !!product.localShippingOnly,
+                  shipsToCountries: product.shipsToCountries ?? undefined,
                   store: product.store,
                   rating: product.rating,
                   reviewCount: product.reviewCount,
