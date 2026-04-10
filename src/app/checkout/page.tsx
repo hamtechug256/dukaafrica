@@ -179,18 +179,24 @@ export default function CheckoutPage() {
       const anyLocalOnly = items.some(item => item.localShippingOnly)
       const anyRestrictedCountries = items.find(item => item.shipsToCountries && item.shipsToCountries.length > 0)
       
+      const requestBody = {
+        sellerCountry: firstItem.sellerCountry || 'UGANDA',
+        buyerCountry: formData.country,
+        weightKg: items.reduce((sum, item) => sum + (item.weight || 0.5) * item.quantity, 0),
+        sellerCurrency: firstItem.currency || 'UGX',
+        buyerCurrency,
+        localShippingOnly: anyLocalOnly,
+        shipsToCountries: anyRestrictedCountries?.shipsToCountries || null,
+      }
+
+      // Debug: log what we're sending so Vercel logs show the actual values
+      console.log('[checkout] calculateShipping request:', JSON.stringify(requestBody))
+      console.log('[checkout] cart item sellerCountry:', firstItem.sellerCountry, '| formData.country:', formData.country)
+      
       const response = await fetch('/api/shipping/calculate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sellerCountry: firstItem.sellerCountry || 'UGANDA',
-          buyerCountry: formData.country,
-          weightKg: items.reduce((sum, item) => sum + (item.weight || 0.5) * item.quantity, 0),
-          sellerCurrency: firstItem.currency || 'UGX',
-          buyerCurrency,
-          localShippingOnly: anyLocalOnly,
-          shipsToCountries: anyRestrictedCountries?.shipsToCountries || null,
-        })
+        body: JSON.stringify(requestBody),
       })
 
       const result = await response.json()

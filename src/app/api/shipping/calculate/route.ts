@@ -18,14 +18,39 @@ import {
 // Derive valid countries from the canonical COUNTRY_INFO (single source of truth)
 const validCountries = Object.keys(COUNTRY_INFO) as Country[];
 
+// Build a lookup map: any common variant → canonical Country
+// e.g. "uganda" → "UGANDA", "UG" → "UGANDA", "Uganda" → "UGANDA"
+const countryAliases: Record<string, Country> = {};
+for (const c of validCountries) {
+  countryAliases[c.toLowerCase()] = c;
+  countryAliases[c] = c;
+}
+
+/**
+ * Normalize a raw country value to a canonical Country code.
+ * Handles: uppercase, lowercase, mixed case, common 2-letter codes.
+ * Returns null if unrecognised.
+ */
+function normalizeCountry(raw: unknown): Country | null {
+  if (!raw || typeof raw !== 'string') return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  // Direct match first (fast path)
+  if (countryAliases[trimmed]) return countryAliases[trimmed];
+  // Try lowercase
+  const lower = trimmed.toLowerCase();
+  if (countryAliases[lower]) return countryAliases[lower];
+  return null;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
     // Validate input
     const {
-      sellerCountry,
-      buyerCountry,
+      sellerCountry: rawSeller,
+      buyerCountry: rawBuyer,
       weightKg,
       sellerCurrency = 'UGX',
       buyerCurrency = 'UGX',
@@ -33,23 +58,21 @@ export async function POST(request: NextRequest) {
       localShippingOnly = false,
     } = body;
 
+    // Normalize countries
+    const sellerCountry = normalizeCountry(rawSeller);
+    const buyerCountry = normalizeCountry(rawBuyer);
+
+    // Debug logging — helps trace issues in Vercel logs
+    console.log('[shipping-api] Received:', JSON.stringify({
+      rawSeller, rawBuyer, sellerCountry, buyerCountry, weightKg
+    }));
+
     // Validate required fields
     if (!sellerCountry || !buyerCountry || weightKg === undefined) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Missing required fields: sellerCountry, buyerCountry, weightKg',
-        },
-        { status: 400 }
-      );
-    }
-
-    // Validate countries against canonical list (all 6 EA countries)
-    if (!validCountries.includes(sellerCountry as Country) || !validCountries.includes(buyerCountry as Country)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: `Invalid country. Must be one of: ${validCountries.join(', ')}`,
+          error: `Missing or invalid fields. sellerCountry=${JSON.stringify(rawSeller)}, buyerCountry=${JSON.stringify(rawBuyer)}, weightKg=${weightKg}. Expected countries: ${validCountries.join(', ')}`,
         },
         { status: 400 }
       );
@@ -57,8 +80,8 @@ export async function POST(request: NextRequest) {
 
     // Check if shipping is possible
     const canShip = canShipToCountry(
-      sellerCountry as Country,
-      buyerCountry as Country,
+      sellerCountry,
+      buyerCountry,
       shipsToCountries,
       localShippingOnly
     );
@@ -76,8 +99,8 @@ export async function POST(request: NextRequest) {
 
     // Calculate shipping
     const result = await calculateShippingFee({
-      sellerCountry: sellerCountry as Country,
-      buyerCountry: buyerCountry as Country,
+      sellerCountry,
+      buyerCountry,
       weightKg: parseFloat(weightKg),
       sellerCurrency: (sellerCurrency || 'UGX') as Currency,
       buyerCurrency: (buyerCurrency || 'UGX') as Currency,

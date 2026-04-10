@@ -19,6 +19,7 @@ const isPublicRoute = createRouteMatcher([
   '/api/stores(.*)',
   '/api/search(.*)',
   '/api/homepage(.*)', // Homepage public APIs
+  '/api/shipping(.*)', // Shipping calculation (needed at checkout before order is placed)
   '/api/newsletter(.*)', // Newsletter subscription
   '/admin/login(.*)', // Admin login page must be public
   '/api/admin/security(.*)', // Security API for rate limiting
