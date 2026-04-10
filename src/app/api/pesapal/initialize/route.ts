@@ -5,20 +5,21 @@
  *
  * Designed to work within Vercel Hobby's 10-second function timeout.
  *
- * Token caching strategy (2-tier, no external dependencies):
- * - L1: In-memory cache within same serverless invocation (instant)
- * - L2: Database Setting table (persists across cold starts, ~100ms)
+ * Critical path (normal case — token cached in DB):
+ *   Clerk auth (~0.5s) + DB lookups (~0.5s) + submitOrder (3-5s) + DB update (~0.5s) = ~5-7s
  *
- * Critical path: DB reads (~1s) + submitOrder (3-5s) = ~4-6s on cached token
- * Edge case (first call / token expired): +auth (3-5s) = ~7-10s, single retry available
+ * Critical path (worst case — token NOT cached):
+ *   Clerk auth (~0.5s) + DB lookups (~0.5s) + authenticate (3-5s) + submitOrder (3-5s) + DB update (~0.5s) = ~8-12s
+ *   → Pre-warming via ensure-token at step 0 ensures this rarely happens
  *
- * IPN resolution: env var → DB (PlatformSettings) → empty string + async register
+ * IPN resolution: env var → DB Setting table → DB PlatformSettings → empty string
+ *   NEVER calls Pesapal API on the critical path.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/db'
-import { pesapalClient, generateTransactionReference, PesapalCurrency } from '@/lib/pesapal/client'
+import { pesapalClient, generateTransactionReference, PesapalCurrency, getIpnIdFast, saveIpnToDb } from '@/lib/pesapal/client'
 import { Prisma } from '@prisma/client'
 
 function toNum(val: unknown): number {
@@ -33,36 +34,7 @@ const COUNTRY_TO_ISO2: Record<string, string> = {
 }
 
 /**
- * Get IPN ID from fastest available source:
- * 1. Environment variable (instant)
- * 2. PlatformSettings in DB (fast, ~100ms)
- * 3. Empty string (proceed without IPN, register async after)
- *
- * NEVER calls Pesapal's API on the critical path.
- */
-async function getIpnIdFast(): Promise<{ ipnId: string; fromDb: boolean }> {
-  // 1. Environment variable
-  const envIpn = process.env.PESAPAL_IPN_ID
-  if (envIpn) return { ipnId: envIpn, fromDb: false }
-
-  // 2. Database lookup
-  try {
-    const settings = await prisma.platformSettings.findFirst({
-      select: { pesapalIpnId: true },
-    })
-    if (settings?.pesapalIpnId) {
-      return { ipnId: settings.pesapalIpnId, fromDb: true }
-    }
-  } catch {
-    // DB read failed — continue without IPN
-  }
-
-  // 3. No IPN found — proceed with empty string
-  return { ipnId: '', fromDb: false }
-}
-
-/**
- * Fire-and-forget: register IPN with Pesapal and save to DB.
+ * Fire-and-forget: register IPN with Pesapal and save to BOTH DB tables.
  * Runs AFTER the payment response is sent. Does not block the checkout flow.
  */
 function registerIpnAsync(origin: string) {
@@ -78,8 +50,11 @@ function registerIpnAsync(origin: string) {
       if (registered.ipn_id) {
         console.log(`[Pesapal] Registered IPN: ${registered.ipn_id} → ${ipnUrl}`)
 
-        // Save to DB for future requests
-        // PlatformSettings is a singleton — use findFirst + update (id is auto-generated UUID)
+        // Save to BOTH tables for redundancy:
+        // 1. Setting table (fast, used by getIpnIdFast)
+        await saveIpnToDb(registered.ipn_id)
+
+        // 2. PlatformSettings table (admin config)
         try {
           const existing = await prisma.platformSettings.findFirst({ select: { id: true } })
           if (existing) {
@@ -92,9 +67,9 @@ function registerIpnAsync(origin: string) {
               data: { pesapalIpnId: registered.ipn_id },
             })
           }
-          console.log(`[Pesapal] IPN ID saved to DB`)
+          console.log(`[Pesapal] IPN ID saved to both DB tables`)
         } catch (dbErr) {
-          console.error('[Pesapal] Failed to save IPN to DB:', dbErr)
+          console.error('[Pesapal] Failed to save IPN to PlatformSettings:', dbErr)
         }
       }
     } catch (err) {
@@ -104,8 +79,9 @@ function registerIpnAsync(origin: string) {
 }
 
 export async function POST(request: NextRequest) {
+  const startTime = Date.now()
   try {
-    // Phase 1: Auth (~1s)
+    // Phase 1: Clerk auth (~0.5s)
     const { userId } = await auth()
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -116,9 +92,11 @@ export async function POST(request: NextRequest) {
 
     const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_APP_URL || ''
 
-    // Phase 2: DB lookups + IPN resolution in PARALLEL (~1-2s)
+    console.log(`[Pesapal Init] Phase 1 done (auth) — ${Date.now() - startTime}ms`)
+
+    // Phase 2: DB lookups + IPN resolution in PARALLEL (~0.5s)
     // IPN is read from env/DB only — NO Pesapal API call
-    const [order, user, { ipnId }] = await Promise.all([
+    const [order, user, ipnId] = await Promise.all([
       prisma.order.findUnique({
         where: { id: orderId },
         include: {
@@ -129,6 +107,8 @@ export async function POST(request: NextRequest) {
       prisma.user.findUnique({ where: { clerkId: userId } }),
       getIpnIdFast(),
     ])
+
+    console.log(`[Pesapal Init] Phase 2 done (DB + IPN) — ${Date.now() - startTime}ms, ipnId=${ipnId ? 'yes' : 'no'}`)
 
     if (!order) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 })
@@ -142,9 +122,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Payment record not found' }, { status: 404 })
     }
 
-    // Phase 3: Submit to Pesapal (~2-5s)
-    // Only 1 Pesapal API call on the critical path: submitOrder
-    // (authenticate is called inside submitOrder by the client, token not shared across instances)
+    // Phase 3: Submit to Pesapal (3-5s)
+    // This is the ONLY Pesapal API call on the critical path.
+    // authenticate() reads token from DB (~100ms) — no additional Pesapal call.
     const orderTrackingId = generateTransactionReference('DUKA')
 
     const response = await pesapalClient.submitOrder({
@@ -163,6 +143,8 @@ export async function POST(request: NextRequest) {
         country_code: COUNTRY_TO_ISO2[order.buyerCountry || 'UGANDA'] || 'UG',
       },
     })
+
+    console.log(`[Pesapal Init] Phase 3 done (submitOrder) — ${Date.now() - startTime}ms`)
 
     if (response.error || response.status !== '200') {
       throw new Error(response.error || 'Failed to submit Pesapal order')
@@ -190,8 +172,9 @@ export async function POST(request: NextRequest) {
       }),
     ])
 
+    console.log(`[Pesapal Init] Phase 4 done (DB update) — ${Date.now() - startTime}ms — TOTAL`)
+
     // Fire-and-forget: register IPN if not already stored
-    // This runs AFTER the response is sent, does not block payment
     if (!ipnId) {
       registerIpnAsync(origin)
     }
@@ -204,7 +187,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Pesapal init error:', error)
+    console.error(`[Pesapal Init] ERROR after ${Date.now() - startTime}ms:`, error)
     return NextResponse.json(
       { error: 'Failed to initialize payment' },
       { status: 500 }

@@ -252,16 +252,16 @@ export default function CheckoutPage() {
     }
   }, [paymentMethod, paymentMethods, setPaymentMethod])
 
-  // Pre-cache Pesapal auth token in DB when user reaches step 2 (Payment method).
-  // This runs silently in the background. By the time the user clicks "Pay"
-  // at step 4, the token will be in the DB (~100ms read instead of 3-5s API call).
+  // Pre-cache Pesapal auth token in DB when user enters the checkout page (step 0).
+  // This runs silently in the background. By the time the user reaches step 4
+  // and clicks "Pay", the token will be in the DB (~100ms read instead of 3-5s API call).
+  // We fire early (step 0) because Vercel cold starts + Pesapal latency = ~5-8s.
   useEffect(() => {
-    if (currentStep < 2) return
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 15_000)
     fetch('/api/pesapal/ensure-token', { signal: controller.signal }).catch(() => {})
     return () => { clearTimeout(timeout); controller.abort() }
-  }, [currentStep])
+  }, [])
 
   // Redirect if cart is empty
   if (items.length === 0) {
@@ -370,7 +370,10 @@ export default function CheckoutPage() {
       }
 
       const payController = new AbortController()
-      const payTimeout = setTimeout(() => payController.abort(), 20_000)
+      // 30s timeout: Vercel returns 504 at 10s but the error may take time
+      // to propagate through the network. 30s gives enough margin without
+      // making the user wait too long for a manual retry prompt.
+      const payTimeout = setTimeout(() => payController.abort(), 30_000)
 
       const paymentResponse = await fetch('/api/pesapal/initialize', {
         method: 'POST',

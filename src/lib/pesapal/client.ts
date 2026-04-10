@@ -18,6 +18,9 @@ import { prisma } from '@/lib/db'
 // PESAPAL CONFIGURATION
 // ============================================
 
+// Track token refresh in-progress to prevent concurrent L3 calls within same invocation
+let tokenRefreshPromise: Promise<string> | null = null
+
 type PesapalEnv = 'sandbox' | 'production'
 
 const PESAPAL_BASE_URLS: Record<PesapalEnv, string> = {
@@ -40,97 +43,89 @@ const PESAPAL_ENV: PesapalEnv = resolvePesapalEnv()
 const PESAPAL_BASE_URL = PESAPAL_BASE_URLS[PESAPAL_ENV]
 
 /**
- * Get credentials from environment variables or PlatformSettings DB.
+ * Get Pesapal auth credentials (clientId + clientSecret only).
+ *
+ * IMPORTANT: This function does NOT resolve IPN ID. The IPN ID is handled
+ * separately by getIpnIdFast() in the initialize route. This prevents
+ * authenticate() from triggering unnecessary Pesapal API calls (GetIPNList)
+ * which would blow the Vercel 10s timeout.
  *
  * Priority: PlatformSettings (DB) → env vars
- * If PESAPAL_IPN_ID is missing, auto-fetches it from Pesapal's GetIPNList API
- * by matching the registered URL against NEXT_PUBLIC_APP_URL.
- *
- * NOTE: The auto-fetched IPN ID is cached in-process so it only calls
- * Pesapal's API once per serverless function invocation.
  */
-let autoFetchedIpnId: string | null = null
-
-export async function resolveIpnId(): Promise<string> {
-  // 1. Return cached auto-fetched ID if available
-  if (autoFetchedIpnId) return autoFetchedIpnId
-
-  // 2. Check env var first
-  const envIpn = process.env.PESAPAL_IPN_ID
-  if (envIpn) return envIpn
-
-  // 3. Auto-fetch from Pesapal API by listing registered IPNs
-  // Use the singleton pesapalClient to share token cache
+async function getAuthCredentials(): Promise<{ clientId: string; clientSecret: string }> {
   try {
-    const ipnList = await pesapalClient.getIPNList()
-
-    if (ipnList.ipn_list && ipnList.ipn_list.length > 0) {
-      // Try to match by our app domain
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || ''
-      const domain = appUrl.replace(/^https?:\/\/(www\.)?/, '').replace(/\/.*$/, '')
-
-      const match = ipnList.ipn_list.find(
-        (ipn) =>
-          ipn.url.includes(domain) ||
-          ipn.url.includes('duukaafrica.com')
-      )
-
-      if (match) {
-        autoFetchedIpnId = match.ipn_id
-        log.info(`Auto-resolved IPN ID: ${match.ipn_id} (${match.url})`)
-        return match.ipn_id
-      }
-
-      // No match found — use the first active one as fallback
-      const firstActive = ipnList.ipn_list.find(
-        (ipn) => ipn.status?.toLowerCase() === 'active' || ipn.status === '200'
-      )
-      if (firstActive) {
-        autoFetchedIpnId = firstActive.ipn_id
-        log.info(`Auto-resolved IPN ID (first active): ${firstActive.ipn_id} (${firstActive.url})`)
-        return firstActive.ipn_id
-      }
-
-      // Last resort: use any registered IPN
-      autoFetchedIpnId = ipnList.ipn_list[0].ipn_id
-      log.warn(`Auto-resolved IPN ID (first available): ${autoFetchedIpnId} (${ipnList.ipn_list[0].url})`)
-      return autoFetchedIpnId
-    }
-  } catch (err) {
-    log.error('Failed to auto-fetch IPN ID from Pesapal API', err)
-  }
-
-  return ''
-}
-
-export async function getCredentials(): Promise<{
-  clientId: string
-  clientSecret: string
-  ipnId: string
-}> {
-  // Attempt database lookup if pesapal fields exist on PlatformSettings.
-  try {
-    const settings = await prisma.platformSettings.findFirst()
-    const raw = settings as unknown as Record<string, unknown>
-    if (typeof raw?.pesapalClientId === 'string' && raw.pesapalClientId) {
-      const dbIpnId = typeof raw.pesapalIpnId === 'string' && raw.pesapalIpnId
-        ? raw.pesapalIpnId
-        : ''
-      return {
-        clientId: raw.pesapalClientId,
-        clientSecret: typeof raw.pesapalClientSecret === 'string' ? raw.pesapalClientSecret : (process.env.PESAPAL_CLIENT_SECRET || ''),
-        ipnId: dbIpnId || await resolveIpnId(),
-      }
+    const settings = await prisma.platformSettings.findFirst({
+      select: { pesapalClientId: true, pesapalClientSecret: true },
+    })
+    const clientId = settings?.pesapalClientId
+    const clientSecret = settings?.pesapalClientSecret
+    if (clientId && clientSecret) {
+      return { clientId, clientSecret }
     }
   } catch {
-    // ignore — fall through to env vars
+    // DB read failed — fall through to env vars
   }
-
   return {
     clientId: process.env.PESAPAL_CLIENT_ID || '',
     clientSecret: process.env.PESAPAL_CLIENT_SECRET || '',
-    ipnId: await resolveIpnId(),
   }
+}
+
+// ============================================
+// DATABASE IPN CACHE (L2 — survives serverless cold starts)
+// ============================================
+// The IPN ID is cached in the Setting table so getIpnIdFast() in the
+// initialize route can read it instantly without any Pesapal API calls.
+
+async function getCachedIpnFromDb(): Promise<string | null> {
+  try {
+    const row = await prisma.setting.findUnique({ where: { key: 'pesapal_ipn_id' } })
+    return row?.value || null
+  } catch {
+    return null
+  }
+}
+
+async function saveIpnToDb(ipnId: string): Promise<void> {
+  try {
+    await prisma.setting.upsert({
+      where: { key: 'pesapal_ipn_id' },
+      create: { key: 'pesapal_ipn_id', value: ipnId, type: 'STRING' },
+      update: { value: ipnId },
+    })
+    log.info('IPN ID cached to DB Setting table')
+  } catch (err) {
+    log.warn('Failed to cache IPN ID to DB', err)
+  }
+}
+
+/**
+ * Get IPN ID from the fastest available source.
+ * Used by the initialize route — NEVER calls Pesapal API.
+ *
+ * Priority: env var → DB Setting table → DB PlatformSettings → empty string
+ */
+export async function getIpnIdFast(): Promise<string> {
+  // 1. Environment variable (instant)
+  const envIpn = process.env.PESAPAL_IPN_ID
+  if (envIpn) return envIpn
+
+  // 2. DB Setting table (fast, ~50ms)
+  const settingIpn = await getCachedIpnFromDb()
+  if (settingIpn) return settingIpn
+
+  // 3. PlatformSettings table (admin config, ~100ms)
+  try {
+    const settings = await prisma.platformSettings.findFirst({
+      select: { pesapalIpnId: true },
+    })
+    if (settings?.pesapalIpnId) return settings.pesapalIpnId
+  } catch {
+    // ignore
+  }
+
+  // 4. No IPN found — proceed with empty string
+  return ''
 }
 
 // ============================================
@@ -456,58 +451,74 @@ class PesapalClient {
       return cachedToken.token
     }
 
+    // Deduplicate: if a token refresh is already in progress, wait for it
+    // instead of starting a second concurrent Pesapal API call
+    if (tokenRefreshPromise) {
+      log.info('Waiting for in-progress token refresh')
+      return tokenRefreshPromise
+    }
+
     // L2: Database cache (~100ms — survives serverless cold starts)
-    const dbToken = await getCachedTokenFromDb()
-    if (dbToken) {
-      cachedToken = dbToken // populate L1 from L2
-      log.info('Token loaded from DB cache')
-      return dbToken.token
-    }
+    tokenRefreshPromise = (async () => {
+      try {
+        const dbToken = await getCachedTokenFromDb()
+        if (dbToken) {
+          cachedToken = dbToken // populate L1 from L2
+          log.info('Token loaded from DB cache')
+          return dbToken.token
+        }
 
-    // L3: Pesapal API call (3-5s from Vercel — only on first call or expiry)
-    const { clientId, clientSecret } = await getCredentials()
+        // L3: Pesapal API call (3-5s from Vercel — only on first call or expiry)
+        // Use getAuthCredentials() — NOT getCredentials() — to avoid triggering
+        // resolveIpnId() which would make ANOTHER Pesapal API call (GetIPNList).
+        const { clientId, clientSecret } = await getAuthCredentials()
 
-    if (!clientId || !clientSecret) {
-      throw new PesapalAuthError(
-        'PESAPAL_CLIENT_ID and PESAPAL_CLIENT_SECRET are required'
-      )
-    }
+        if (!clientId || !clientSecret) {
+          throw new PesapalAuthError(
+            'PESAPAL_CLIENT_ID and PESAPAL_CLIENT_SECRET are required'
+          )
+        }
 
-    const body: PesapalTokenRequest = {
-      client_id: clientId,
-      client_secret: clientSecret,
-    }
+        const body: PesapalTokenRequest = {
+          client_id: clientId,
+          client_secret: clientSecret,
+        }
 
-    // Auth endpoint does NOT require auth header itself
-    const result = await this.request<PesapalTokenResponse>(
-      '/api/Auth/RequestToken',
-      'POST',
-      body,
-      false // no auth header for token request
-    )
+        // Auth endpoint does NOT require auth header itself
+        const result = await this.request<PesapalTokenResponse>(
+          '/api/Auth/RequestToken',
+          'POST',
+          body,
+          false // no auth header for token request
+        )
 
-    if (result.error || result.status !== '200') {
-      throw new PesapalAuthError(
-        result.errorMessage || 'Authentication failed',
-        parseInt(result.status, 10) || 401
-      )
-    }
+        if (result.error || result.status !== '200') {
+          throw new PesapalAuthError(
+            result.errorMessage || 'Authentication failed',
+            parseInt(result.status, 10) || 401
+          )
+        }
 
-    // Cache token in both L1 (memory) and L2 (DB)
-    const expiryMs = new Date(result.expiryDate).getTime()
-    cachedToken = {
-      token: result.token,
-      expiry: expiryMs,
-    }
+        // Cache token in both L1 (memory) and L2 (DB)
+        const expiryMs = new Date(result.expiryDate).getTime()
+        cachedToken = {
+          token: result.token,
+          expiry: expiryMs,
+        }
 
-    // Save to DB — MUST await so the token persists even if the caller times out.
-    // Fire-and-forget was causing the token to never be saved (Promise killed by Vercel timeout).
-    await saveTokenToDb(result.token, expiryMs)
+        // Save to DB — MUST await so the token persists even if the caller times out.
+        await saveTokenToDb(result.token, expiryMs)
 
-    const ttlSec = Math.round((expiryMs - Date.now()) / 1000)
-    log.info(`Token obtained from Pesapal API, TTL ~${ttlSec}s`)
+        const ttlSec = Math.round((expiryMs - Date.now()) / 1000)
+        log.info(`Token obtained from Pesapal API, TTL ~${ttlSec}s`)
 
-    return result.token
+        return result.token
+      } finally {
+        tokenRefreshPromise = null
+      }
+    })()
+
+    return tokenRefreshPromise
   }
 
   /**
@@ -577,6 +588,8 @@ class PesapalClient {
 
   /**
    * List all registered IPN URLs.
+   * WARNING: This makes a Pesapal API call (~3-5s). Only use in background tasks,
+   * NEVER on the payment critical path.
    */
   async getIPNList(): Promise<PesapalIPNListResponse> {
     return this.request<PesapalIPNListResponse>(
@@ -637,6 +650,9 @@ class PesapalClient {
 
 // Export singleton instance
 export const pesapalClient = new PesapalClient()
+
+// Re-export saveIpnToDb for use in the initialize route's background registration
+export { saveIpnToDb }
 
 // ============================================
 // HELPER FUNCTIONS
