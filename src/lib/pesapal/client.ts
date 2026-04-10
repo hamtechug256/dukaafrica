@@ -60,9 +60,9 @@ async function resolveIpnId(): Promise<string> {
   if (envIpn) return envIpn
 
   // 3. Auto-fetch from Pesapal API by listing registered IPNs
+  // Use the singleton pesapalClient to share token cache
   try {
-    const client = new PesapalClient()
-    const ipnList = await client.getIPNList()
+    const ipnList = await pesapalClient.getIPNList()
 
     if (ipnList.ipn_list && ipnList.ipn_list.length > 0) {
       // Try to match by our app domain
@@ -362,9 +362,14 @@ class PesapalClient {
       options.body = JSON.stringify(data)
     }
 
+    // Timeout: abort after 15 seconds to prevent hanging requests
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 15_000)
+    options.signal = controller.signal
+
     log.info(`→ ${method} ${endpoint}`)
 
-    const response = await fetch(url, options)
+    const response = await fetch(url, options).finally(() => clearTimeout(timeout))
 
     let responseBody: unknown
     try {

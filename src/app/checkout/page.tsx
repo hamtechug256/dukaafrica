@@ -302,9 +302,14 @@ export default function CheckoutPage() {
       // Sanitize shipping address: remove UI-only fields like saveAddress
       const { saveAddress: _sa, ...cleanAddress } = formData
 
+      // Timeout: abort create-order after 30 seconds
+      const orderController = new AbortController()
+      const orderTimeout = setTimeout(() => orderController.abort(), 30_000)
+
       const orderResponse = await fetch('/api/checkout/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: orderController.signal,
         body: JSON.stringify({
           items: orderItems,
           shippingAddress: cleanAddress,
@@ -317,7 +322,7 @@ export default function CheckoutPage() {
           buyerCurrency,
           idempotencyKey,
         }),
-      })
+      }).finally(() => clearTimeout(orderTimeout))
 
       const orderData = await orderResponse.json()
 
@@ -341,16 +346,21 @@ export default function CheckoutPage() {
         normalizedPhone = countryCode + normalizedPhone.substring(1)
       }
 
+      // Timeout: abort Pesapal init after 30 seconds
+      const payController = new AbortController()
+      const payTimeout = setTimeout(() => payController.abort(), 30_000)
+
       const paymentResponse = await fetch('/api/pesapal/initialize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: payController.signal,
         body: JSON.stringify({
           orderId: orderData.order.id,
           customerEmail: user?.emailAddresses?.[0]?.emailAddress || '',
           customerPhone: normalizedPhone,
           customerName: formData.fullName,
         })
-      })
+      }).finally(() => clearTimeout(payTimeout))
 
       const paymentData = await paymentResponse.json()
 
@@ -363,7 +373,11 @@ export default function CheckoutPage() {
 
     } catch (error: any) {
       console.error('Error placing order:', error)
-      alert(error.message || 'Something went wrong. Please try again.')
+      if (error.name === 'AbortError') {
+        alert('Request timed out. The payment server is taking too long — please try again in a moment.')
+      } else {
+        alert(error.message || 'Something went wrong. Please try again.')
+      }
     } finally {
       setIsLoading(false)
     }
