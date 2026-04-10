@@ -20,6 +20,7 @@ export interface CartItem {
   sellerCountry?: string
   weight?: number
   currency?: string
+  freeShipping?: boolean
   localShippingOnly?: boolean
   shipsToCountries?: string[]
 }

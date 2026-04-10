@@ -164,9 +164,9 @@ export async function POST(req: Request) {
 
     const dbProducts = await prisma.product.findMany({
       where: { id: { in: productIds } },
-      select: { id: true, price: true, status: true, currency: true, quantity: true, storeId: true, Store: { select: { id: true, country: true, commissionRate: true } } },
+      select: { id: true, price: true, status: true, currency: true, quantity: true, storeId: true, freeShipping: true, Store: { select: { id: true, country: true, commissionRate: true } } },
     })
-    const productPriceMap = new Map(dbProducts.map(p => [p.id, { ...p, price: p.price.toNumber(), quantity: p.quantity }]))
+    const productPriceMap = new Map(dbProducts.map(p => [p.id, { ...p, price: p.price.toNumber(), quantity: p.quantity, freeShipping: p.freeShipping }]))
 
     // Fetch variants if any
     const dbVariants = variantIds.length > 0
@@ -224,7 +224,25 @@ export async function POST(req: Request) {
 
     // Calculate server-side total with coupon discount
     const discount = Math.round(couponDiscount) // Round to avoid Decimal precision issues
-    const effectiveShipping = couponFreeShipping ? 0 : shipping
+
+    // SECURITY FIX: Verify free shipping at product level.
+    // A buyer cannot send shipping: 0 unless ALL products have freeShipping = true
+    // or a coupon provides free shipping.
+    const allProductsHaveFreeShipping = items.every(item => {
+      const dbProduct = productPriceMap.get(item.productId)
+      return dbProduct?.freeShipping === true
+    })
+    const serverFreeShipping = allProductsHaveFreeShipping || couponFreeShipping
+    const effectiveShipping = serverFreeShipping ? 0 : shipping
+
+    // SECURITY FIX: If buyer claims free shipping but products don't qualify, reject
+    if (shipping === 0 && !serverFreeShipping) {
+      return NextResponse.json(
+        { error: 'Shipping fee cannot be zero. Please refresh and try again.' },
+        { status: 400 }
+      )
+    }
+
     const serverTotal = serverSubtotal - discount + effectiveShipping
 
     // SECURITY FIX: Reject if client prices don't match server prices (within tolerance)

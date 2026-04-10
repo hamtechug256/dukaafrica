@@ -149,17 +149,34 @@ export default function CheckoutPage() {
   // Get buyer's currency based on selected country
   const buyerCurrency = COUNTRY_CURRENCY[formData.country as keyof typeof COUNTRY_CURRENCY] || 'UGX'
 
+  // Determine if ALL cart items have free shipping
+  const allItemsFreeShipping = items.length > 0 && items.every(item => item.freeShipping)
+
   // Calculate shipping when country changes
   useEffect(() => {
-    if (items.length > 0 && formData.country) {
+    if (items.length > 0 && formData.country && !allItemsFreeShipping) {
       calculateShipping()
     }
-  }, [formData.country, items])
+    // If all items have free shipping, clear any previous delivery option
+    if (allItemsFreeShipping) {
+      setDeliveryOption({
+        id: 'bus',
+        name: 'Free Shipping',
+        price: 0,
+        estimatedDays: '3-7 days',
+        zoneType: 'LOCAL'
+      })
+      setShippingResult(null)
+    }
+  }, [formData.country, items, allItemsFreeShipping])
 
   const calculateShipping = async () => {
     setIsCalculatingShipping(true)
     try {
       const firstItem = items[0]
+      // Check shipping restrictions from ALL cart items (not just the first)
+      const anyLocalOnly = items.some(item => item.localShippingOnly)
+      const anyRestrictedCountries = items.find(item => item.shipsToCountries && item.shipsToCountries.length > 0)
       
       const response = await fetch('/api/shipping/calculate', {
         method: 'POST',
@@ -169,7 +186,9 @@ export default function CheckoutPage() {
           buyerCountry: formData.country,
           weightKg: items.reduce((sum, item) => sum + (item.weight || 0.5) * item.quantity, 0),
           sellerCurrency: firstItem.currency || 'UGX',
-          buyerCurrency
+          buyerCurrency,
+          localShippingOnly: anyLocalOnly,
+          shipsToCountries: anyRestrictedCountries?.shipsToCountries || null,
         })
       })
 
@@ -184,6 +203,9 @@ export default function CheckoutPage() {
           estimatedDays: result.shipping.estimatedDays,
           zoneType: result.shipping.zoneType
         })
+      } else if (!result.canShip) {
+        // Shipping not possible to this country for some items
+        setDeliveryOption(null)
       }
     } catch (error) {
       console.error('Shipping calculation error:', error)
@@ -195,7 +217,8 @@ export default function CheckoutPage() {
   const subtotal = getSubtotal()
   const savings = getTotalSavings()
   const itemCount = getItemCount()
-  const shipping = deliveryOption?.price || 0
+  // Shipping: use calculated fee, or 0 if product-level free shipping
+  const shipping = allItemsFreeShipping ? 0 : (deliveryOption?.price || 0)
   const total = subtotal + shipping
 
   // Convert savings to buyer's currency if needed
@@ -866,7 +889,13 @@ export default function CheckoutPage() {
                   )}
                   <div className="flex justify-between text-gray-600 dark:text-gray-400">
                     <span>Shipping</span>
-                    <span>{shipping > 0 ? formatPrice(shipping, buyerCurrency) : 'FREE'}</span>
+                    <span>
+                      {!formData.country
+                        ? '—'
+                        : shipping > 0
+                          ? formatPrice(shipping, buyerCurrency)
+                          : 'FREE'}
+                    </span>
                   </div>
                 </div>
 

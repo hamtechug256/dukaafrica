@@ -94,6 +94,12 @@ export function FlashSaleCard({ product, showStore = true, onExpire, compact = f
         storeId: product.store.id,
         storeName: product.store.name,
         maxQuantity: Math.min(remainingStock, 5), // Limit to 5 per customer
+        sellerCountry: product.store.country,
+        weight: product.weight ?? undefined,
+        currency: product.currency,
+        freeShipping: !!product.freeShipping,
+        localShippingOnly: !!product.localShippingOnly,
+        shipsToCountries: product.shipsToCountries ? JSON.parse(String(product.shipsToCountries)) : undefined,
       })
 
       setIsAdding(false)

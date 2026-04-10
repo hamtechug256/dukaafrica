@@ -55,6 +55,9 @@ interface Product {
   hasVariants: boolean
   variantOptions: string | null
   freeShipping: boolean
+  localShippingOnly: boolean
+  shipsToCountries: string | null
+  currency: string
   weight: number | null
   store: {
     id: string
@@ -218,6 +221,10 @@ export function ProductDetailClient({ product, images, relatedProducts, flashSal
       maxQuantity: variant?.quantity ?? availableStock,
       sellerCountry: product.store.country,
       weight: product.weight ?? undefined,
+      currency: product.currency,
+      freeShipping: product.freeShipping,
+      localShippingOnly: product.localShippingOnly,
+      shipsToCountries: product.shipsToCountries ? JSON.parse(product.shipsToCountries) : undefined,
     })
     
     // Show success feedback

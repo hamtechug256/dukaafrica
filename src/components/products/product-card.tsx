@@ -132,6 +132,12 @@ export function ProductCard({ product, showStore = true }: ProductCardProps) {
         storeId: product.store.id,
         storeName: product.store.name,
         maxQuantity,
+        sellerCountry: product.store.country,
+        weight: product.weight ?? undefined,
+        currency: product.currency,
+        freeShipping: !!product.freeShipping,
+        localShippingOnly: !!product.localShippingOnly,
+        shipsToCountries: product.shipsToCountries ? JSON.parse(String(product.shipsToCountries)) : undefined,
       })
 
       setIsAdding(false)
