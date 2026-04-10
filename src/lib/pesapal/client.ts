@@ -51,7 +51,7 @@ const PESAPAL_BASE_URL = PESAPAL_BASE_URLS[PESAPAL_ENV]
  */
 let autoFetchedIpnId: string | null = null
 
-async function resolveIpnId(): Promise<string> {
+export async function resolveIpnId(): Promise<string> {
   // 1. Return cached auto-fetched ID if available
   if (autoFetchedIpnId) return autoFetchedIpnId
 

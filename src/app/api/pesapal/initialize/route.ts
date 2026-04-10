@@ -14,7 +14,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/db'
-import { pesapalClient, generateTransactionReference, PesapalCurrency } from '@/lib/pesapal/client'
+import { pesapalClient, generateTransactionReference, PesapalCurrency, resolveIpnId } from '@/lib/pesapal/client'
 import { Prisma } from '@prisma/client'
 
 function toNum(val: unknown): number {
@@ -39,18 +39,27 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { orderId, customerEmail, customerPhone, customerName } = body
 
-    // Fast-fail: check required env vars before any DB calls
-    const ipnId = process.env.PESAPAL_IPN_ID || ''
-    if (!ipnId) {
-      return NextResponse.json(
-        { error: 'PESAPAL_IPN_ID environment variable is required. Set it in Vercel dashboard → Settings → Environment Variables.' },
-        { status: 500 }
-      )
-    }
+    // Phase 2: Resolve IPN ID + DB lookups in PARALLEL (~2-3s)
+    // resolveIpnId auto-fetches from Pesapal API if PESAPAL_IPN_ID env var is missing
+    const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_APP_URL || ''
+    const ipnPromise = resolveIpnId().then(async (resolved) => {
+      // If no IPN registered at all, auto-register one for our callback URL
+      if (!resolved) {
+        try {
+          const ipnUrl = `${origin}/api/pesapal/ipn`
+          const registered = await pesapalClient.registerIPN(ipnUrl, 'POST')
+          if (registered.ipn_id) {
+            console.log(`[Pesapal] Auto-registered IPN: ${registered.ipn_id} → ${ipnUrl}`)
+            return registered.ipn_id
+          }
+        } catch (err) {
+          console.error('[Pesapal] Failed to auto-register IPN:', err)
+        }
+      }
+      return resolved
+    })
 
-    // Phase 2: All DB lookups in PARALLEL (~2-3s)
-    // Include Payment in order query to eliminate a separate findUnique call
-    const [order, user] = await Promise.all([
+    const [order, user, ipnId] = await Promise.all([
       prisma.order.findUnique({
         where: { id: orderId },
         include: {
@@ -59,7 +68,15 @@ export async function POST(request: NextRequest) {
         },
       }),
       prisma.user.findUnique({ where: { clerkId: userId } }),
+      ipnPromise,
     ])
+
+    if (!ipnId) {
+      return NextResponse.json(
+        { error: 'No IPN configuration found. Please set PESAPAL_IPN_ID in Vercel environment variables.' },
+        { status: 500 }
+      )
+    }
 
     if (!order) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 })
@@ -76,7 +93,6 @@ export async function POST(request: NextRequest) {
     // Phase 3: Submit to Pesapal (~2-3s)
     // Token auth happens inside submitOrder — Pesapal client caches it per-request
     const orderTrackingId = generateTransactionReference('DUKA')
-    const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_APP_URL || ''
 
     const response = await pesapalClient.submitOrder({
       id: orderTrackingId,
