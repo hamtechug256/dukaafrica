@@ -252,6 +252,15 @@ export default function CheckoutPage() {
     }
   }, [paymentMethod, paymentMethods, setPaymentMethod])
 
+  // Pre-cache Pesapal auth token in DB when user reaches step 2 (Delivery).
+  // This runs silently in the background. By the time the user clicks "Pay"
+  // at step 4, the token will be in the DB (~100ms read instead of 3-5s API call).
+  useEffect(() => {
+    if (currentStep >= 2) {
+      fetch('/api/pesapal/ensure-token', { signal: AbortSignal.timeout(15_000) }).catch(() => {})
+    }
+  }, [currentStep >= 2])
+
   // Redirect if cart is empty
   if (items.length === 0) {
     return (

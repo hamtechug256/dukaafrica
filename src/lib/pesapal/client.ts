@@ -500,8 +500,9 @@ class PesapalClient {
       expiry: expiryMs,
     }
 
-    // Save to DB — fire-and-forget so it doesn't block the caller
-    saveTokenToDb(result.token, expiryMs)
+    // Save to DB — MUST await so the token persists even if the caller times out.
+    // Fire-and-forget was causing the token to never be saved (Promise killed by Vercel timeout).
+    await saveTokenToDb(result.token, expiryMs)
 
     const ttlSec = Math.round((expiryMs - Date.now()) / 1000)
     log.info(`Token obtained from Pesapal API, TTL ~${ttlSec}s`)
