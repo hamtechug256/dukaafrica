@@ -912,7 +912,7 @@ export default function CheckoutPage() {
                       <ArrowLeft className="w-4 h-4 mr-2" />
                       Back
                     </Button>
-                    <Button size="lg" onClick={handlePlaceOrder} disabled={isLoading}>
+                    <Button size="lg" onClick={() => handlePlaceOrder()} disabled={isLoading}>
                       {isLoading ? (
                         <>
                           <Loader2 className="w-4 h-4 mr-2 animate-spin" />
