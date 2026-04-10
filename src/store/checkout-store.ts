@@ -74,7 +74,7 @@ interface CheckoutStore {
 }
 
 const initialSteps: CheckoutStep[] = [
-  { id: 'address', name: 'Shipping', isCompleted: false, isCurrent: true },
+  { id: 'address', name: 'Address', isCompleted: false, isCurrent: true },
   { id: 'delivery', name: 'Delivery', isCompleted: false, isCurrent: false },
   { id: 'payment', name: 'Payment', isCompleted: false, isCurrent: false },
   { id: 'review', name: 'Review', isCompleted: false, isCurrent: false },

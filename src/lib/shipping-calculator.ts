@@ -262,6 +262,7 @@ async function getShippingRates(
     });
 
     if (rates) {
+      console.log(`[shipping] DB rates for ${zoneType}: baseFee=${rates.baseFee}, perKg=${rates.perKgFee}, crossBorder=${rates.crossBorderFee}, markup=${rates.platformMarkupPercent}% (tier: ${rates.ShippingTier?.name || 'unknown'}, currency: ${rates.currency})`);
       // Convert to requested currency if needed (convert Decimal to number first)
       const conversionRate = getConversionRate(rates.currency as Currency, currency);
       const baseFee = toNum(rates.baseFee);
