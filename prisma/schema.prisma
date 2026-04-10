@@ -1000,6 +1000,28 @@ model BuyerProtectionClaim {
 }
 
 // ============================================
+// ANNOUNCEMENTS
+// ============================================
+
+model Announcement {
+  id             String    @id @default(uuid())
+  title          String
+  content        String
+  type           String    @default("INFO") // INFO, WARNING, MAINTENANCE, PROMOTION
+  targetAudience String    @default("ALL") // ALL, SELLERS, BUYERS
+  targetCountry  String?   // Specific country code e.g. "UGANDA", "KENYA"
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  expiresAt      DateTime?
+  createdBy      String
+
+  @@index([isActive])
+  @@index([type])
+  @@index([targetAudience])
+  @@index([createdAt])
+}
+
+// ============================================
 // CONTACT SUBMISSIONS
 // ============================================
 

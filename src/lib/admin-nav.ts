@@ -20,6 +20,8 @@ import {
   Tag,
   Award,
   Flag,
+  Megaphone,
+  LifeBuoy,
 } from 'lucide-react'
 
 export interface NavItem {
@@ -42,5 +44,7 @@ export const adminNavItems: NavItem[] = [
   { href: '/admin/documents', icon: FileText, label: 'Documents' },
   { href: '/admin/tiers', icon: Award, label: 'Tiers' },
   { href: '/admin/moderation', icon: Flag, label: 'Moderation' },
+  { href: '/admin/announcements', icon: Megaphone, label: 'Announcements' },
+  { href: '/admin/support-tickets', icon: LifeBuoy, label: 'Support Tickets' },
   { href: '/admin/settings', icon: Settings, label: 'Settings' },
 ]
