@@ -118,13 +118,6 @@ export default function CheckoutPage() {
   // Processing popup state
   const [processingStage, setProcessingStage] = useState<'idle' | 'creating' | 'connecting' | 'redirecting'>('idle')
   const [processingError, setProcessingError] = useState<string | null>(null)
-
-  // Pre-warm Pesapal connection when user reaches payment step
-  useEffect(() => {
-    if (currentStep === 2) {
-      fetch('/api/pesapal/warm').catch(() => { /* non-critical */ })
-    }
-  }, [currentStep])
   const [formData, setFormData] = useState({
     fullName: user?.fullName || '',
     phone: '',
@@ -391,11 +384,11 @@ export default function CheckoutPage() {
       console.error('Error placing order:', error)
       setProcessingStage('idle')
       if (error.name === 'AbortError' && retryCount < 2) {
-        // Auto-retry on timeout — the warmup on retry will be faster
+        // Auto-retry on timeout
         console.log(`[checkout] Timeout, auto-retrying (${retryCount + 1}/2)...`)
         setProcessingStage('connecting')
-        // Re-warm Pesapal before retry
-        await fetch('/api/pesapal/warm').catch(() => {})
+        // Small delay before retry to let the serverless function cool down
+        await new Promise(r => setTimeout(r, 2000))
         return handlePlaceOrder(retryCount + 1)
       }
       const message = error.name === 'AbortError'
