@@ -150,7 +150,8 @@ export default function CheckoutPage() {
   const buyerCurrency = COUNTRY_CURRENCY[formData.country as keyof typeof COUNTRY_CURRENCY] || 'UGX'
 
   // Determine if ALL cart items have free shipping
-  const allItemsFreeShipping = items.length > 0 && items.every(item => item.freeShipping)
+  // Use `=== true` to handle undefined (items added before shipping fix) — they should NOT count as free
+  const allItemsFreeShipping = items.length > 0 && items.every(item => item.freeShipping === true)
 
   // Calculate shipping when country changes
   useEffect(() => {

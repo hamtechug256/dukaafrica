@@ -60,7 +60,7 @@ interface CheckoutStore {
   setShippingAddress: (address: Address) => void
   setBillingAddress: (address: Address) => void
   setUseSameAddress: (value: boolean) => void
-  setDeliveryOption: (option: DeliveryOption) => void
+  setDeliveryOption: (option: DeliveryOption | null) => void
   setPaymentMethod: (method: PaymentMethod) => void
   setCouponCode: (code: string | null) => void
   setDiscount: (amount: number) => void
