@@ -28,7 +28,7 @@ import {
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { formatPrice, COUNTRY_INFO, COUNTRY_CURRENCY, Currency, Country, PHONE_PATTERNS, getRegulatorForCountry, convertCurrency, normalizeCountryCode } from '@/lib/currency'
+import { formatPrice, COUNTRY_INFO, COUNTRY_CURRENCY, Currency, Country, PHONE_PATTERNS, getRegulatorForCountry, convertCurrency, normalizeCountryCode, MOBILE_MONEY_PROVIDERS } from '@/lib/currency'
 
 // Countries we support — derived from currency.ts (single source of truth)
 const countries: Array<{ code: Country; name: string; flag: string; currency: Currency; phoneCode: string }> =
@@ -75,27 +75,19 @@ function getPaymentMethodsForCountry(countryCode: string): PaymentOption[] {
     icon: 'CreditCard',
   }
 
-  const mobileMoneyByCountry: Record<string, PaymentOption[]> = {
-    UGANDA: [
-      { id: 'mtn_momo_ug', type: 'MOBILE_MONEY', provider: 'PESAPAL', label: 'MTN Mobile Money', icon: 'Smartphone', mobileMoneyCode: 'MTN_MONEY_UG' },
-      { id: 'airtel_money_ug', type: 'MOBILE_MONEY', provider: 'PESAPAL', label: 'Airtel Money', icon: 'Smartphone', mobileMoneyCode: 'AIRTEL_MONEY_UG' },
-    ],
-    KENYA: [
-      { id: 'mpesa_ke', type: 'MOBILE_MONEY', provider: 'PESAPAL', label: 'M-Pesa', icon: 'Smartphone', mobileMoneyCode: 'MPESA' },
-      { id: 'airtel_money_ke', type: 'MOBILE_MONEY', provider: 'PESAPAL', label: 'Airtel Money', icon: 'Smartphone', mobileMoneyCode: 'AIRTEL_MONEY_KE' },
-    ],
-    TANZANIA: [
-      { id: 'mpesa_tz', type: 'MOBILE_MONEY', provider: 'PESAPAL', label: 'M-Pesa', icon: 'Smartphone', mobileMoneyCode: 'MPESA_TZ' },
-      { id: 'airtel_money_tz', type: 'MOBILE_MONEY', provider: 'PESAPAL', label: 'Airtel Money', icon: 'Smartphone', mobileMoneyCode: 'AIRTEL_MONEY_TZ' },
-      { id: 'tigo_pesa', type: 'MOBILE_MONEY', provider: 'PESAPAL', label: 'Tigo Pesa', icon: 'Smartphone', mobileMoneyCode: 'TIGO_PESA' },
-    ],
-    RWANDA: [
-      { id: 'mtn_momo_rw', type: 'MOBILE_MONEY', provider: 'PESAPAL', label: 'MTN Mobile Money', icon: 'Smartphone', mobileMoneyCode: 'MTN_MONEY_RW' },
-      { id: 'airtel_money_rw', type: 'MOBILE_MONEY', provider: 'PESAPAL', label: 'Airtel Money', icon: 'Smartphone', mobileMoneyCode: 'AIRTEL_MONEY_RW' },
-    ],
-  }
+  // Use centralized MOBILE_MONEY_PROVIDERS from currency.ts (single source of truth)
+  // Covers all 6 countries: UGANDA, KENYA, TANZANIA, RWANDA, SOUTH_SUDAN, BURUNDI
+  const countryProviders = MOBILE_MONEY_PROVIDERS[countryCode as Country] || []
+  const mobileMoneyOptions: PaymentOption[] = countryProviders.map(p => ({
+    id: p.id,
+    type: 'MOBILE_MONEY' as const,
+    provider: 'PESAPAL' as const,
+    label: p.name,
+    icon: 'Smartphone',
+    mobileMoneyCode: p.paymentCode,
+  }))
 
-  return [card, ...(mobileMoneyByCountry[countryCode] || [])]
+  return [card, ...mobileMoneyOptions]
 }
 
 export default function CheckoutPage() {
@@ -239,9 +231,9 @@ export default function CheckoutPage() {
       displaySavings = convertCurrency(rawSavings, itemCurrency, buyerCurrency)
     }
     // Business rule: savings can never exceed what the customer actually pays.
-    // Showing "You save UGX 15,225" on a UGX 15,000 subtotal is confusing.
-    if (displaySavings > subtotal) {
-      displaySavings = subtotal
+    // Showing "You save UGX 15,000" on a UGX 15,000 subtotal (100% savings) is misleading.
+    if (displaySavings >= subtotal) {
+      displaySavings = 0 // Hide savings entirely when it equals or exceeds the subtotal
     }
   } else if (cartCurrencies.length > 1) {
     // Mixed currencies — hide savings to avoid showing inaccurate amounts
@@ -707,9 +699,11 @@ export default function CheckoutPage() {
                                     ? 'bg-gradient-to-br from-yellow-400 to-yellow-500'
                                     : method.id.includes('airtel')
                                       ? 'bg-gradient-to-br from-red-500 to-red-600'
-                                      : method.id.includes('mpesa')
+                                      : method.id.includes('mpesa') || method.id.includes('lumitel')
                                         ? 'bg-gradient-to-br from-green-500 to-green-600'
-                                        : 'bg-gradient-to-br from-cyan-400 to-cyan-500'
+                                        : method.id.includes('tigo')
+                                          ? 'bg-gradient-to-br from-pink-500 to-pink-600'
+                                          : 'bg-gradient-to-br from-cyan-400 to-cyan-500'
                                 }`}
                                 >
                                   <Smartphone className="w-6 h-6 text-white" />

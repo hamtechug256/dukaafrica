@@ -26,14 +26,14 @@ function serializeDecimal<T>(obj: T): T {
 // Zod validation schema for order creation
 const OrderItemSchema = z.object({
   productId: z.string().min(1),
-  variantId: z.string().optional(),
+  variantId: z.string().nullable().optional(),
   name: z.string().min(1),
-  variantName: z.string().optional(),
+  variantName: z.string().nullable().optional(),
   quantity: z.number().int().positive(),
   price: z.number().positive(),
   storeId: z.string().min(1),
   storeName: z.string().min(1),
-  image: z.string().optional(),
+  image: z.string().nullable().optional(),
 })
 
 const ShippingAddressSchema = z.object({
@@ -111,8 +111,10 @@ export async function POST(req: Request) {
     // Validate input with Zod
     const validationResult = CreateOrderSchema.safeParse(body)
     if (!validationResult.success) {
+      const flat = validationResult.error.flatten()
+      console.error('[create-order] Validation failed:', JSON.stringify(flat.fieldErrors, null, 2))
       return NextResponse.json(
-        { error: 'Validation failed', details: validationResult.error.flatten() },
+        { error: 'Validation failed', details: flat },
         { status: 400 }
       )
     }
