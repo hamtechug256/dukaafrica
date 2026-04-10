@@ -294,12 +294,20 @@ export default function CheckoutPage() {
     setIsLoading(true)
     try {
       // Step 1: Create order
+      // Sanitize cart items: only send fields expected by the API schema
+      const orderItems = items.map(({ productId, name, price, quantity, storeId, storeName, image, variantId, variantName }) => ({
+        productId, name, price, quantity, storeId, storeName, image, variantId, variantName,
+      }))
+
+      // Sanitize shipping address: remove UI-only fields like saveAddress
+      const { saveAddress: _sa, ...cleanAddress } = formData
+
       const orderResponse = await fetch('/api/checkout/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          items,
-          shippingAddress: formData,
+          items: orderItems,
+          shippingAddress: cleanAddress,
           deliveryOption,
           paymentMethod: paymentMethod || { type: 'CARD', provider: 'PESAPAL', id: 'card', label: 'Visa / Mastercard' },
           subtotal,
@@ -314,7 +322,12 @@ export default function CheckoutPage() {
       const orderData = await orderResponse.json()
 
       if (!orderResponse.ok) {
-        throw new Error(orderData.error || 'Failed to create order')
+        // Log full validation details so we can debug field-level issues
+        console.error('[checkout] create-order error:', orderData.error, orderData.details)
+        const msg = orderData.details
+          ? `${orderData.error}: ${JSON.stringify(orderData.details.fieldErrors)}`
+          : orderData.error
+        throw new Error(msg || 'Failed to create order')
       }
 
       setOrderId(orderData.order.id)
