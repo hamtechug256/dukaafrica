@@ -2,6 +2,19 @@ import { prisma } from '@/lib/db'
 import { NextResponse } from 'next/server'
 import { auth, currentUser } from '@clerk/nextjs/server'
 
+/**
+ * Sanitize a slug: lowercase, replace non-alphanumeric with hyphens, strip edges.
+ * Ensures server-side safety even if frontend sends a dirty slug.
+ */
+function sanitizeSlug(raw: string): string {
+  return raw
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')  // non-alphanumeric → hyphen
+    .replace(/^-+|-+$/g, '')       // strip leading/trailing hyphens
+    .replace(/-+/g, '-')           // collapse consecutive hyphens
+}
+
 // Super admin emails from environment
 const SUPER_ADMIN_EMAILS = (process.env.SUPER_ADMIN_EMAILS || '')
   .split(',')
@@ -134,10 +147,18 @@ export async function PUT(
       return NextResponse.json({ error: 'Category not found' }, { status: 404 })
     }
 
-    // If slug is being changed, check for duplicates
+    // If slug is being changed, sanitize and check for duplicates
+    let sanitizedSlug: string | undefined
     if (slug && slug !== existingCategory.slug) {
+      sanitizedSlug = sanitizeSlug(slug)
+      if (!sanitizedSlug) {
+        return NextResponse.json(
+          { error: 'Invalid slug format. Use only letters, numbers, and hyphens.' },
+          { status: 400 }
+        )
+      }
       const duplicateSlug = await prisma.category.findUnique({
-        where: { slug },
+        where: { slug: sanitizedSlug },
       })
       if (duplicateSlug) {
         return NextResponse.json(
@@ -151,7 +172,7 @@ export async function PUT(
       where: { id },
       data: {
         name: name ?? existingCategory.name,
-        slug: slug ?? existingCategory.slug,
+        slug: sanitizedSlug || existingCategory.slug,
         description: description !== undefined ? description : existingCategory.description,
         image: image !== undefined ? image : existingCategory.image,
         icon: icon !== undefined ? icon : existingCategory.icon,

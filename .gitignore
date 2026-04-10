@@ -67,3 +67,4 @@ upload/
 download/
 # clerk configuration (can include secrets)
 /.clerk/
+dukaafrica

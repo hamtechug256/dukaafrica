@@ -2,6 +2,19 @@ import { prisma } from '@/lib/db'
 import { NextResponse } from 'next/server'
 import { auth, currentUser } from '@clerk/nextjs/server'
 
+/**
+ * Sanitize a slug: lowercase, replace non-alphanumeric with hyphens, strip edges.
+ * Ensures server-side safety even if frontend sends a dirty slug.
+ */
+function sanitizeSlug(raw: string): string {
+  return raw
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')  // non-alphanumeric → hyphen
+    .replace(/^-+|-+$/g, '')       // strip leading/trailing hyphens
+    .replace(/-+/g, '-')           // collapse consecutive hyphens
+}
+
 // Super admin emails from environment
 const SUPER_ADMIN_EMAILS = (process.env.SUPER_ADMIN_EMAILS || '')
   .split(',')
@@ -113,12 +126,23 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { name, slug, description, image, icon, parentId, order, isActive, isFeatured } = body
+    const { name, description, image, icon, parentId, order, isActive, isFeatured } = body
+    let rawSlug: string | undefined = body.slug
 
-    // Validate required fields
-    if (!name || !slug) {
+    // Validate required field: name
+    if (!name || typeof name !== 'string' || name.trim().length === 0) {
       return NextResponse.json(
-        { error: 'Name and slug are required' },
+        { error: 'Category name is required' },
+        { status: 400 }
+      )
+    }
+
+    // Auto-generate slug from name if not provided
+    const slug = rawSlug ? sanitizeSlug(rawSlug) : sanitizeSlug(name)
+
+    if (!slug || slug.length === 0) {
+      return NextResponse.json(
+        { error: 'Could not generate a valid slug from the category name. Use only letters and numbers.' },
         { status: 400 }
       )
     }

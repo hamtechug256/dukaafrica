@@ -16,10 +16,20 @@ function toNum(val: unknown): number {
   return 0
 }
 
-// Get category by slug
+// Currency symbols map for multi-country support
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  UGX: 'UGX',
+  KES: 'KES',
+  TZS: 'TZS',
+  RWF: 'RWF',
+  BIF: 'BIF',
+  USD: 'USD',
+}
+
+// Get category by slug (only active categories)
 async function getCategory(slug: string) {
   return prisma.category.findUnique({
-    where: { slug },
+    where: { slug, isActive: true },
   })
 }
 
@@ -61,7 +71,7 @@ function buildOrderBy(sort: string) {
 // Get products by category with filters
 async function getCategoryProducts(categoryId: string, searchParams: Record<string, string>) {
   const limit = 24
-  const page = parseInt(searchParams.page || '1')
+  const page = Math.max(1, parseInt(searchParams.page || '1'))
   const skip = (page - 1) * limit
   const sort = searchParams.sort || 'newest'
 
@@ -148,6 +158,44 @@ interface CategoryPageProps {
   }>
 }
 
+// Helper to generate pagination URL
+function buildPageUrl(slug: string, page: number, sort: string, search: string): string {
+  const params = new URLSearchParams()
+  if (page > 1) params.set('page', String(page))
+  if (sort && sort !== 'newest') params.set('sort', sort)
+  if (search) params.set('search', search)
+  const qs = params.toString()
+  return `/categories/${slug}${qs ? `?${qs}` : ''}`
+}
+
+// Generate page numbers for pagination with window sliding
+function getPaginationRange(currentPage: number, totalPages: number): (number | 'dots')[] {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, i) => i + 1)
+  }
+
+  const pages: (number | 'dots')[] = [1]
+
+  if (currentPage > 3) {
+    pages.push('dots')
+  }
+
+  const start = Math.max(2, currentPage - 1)
+  const end = Math.min(totalPages - 1, currentPage + 1)
+
+  for (let i = start; i <= end; i++) {
+    pages.push(i)
+  }
+
+  if (currentPage < totalPages - 2) {
+    pages.push('dots')
+  }
+
+  pages.push(totalPages)
+
+  return pages
+}
+
 export default async function CategoryPage({ params, searchParams }: CategoryPageProps) {
   try {
     const { slug } = await params
@@ -172,6 +220,9 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
     } catch (error) {
       console.error('[Category Page] getCategoryProducts failed:', error)
     }
+
+    const sort = sp.sort || 'newest'
+    const search = sp.search || ''
 
   return (
     <div className="min-h-screen flex flex-col bg-[oklch(0.99_0.005_85)] dark:bg-[oklch(0.12_0.02_45)]">
@@ -210,7 +261,7 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
 
         {/* Products */}
         <div className="container mx-auto px-4 py-8">
-          {/* Filter Bar — wrapped in Suspense for useSearchParams() */}
+          {/* Filter Bar - wrapped in Suspense for useSearchParams() */}
           <Suspense fallback={<div className="h-12 bg-[oklch(0.95_0.01_85)] dark:bg-[oklch(0.18_0.02_45)] rounded-lg animate-pulse mb-6" />}>
             <CategoryFiltersClient
               categorySlug={slug}
@@ -264,17 +315,17 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
                       </div>
                       <div className="flex items-center gap-2 mt-2">
                         <span className="text-sm font-bold text-[oklch(0.15_0.02_45)] dark:text-white">
-                          UGX {product.price.toLocaleString()}
+                          {CURRENCY_SYMBOLS[product.currency] || product.currency} {product.price.toLocaleString()}
                         </span>
                         {product.comparePrice && product.comparePrice > product.price && (
                           <span className="text-xs text-[oklch(0.65_0.01_85)] line-through">
-                            UGX {product.comparePrice.toLocaleString()}
+                            {CURRENCY_SYMBOLS[product.currency] || product.currency} {product.comparePrice.toLocaleString()}
                           </span>
                         )}
                       </div>
                       {product.rating > 0 && (
                         <div className="flex items-center gap-1 mt-1">
-                          <span className="text-yellow-400 text-xs">★</span>
+                          <span className="text-yellow-400 text-xs">&#9733;</span>
                           <span className="text-xs text-[oklch(0.55_0.02_45)] dark:text-[oklch(0.65_0.01_85)]">{product.rating.toFixed(1)}</span>
                           <span className="text-xs text-[oklch(0.65_0.01_85)]">({product.reviewCount})</span>
                         </div>
@@ -294,19 +345,22 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
             </div>
           )}
 
-          {/* Pagination */}
+          {/* Pagination - improved with window sliding */}
           {pagination.totalPages > 1 && (
-            <div className="mt-8 flex justify-center gap-2">
-              {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
-                const pageNum = i + 1
-                const params = new URLSearchParams()
-                params.set('page', String(pageNum))
-                if (sp.sort) params.set('sort', sp.sort)
-                if (sp.search) params.set('search', sp.search)
+            <div className="mt-8 flex justify-center gap-2 flex-wrap">
+              {getPaginationRange(pagination.page, pagination.totalPages).map((pageNum, idx) => {
+                if (pageNum === 'dots') {
+                  return (
+                    <span key={`dots-${idx}`} className="px-4 py-2 text-[oklch(0.55_0.02_45)] dark:text-[oklch(0.65_0.01_85)]">
+                      ...
+                    </span>
+                  )
+                }
+
                 return (
                   <a
                     key={pageNum}
-                    href={`/categories/${slug}?${params.toString()}`}
+                    href={buildPageUrl(slug, pageNum, sort, search)}
                     className={`px-4 py-2 rounded-lg font-medium transition-colors ${
                       pageNum === pagination.page
                         ? 'bg-primary text-white'
@@ -317,17 +371,6 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
                   </a>
                 )
               })}
-              {pagination.totalPages > 5 && (
-                <span className="px-4 py-2 text-[oklch(0.55_0.02_45)] dark:text-[oklch(0.65_0.01_85)]">...</span>
-              )}
-              {pagination.totalPages > 5 && (
-                <a
-                  href={`/categories/${slug}?page=${pagination.totalPages}${sp.sort ? `&sort=${sp.sort}` : ''}${sp.search ? `&search=${sp.search}` : ''}`}
-                  className="px-4 py-2 rounded-lg font-medium bg-white dark:bg-[oklch(0.15_0.02_45)] text-[oklch(0.15_0.02_45)] dark:text-[oklch(0.85_0.01_85)] hover:bg-gray-100 dark:hover:bg-gray-700 border border-[oklch(0.94_0.01_85)] dark:border-[oklch(0.22_0.02_45)]"
-                >
-                  {pagination.totalPages}
-                </a>
-              )}
             </div>
           )}
         </div>
@@ -342,18 +385,6 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
   }
 }
 
-// Generate static params for common categories - optional, won't fail build
+// Force dynamic rendering - always serve fresh data from DB
 export const dynamic = 'force-dynamic'
 export const dynamicParams = true
-
-export async function generateStaticParams() {
-  try {
-    const categories = await prisma.category.findMany({
-      select: { slug: true },
-    })
-    return categories.map((cat) => ({ slug: cat.slug }))
-  } catch (error) {
-    // Return empty array if database isn't available during build
-    return []
-  }
-}
