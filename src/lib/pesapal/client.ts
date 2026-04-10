@@ -52,7 +52,7 @@ const PESAPAL_BASE_URL = PESAPAL_BASE_URLS[PESAPAL_ENV]
  *
  * Priority: PlatformSettings (DB) → env vars
  */
-async function getAuthCredentials(): Promise<{ clientId: string; clientSecret: string }> {
+async function getAuthCredentials(): Promise<{ clientId: string; clientSecret: string; source: string }> {
   try {
     const settings = await prisma.platformSettings.findFirst({
       select: { pesapalClientId: true, pesapalClientSecret: true },
@@ -60,7 +60,7 @@ async function getAuthCredentials(): Promise<{ clientId: string; clientSecret: s
     const clientId = settings?.pesapalClientId
     const clientSecret = settings?.pesapalClientSecret
     if (clientId && clientSecret) {
-      return { clientId, clientSecret }
+      return { clientId, clientSecret, source: 'DB PlatformSettings' }
     }
   } catch {
     // DB read failed — fall through to env vars
@@ -68,6 +68,7 @@ async function getAuthCredentials(): Promise<{ clientId: string; clientSecret: s
   return {
     clientId: process.env.PESAPAL_CLIENT_ID || '',
     clientSecret: process.env.PESAPAL_CLIENT_SECRET || '',
+    source: 'env vars',
   }
 }
 
@@ -473,7 +474,9 @@ class PesapalClient {
         // L3: Pesapal API call (3-5s from Vercel — only on first call or expiry)
         // Use getAuthCredentials() — NOT getCredentials() — to avoid triggering
         // resolveIpnId() which would make ANOTHER Pesapal API call (GetIPNList).
-        const { clientId, clientSecret } = await getAuthCredentials()
+        const { clientId, clientSecret, source: credSource } = await getAuthCredentials()
+
+        log.info(`Auth: L1/L2 miss, calling Pesapal API (creds from: ${credSource}, clientId: ${clientId ? clientId.slice(0, 8) + '...' : 'EMPTY'})`)
 
         if (!clientId || !clientSecret) {
           throw new PesapalAuthError(

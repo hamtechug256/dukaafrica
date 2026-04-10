@@ -99,10 +99,10 @@ export async function GET() {
   } catch (error: unknown) {
     const elapsed = Date.now() - t0
     const message = error instanceof Error ? error.message : String(error)
-    const stack = error instanceof Error ? error.stack : ''
-    console.error(`[Pesapal Warm] Failed after ${elapsed}ms:`, message, stack)
+    const name = error instanceof Error ? error.name : 'UnknownError'
+    console.error(`[Pesapal Warm] Failed after ${elapsed}ms:`, name, message)
     // Return 200 with diagnostic info — don't block checkout
-    return NextResponse.json({ ok: false, error: message, elapsed })
+    return NextResponse.json({ ok: false, error: `${name}: ${message}`, elapsed })
   }
 }
 
