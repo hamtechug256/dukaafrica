@@ -321,7 +321,33 @@ export function getCountryForCurrency(currency: string): Country {
  * Get the regulatory body for a country (e.g., "Bank of Uganda")
  */
 export function getRegulatorForCountry(country: string): string {
-  return COUNTRY_REGULATOR[country as Country] || 'relevant financial authority'
+  return COUNTRY_REGULATOR[normalizeCountryCode(country) as Country] || 'relevant financial authority'
+}
+
+/**
+ * Normalize any country value to the canonical full-name Country type.
+ * Handles: "UG"/"ug" → "UGANDA", "uganda"/"Uganda" → "UGANDA", "UGANDA" → "UGANDA"
+ * Returns "UGANDA" as fallback if input is unrecognised.
+ */
+const ISO2_TO_COUNTRY: Record<string, Country> = {
+  UG: 'UGANDA', KE: 'KENYA', TZ: 'TANZANIA', RW: 'RWANDA', SS: 'SOUTH_SUDAN', BI: 'BURUNDI',
+  ug: 'UGANDA', ke: 'KENYA', tz: 'TANZANIA', rw: 'RWANDA', ss: 'SOUTH_SUDAN', bi: 'BURUNDI',
+}
+
+export function normalizeCountryCode(raw: string | undefined | null): Country {
+  if (!raw) return 'UGANDA'
+  const trimmed = raw.trim()
+  if (!trimmed) return 'UGANDA'
+  // Direct match (fast path)
+  if (COUNTRY_INFO[trimmed as Country]) return trimmed as Country
+  // 2-letter ISO code
+  if (ISO2_TO_COUNTRY[trimmed]) return ISO2_TO_COUNTRY[trimmed]
+  // Lowercase full name
+  const lower = trimmed.toLowerCase()
+  for (const c of Object.keys(COUNTRY_INFO) as Country[]) {
+    if (c.toLowerCase() === lower) return c
+  }
+  return 'UGANDA' // safe fallback
 }
 
 /**

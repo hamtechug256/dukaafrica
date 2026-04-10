@@ -20,7 +20,22 @@ const validCountries = Object.keys(COUNTRY_INFO) as Country[];
 
 // Build a lookup map: any common variant → canonical Country
 // e.g. "uganda" → "UGANDA", "UG" → "UGANDA", "Uganda" → "UGANDA"
-const countryAliases: Record<string, Country> = {};
+const countryAliases: Record<string, Country> = {
+  // 2-letter ISO codes
+  UG: 'UGANDA',
+  KE: 'KENYA',
+  TZ: 'TANZANIA',
+  RW: 'RWANDA',
+  SS: 'SOUTH_SUDAN',
+  BI: 'BURUNDI',
+  ug: 'UGANDA',
+  ke: 'KENYA',
+  tz: 'TANZANIA',
+  rw: 'RWANDA',
+  ss: 'SOUTH_SUDAN',
+  bi: 'BURUNDI',
+};
+// Also add full name variants
 for (const c of validCountries) {
   countryAliases[c.toLowerCase()] = c;
   countryAliases[c] = c;

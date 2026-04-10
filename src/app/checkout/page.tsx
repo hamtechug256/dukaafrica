@@ -28,7 +28,7 @@ import {
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { formatPrice, COUNTRY_INFO, COUNTRY_CURRENCY, Currency, Country, PHONE_PATTERNS, getRegulatorForCountry, convertCurrency } from '@/lib/currency'
+import { formatPrice, COUNTRY_INFO, COUNTRY_CURRENCY, Currency, Country, PHONE_PATTERNS, getRegulatorForCountry, convertCurrency, normalizeCountryCode } from '@/lib/currency'
 
 // Countries we support — derived from currency.ts (single source of truth)
 const countries: Array<{ code: Country; name: string; flag: string; currency: Currency; phoneCode: string }> =
@@ -180,7 +180,7 @@ export default function CheckoutPage() {
       const anyRestrictedCountries = items.find(item => item.shipsToCountries && item.shipsToCountries.length > 0)
       
       const requestBody = {
-        sellerCountry: firstItem.sellerCountry || 'UGANDA',
+        sellerCountry: normalizeCountryCode(firstItem.sellerCountry),
         buyerCountry: formData.country,
         weightKg: items.reduce((sum, item) => sum + (item.weight || 0.5) * item.quantity, 0),
         sellerCurrency: firstItem.currency || 'UGX',
@@ -191,7 +191,7 @@ export default function CheckoutPage() {
 
       // Debug: log what we're sending so Vercel logs show the actual values
       console.log('[checkout] calculateShipping request:', JSON.stringify(requestBody))
-      console.log('[checkout] cart item sellerCountry:', firstItem.sellerCountry, '| formData.country:', formData.country)
+      console.log('[checkout] cart item raw sellerCountry:', firstItem.sellerCountry, '| normalized:', normalizeCountryCode(firstItem.sellerCountry), '| formData.country:', formData.country)
       
       const response = await fetch('/api/shipping/calculate', {
         method: 'POST',
@@ -366,7 +366,8 @@ export default function CheckoutPage() {
 
   // Check if any items can't be shipped to buyer's country
   const cantShipItems = items.filter(item => {
-    if (item.localShippingOnly && item.sellerCountry !== formData.country) {
+    const itemCountry = normalizeCountryCode(item.sellerCountry)
+    if (item.localShippingOnly && itemCountry !== formData.country) {
       return true
     }
     if (item.shipsToCountries && item.shipsToCountries.length > 0) {
