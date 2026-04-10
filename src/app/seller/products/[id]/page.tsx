@@ -181,6 +181,23 @@ export default function EditProductPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    // Client-side validation
+    const price = parseFloat(formData.price)
+    const comparePrice = formData.comparePrice ? parseFloat(formData.comparePrice) : null
+
+    if (!price || price <= 0) {
+      alert('Please enter a valid price greater than zero')
+      setIsLoading(false)
+      return
+    }
+
+    if (comparePrice !== null && comparePrice > 0 && comparePrice <= price) {
+      alert('Compare at price must be greater than the selling price')
+      setIsLoading(false)
+      return
+    }
+
     setIsLoading(true)
 
     try {

@@ -179,6 +179,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Name and price are required' }, { status: 400 })
     }
 
+    if (price <= 0) {
+      return NextResponse.json({ error: 'Price must be greater than zero' }, { status: 400 })
+    }
+
+    // Validate comparePrice: must be greater than selling price if provided
+    if (comparePrice !== null && comparePrice !== undefined && comparePrice <= price) {
+      return NextResponse.json(
+        { error: 'Compare price must be greater than the selling price' },
+        { status: 400 }
+      )
+    }
+
     const product = await prisma.product.create({
       data: {
         storeId: store.id,
@@ -288,6 +300,29 @@ export async function PUT(req: Request) {
     updateData.categoryId = data.categoryId || null
     updateData.hasVariants = hasVariants ?? false
     updateData.variantOptions = variantOptions ? JSON.stringify(variantOptions) : null
+
+    // Validate price if being updated
+    if ('price' in updateData && updateData.price <= 0) {
+      return NextResponse.json({ error: 'Price must be greater than zero' }, { status: 400 })
+    }
+
+    // Validate comparePrice: must be greater than selling price if provided
+    if (updateData.comparePrice !== null && updateData.comparePrice !== undefined && updateData.price) {
+      if (updateData.comparePrice <= updateData.price) {
+        return NextResponse.json(
+          { error: 'Compare price must be greater than the selling price' },
+          { status: 400 }
+        )
+      }
+    } else if (updateData.comparePrice !== null && updateData.comparePrice !== undefined) {
+      // comparePrice provided but no price update — check against existing product price
+      if (updateData.comparePrice <= existingProduct.price) {
+        return NextResponse.json(
+          { error: 'Compare price must be greater than the selling price' },
+          { status: 400 }
+        )
+      }
+    }
 
     // Handle submit for review
     if (submitForReview) {

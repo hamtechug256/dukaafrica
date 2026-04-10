@@ -7,15 +7,16 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-// Country and Currency are string types in our Prisma schema
-type Country = 'UGANDA' | 'KENYA' | 'TANZANIA' | 'RWANDA';
-type Currency = 'UGX' | 'KES' | 'TZS' | 'RWF';
+import { Country, Currency, COUNTRY_INFO } from '@/lib/currency';
 import {
   calculateShippingFee,
   canShipToCountry,
   formatShippingFee,
   getEstimatedDeliveryDays,
 } from '@/lib/shipping-calculator';
+
+// Derive valid countries from the canonical COUNTRY_INFO (single source of truth)
+const validCountries = Object.keys(COUNTRY_INFO) as Country[];
 
 export async function POST(request: NextRequest) {
   try {
@@ -43,13 +44,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate countries
-    const validCountries = ['UGANDA', 'KENYA', 'TANZANIA', 'RWANDA'];
-    if (!validCountries.includes(sellerCountry) || !validCountries.includes(buyerCountry)) {
+    // Validate countries against canonical list (all 6 EA countries)
+    if (!validCountries.includes(sellerCountry as Country) || !validCountries.includes(buyerCountry as Country)) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Invalid country. Must be one of: UGANDA, KENYA, TANZANIA, RWANDA',
+          error: `Invalid country. Must be one of: ${validCountries.join(', ')}`,
         },
         { status: 400 }
       );
@@ -79,8 +79,8 @@ export async function POST(request: NextRequest) {
       sellerCountry: sellerCountry as Country,
       buyerCountry: buyerCountry as Country,
       weightKg: parseFloat(weightKg),
-      sellerCurrency: sellerCurrency as Currency,
-      buyerCurrency: buyerCurrency as Currency,
+      sellerCurrency: (sellerCurrency || 'UGX') as Currency,
+      buyerCurrency: (buyerCurrency || 'UGX') as Currency,
     });
 
     // Get estimated delivery

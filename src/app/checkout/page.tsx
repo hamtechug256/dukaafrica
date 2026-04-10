@@ -28,7 +28,7 @@ import {
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { formatPrice, COUNTRY_INFO, COUNTRY_CURRENCY, Currency, Country, PHONE_PATTERNS, getRegulatorForCountry } from '@/lib/currency'
+import { formatPrice, COUNTRY_INFO, COUNTRY_CURRENCY, Currency, Country, PHONE_PATTERNS, getRegulatorForCountry, convertCurrency } from '@/lib/currency'
 
 // Countries we support — derived from currency.ts (single source of truth)
 const countries: Array<{ code: Country; name: string; flag: string; currency: Currency; phoneCode: string }> =
@@ -197,6 +197,21 @@ export default function CheckoutPage() {
   const itemCount = getItemCount()
   const shipping = deliveryOption?.price || 0
   const total = subtotal + shipping
+
+  // Convert savings to buyer's currency if needed
+  // Cart items may be in different seller currencies
+  const rawSavings = savings
+  const cartCurrencies = [...new Set(items.filter(i => i.comparePrice).map(i => i.currency))]
+  let displaySavings = rawSavings
+  if (rawSavings > 0 && cartCurrencies.length === 1) {
+    const itemCurrency = cartCurrencies[0] as Currency
+    if (itemCurrency !== buyerCurrency) {
+      displaySavings = convertCurrency(rawSavings, itemCurrency, buyerCurrency)
+    }
+  } else if (cartCurrencies.length > 1) {
+    // Mixed currencies — hide savings to avoid showing inaccurate amounts
+    displaySavings = 0
+  }
 
   // Payment methods available based on buyer's country
   const paymentMethods = getPaymentMethodsForCountry(formData.country)
@@ -808,10 +823,10 @@ export default function CheckoutPage() {
                     <span>Subtotal</span>
                     <span>{formatPrice(subtotal, buyerCurrency)}</span>
                   </div>
-                  {savings > 0 && (
+                  {displaySavings > 0 && (
                     <div className="flex justify-between text-green-600">
                       <span>Savings</span>
-                      <span>-{formatPrice(savings, buyerCurrency)}</span>
+                      <span>-{formatPrice(displaySavings, buyerCurrency)}</span>
                     </div>
                   )}
                   <div className="flex justify-between text-gray-600 dark:text-gray-400">
