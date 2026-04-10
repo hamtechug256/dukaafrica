@@ -210,6 +210,7 @@ export async function releaseEscrow(params: {
   orderId: string
   releaseType: ReleaseType
   releasedBy?: string // Admin ID if manual release
+  markAsDelivered?: boolean // If false, release funds but don't mark order DELIVERED (for cron auto-release)
 }): Promise<{
   success: boolean
   sellerAmount?: number
@@ -290,14 +291,17 @@ export async function releaseEscrow(params: {
       totalReleased += escrow.sellerAmount.toNumber()
     }
     
-    // Update order
+    // Update order — only mark DELIVERED if explicitly requested (buyer confirmation / admin / dispute resolution)
+    // Cron auto-release should NOT mark as DELIVERED — buyer hasn't confirmed yet
+    const shouldMarkDelivered = params.markAsDelivered !== false // default true for backward compatibility
     await prisma.order.update({
       where: { id: params.orderId },
       data: {
         escrowStatus: 'RELEASED',
         escrowReleasedAt: new Date(),
-        status: 'DELIVERED',
-        deliveredAt: new Date()
+        ...(shouldMarkDelivered
+          ? { status: 'DELIVERED', deliveredAt: new Date() }
+          : {}),
       }
     })
 

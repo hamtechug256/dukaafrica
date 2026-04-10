@@ -391,13 +391,8 @@ export async function POST(req: Request) {
         },
       })
 
-      // Increment coupon usage count if coupon was applied
-      if (coupon && coupon.id) {
-        await tx.coupon.update({
-          where: { id: coupon.id },
-          data: { usageCount: { increment: 1 } },
-        })
-      }
+      // NOTE: Coupon usage count is incremented in the IPN COMPLETED handler
+      // (not here) to prevent wasting coupon slots on unpaid orders.
 
       return { order, payment }
     })

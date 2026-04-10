@@ -83,6 +83,8 @@ async function processPesapalIPN(payload: PesapalIPNPayload) {
     await handleFailedPayment(order_tracking_id, payload)
   } else if (order_status === 'CANCELLED') {
     await handleCancelledPayment(order_tracking_id, payload)
+  } else if (order_status === 'REVERSED') {
+    await handleReversedPayment(order_tracking_id, payload)
   } else {
     console.log(`Pesapal IPN — unhandled status "${order_status}" for ${order_tracking_id}`)
   }
@@ -188,6 +190,22 @@ async function handleCompletedPayment(orderTrackingId: string, payload: PesapalI
   })
   // ── END ATOMIC CORE ──────────────────────────────────────────────────────
 
+  // ── COUPON USAGE INCREMENT (moved from create-order) ────────────────────
+  // Only increment coupon usage when payment is confirmed, not at order creation.
+  // This prevents wasting coupon slots on unpaid/uncompleted orders.
+  if (order.couponId) {
+    try {
+      await prisma.coupon.update({
+        where: { id: order.couponId },
+        data: { usageCount: { increment: 1 } },
+      })
+      console.log(`Coupon ${order.couponId} usage incremented for order ${order.orderNumber}`)
+    } catch (couponErr) {
+      console.error(`Failed to increment coupon usage for ${order.couponId}:`, couponErr)
+      // Non-fatal: coupon tracking error should not break payment processing
+    }
+  }
+
   // ── ESCROW CREATION (non-atomic, non-fatal) ──────────────────────────────
   for (const [storeId, storeTotal] of storeTotals) {
     const store = await prisma.store.findUnique({
@@ -219,10 +237,19 @@ async function handleCompletedPayment(orderTrackingId: string, payload: PesapalI
     const platformCommission = toNum(payment.platformAmount)
     
     // Estimate seller shipping earnings proportionally
-    // Platform keeps: commission (on product) + shipping markup (5% of shipping)
+    // Platform keeps: commission (on product) + shipping markup (configurable %)
     // Seller gets: product after commission + shipping after markup
     const orderShippingFee = toNum(order.shippingFee) || 0
-    const sellerShippingEarnings = Math.round(orderShippingFee * 0.95 * storeProductShare) // 95% after 5% markup
+
+    // Read shipping markup from PlatformSettings (default 5%)
+    const platformSettings = await prisma.platformSettings.findFirst({
+      select: { shippingMarkupPercent: true },
+    })
+    const shippingMarkup = platformSettings
+      ? toNum(platformSettings.shippingMarkupPercent)
+      : 5
+    const sellerShippingShare = (100 - shippingMarkup) / 100
+    const sellerShippingEarnings = Math.round(orderShippingFee * sellerShippingShare * storeProductShare)
 
     const escrowResult = await createEscrowHold({
       orderId: order.id,
@@ -369,4 +396,125 @@ async function handleCancelledPayment(orderTrackingId: string, payload: PesapalI
   }
 
   console.log(`Payment ${orderTrackingId} marked as CANCELLED, stock restored`)
+}
+
+// ============================================================
+// REVERSED PAYMENT (Chargeback)
+// ============================================================
+
+async function handleReversedPayment(orderTrackingId: string, payload: PesapalIPNPayload) {
+  // Verify with Pesapal API first
+  try {
+    const pesapalStatus = await pesapalClient.getTransactionStatus(orderTrackingId)
+    if (pesapalStatus.transaction_status !== 'REVERSED') {
+      console.warn(`Pesapal IPN verification: status is "${pesapalStatus.transaction_status}", not REVERSED. Skipping.`)
+      return
+    }
+  } catch (err) {
+    console.error('Pesapal status re-verification failed for REVERSED:', err)
+    return
+  }
+
+  const payment = await prisma.payment.findFirst({
+    where: { reference: orderTrackingId },
+    include: {
+      Order: {
+        include: {
+          User: { select: { id: true } },
+          OrderItem: { select: { productId: true, variantId: true, quantity: true, storeId: true } },
+          Store: { select: { id: true, userId: true } },
+        },
+      },
+    },
+  })
+
+  if (!payment || !payment.Order) {
+    console.error(`Payment not found for reversed tracking ID: ${orderTrackingId}`)
+    return
+  }
+
+  const order = payment.Order
+
+  // Atomic idempotency guard: only process if not already reversed
+  const { count: paymentUpdated } = await prisma.payment.updateMany({
+    where: { id: payment.id, status: { not: 'REVERSED' } },
+    data: {
+      status: 'REVERSED',
+      providerResponse: JSON.stringify(payload),
+    },
+  })
+  if (paymentUpdated === 0) {
+    console.log('Payment already marked as REVERSED:', orderTrackingId)
+    return
+  }
+
+  // Update order status to DISPUTED (requires admin investigation)
+  await prisma.order.update({
+    where: { id: payment.orderId },
+    data: {
+      paymentStatus: 'REVERSED',
+      status: 'DISPUTED',
+    },
+  })
+
+  // If escrow was HELD, mark it as DISPUTED too
+  if (order.escrowStatus === 'HELD') {
+    await prisma.escrowTransaction.updateMany({
+      where: { orderId: payment.orderId, status: 'HELD' },
+      data: { status: 'DISPUTED' },
+    })
+    await prisma.order.update({
+      where: { id: payment.orderId },
+      data: { escrowStatus: 'DISPUTED' },
+    })
+  }
+
+  // Restore reserved stock (stock was decremented at order creation)
+  const orderItems = await prisma.orderItem.findMany({
+    where: { orderId: payment.orderId },
+    select: { productId: true, variantId: true, quantity: true },
+  })
+  for (const item of orderItems) {
+    await prisma.product.update({
+      where: { id: item.productId },
+      data: { quantity: { increment: item.quantity } },
+    })
+    if (item.variantId) {
+      await prisma.productVariant.update({
+        where: { id: item.variantId },
+        data: { quantity: { increment: item.quantity } },
+      })
+    }
+  }
+
+  // Notify buyer
+  if (order.User) {
+    await prisma.notification.create({
+      data: {
+        userId: order.User.id,
+        type: 'DISPUTE',
+        title: 'Payment Reversed',
+        message: `A reversal has been initiated on your payment for order #${order.orderNumber}. Our team will investigate this matter.`,
+        data: JSON.stringify({ orderId: order.id, orderNumber: order.orderNumber, reason: 'PAYMENT_REVERSED' }),
+      },
+    })
+  }
+
+  // Notify seller
+  if (order.Store?.userId) {
+    await prisma.notification.create({
+      data: {
+        userId: order.Store.userId,
+        type: 'DISPUTE',
+        title: 'Payment Reversed',
+        message: `A payment reversal has been initiated for order #${order.orderNumber}. Escrow funds have been flagged for review.`,
+        data: JSON.stringify({ orderId: order.id, orderNumber: order.orderNumber, reason: 'PAYMENT_REVERSED' }),
+      },
+    })
+  }
+
+  // Log for admin review
+  console.warn(`[PAYMENT REVERSED] Order ${order.orderNumber} (${orderTrackingId}) — flagged for admin investigation`)
+
+  console.log(`Payment ${orderTrackingId} marked as REVERSED, stock restored, parties notified`)
 }

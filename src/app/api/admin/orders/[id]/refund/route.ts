@@ -14,6 +14,7 @@ import { auth } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { refundEscrow } from '@/lib/escrow'
+import { pesapalClient } from '@/lib/pesapal/client'
 import { Prisma } from '@prisma/client'
 
 // Helper to safely convert Prisma Decimal to number
@@ -131,8 +132,8 @@ export async function POST(
       }, { status: 400 })
     }
 
-    // Get escrow transaction (use findFirst for multi-vendor support)
-    const escrow = await prisma.escrowTransaction.findFirst({
+    // Get ALL escrow transactions (multi-vendor support — sum across all stores)
+    const escrows = await prisma.escrowTransaction.findMany({
       where: { orderId },
     })
 
@@ -140,14 +141,13 @@ export async function POST(
     let finalRefundAmount: number
 
     if (refundType === 'FULL') {
-      // Full refund includes product amount + shipping
-      finalRefundAmount = refundShipping
-        ? toNum(order.total)
-        : toNum(order.subtotal)
-
-      // For escrow, we refund seller's portion
-      if (escrow) {
-        finalRefundAmount = toNum(escrow.sellerAmount)
+      // Full refund: sum sellerAmount across ALL escrows (multi-vendor)
+      if (escrows.length > 0) {
+        finalRefundAmount = escrows.reduce((sum, e) => sum + toNum(e.sellerAmount), 0)
+      } else {
+        finalRefundAmount = refundShipping
+          ? toNum(order.total)
+          : toNum(order.subtotal)
       }
     } else {
       // Partial refund
@@ -157,8 +157,10 @@ export async function POST(
         }, { status: 400 })
       }
 
-      // Cap at seller's amount or order total
-      const maxRefund = toNum(escrow?.sellerAmount) || toNum(order.total)
+      // Cap at total seller amount across ALL escrows
+      const maxRefund = escrows.length > 0
+        ? escrows.reduce((sum, e) => sum + toNum(e.sellerAmount), 0)
+        : toNum(order.total)
       if (refundAmount > maxRefund) {
         return NextResponse.json({
           error: `Refund amount cannot exceed ${order.currency} ${maxRefund.toLocaleString()}`,
@@ -190,6 +192,43 @@ export async function POST(
         refundedAt: new Date(),
       },
     })
+
+    // Call Pesapal refund API to actually return money to buyer
+    // This is critical — without this, the buyer never gets their money back
+    let pesapalRefundResult: { success: boolean; message: string; refundStatus?: string | null } = {
+      success: false,
+      message: 'Pesapal refund not attempted',
+    }
+
+    const paymentRef = order.Payment?.[0]?.reference || order.Payment?.reference
+    if (paymentRef) {
+      try {
+        const pesapalResponse = await pesapalClient.refundOrder({
+          confirmation_code: paymentRef,
+          amount: finalRefundAmount,
+          remarks: `Refund for order #${order.orderNumber}: ${refundReason.trim()}`,
+        })
+        pesapalRefundResult = {
+          success: pesapalResponse.status === '200' || pesapalResponse.refund_status !== null,
+          message: pesapalResponse.message || pesapalResponse.error || 'Pesapal refund processed',
+          refundStatus: pesapalResponse.refund_status,
+        }
+        console.log(`[Refund] Pesapal refund API response for ${order.orderNumber}:`, pesapalRefundResult)
+      } catch (pesapalErr) {
+        const errMsg = pesapalErr instanceof Error ? pesapalErr.message : 'Unknown Pesapal error'
+        console.error(`[Refund] Pesapal refund API FAILED for ${order.orderNumber}:`, errMsg)
+        pesapalRefundResult = {
+          success: false,
+          message: `Pesapal refund failed: ${errMsg}. Internal refund completed — manual Pesapal refund may be needed.`,
+        }
+      }
+    } else {
+      console.warn(`[Refund] No payment reference found for order ${order.orderNumber} — cannot call Pesapal refund API`)
+      pesapalRefundResult = {
+        success: false,
+        message: 'No payment reference found — Pesapal refund skipped. Manual refund may be needed.',
+      }
+    }
 
     // Create notification for buyer
     if (notifyUsers && order.User) {
@@ -248,6 +287,7 @@ export async function POST(
         processedAt: new Date(),
         processedBy: admin.id,
       },
+      pesapalRefund: pesapalRefundResult,
     })
   } catch (error) {
     console.error('Error processing refund:', error)
@@ -305,9 +345,14 @@ export async function GET(
     const escrows = Array.isArray(order.EscrowTransaction) ? order.EscrowTransaction : []
     const primaryEscrow = escrows[0] // First escrow for backward compatibility
 
+    // Sum sellerAmount across ALL escrows for accurate maxRefundAmount
+    const totalSellerAmount = escrows.length > 0
+      ? escrows.reduce((sum, e) => sum + toNum(e.sellerAmount), 0)
+      : toNum(order.total)
+
     const refundEligibility = {
       canRefund: order.paymentStatus === 'PAID' && order.escrowStatus !== 'REFUNDED',
-      maxRefundAmount: toNum(primaryEscrow?.sellerAmount) || toNum(order.total),
+      maxRefundAmount: totalSellerAmount,
       productTotal: toNum(order.subtotal),
       shippingFee: toNum(order.shippingFee),
       orderTotal: toNum(order.total),
