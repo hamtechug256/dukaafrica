@@ -115,6 +115,9 @@ export async function PUT(
       include: {
         Store: { select: { id: true, User: { select: { clerkId: true } } } },
         User: { select: { id: true, email: isAdmin, firstName: true } },
+        OrderItem: {
+          select: { productId: true, variantId: true, quantity: true },
+        },
       },
     })
 
@@ -192,7 +195,57 @@ export async function PUT(
       },
     })
 
-    // TODO: Send notification email to buyer if status changed
+    // STOCK RESTORE: When order is cancelled, restore reserved stock to products
+    // Stock was decremented at order creation (reservation model). If the order is
+    // cancelled before shipment, the stock should be returned to the products.
+    // Note: IPN FAILED/CANCELLED handlers already restore stock for payment failures.
+    // This covers admin-initiated cancellations for paid/pending orders.
+    if (status === 'CANCELLED' && order.OrderItem && order.OrderItem.length > 0) {
+      // Only restore stock if the order was NOT already refunded (refundEscrow handles its own stock restore)
+      if (order.escrowStatus !== 'REFUNDED') {
+        try {
+          for (const item of order.OrderItem) {
+            await prisma.product.update({
+              where: { id: item.productId },
+              data: { quantity: { increment: item.quantity } },
+            })
+            if (item.variantId) {
+              await prisma.productVariant.update({
+                where: { id: item.variantId },
+                data: { quantity: { increment: item.quantity } },
+              })
+            }
+          }
+          console.log(`[Order Cancel] Stock restored for order ${order.orderNumber} (${order.OrderItem.length} items)`)
+        } catch (stockErr) {
+          console.error(`[Order Cancel] Failed to restore stock for order ${order.orderNumber}:`, stockErr)
+          // Non-fatal: the cancellation itself succeeded, stock restore is best-effort
+        }
+      }
+    }
+
+    // Send notification to buyer if status changed
+    if (status && order.User?.id) {
+      try {
+        const notifType = status === 'CANCELLED' ? 'ORDER_CANCELLED' : 'ORDER_UPDATE'
+        const notifTitle = status === 'CANCELLED' ? 'Order Cancelled' : 'Order Updated'
+        const notifMessage = status === 'CANCELLED'
+          ? `Your order ${order.orderNumber} has been cancelled.${cancellationReason ? ` Reason: ${cancellationReason}` : ''}`
+          : `Your order ${order.orderNumber} status has been updated to ${status}.`
+
+        await prisma.notification.create({
+          data: {
+            userId: order.User.id,
+            type: notifType,
+            title: notifTitle,
+            message: notifMessage,
+            data: JSON.stringify({ orderId: id, orderNumber: order.orderNumber, newStatus: status }),
+          },
+        })
+      } catch (notifErr) {
+        console.error('Failed to create order status notification (non-fatal):', notifErr)
+      }
+    }
 
     return NextResponse.json({ order: updatedOrder })
   } catch (error) {

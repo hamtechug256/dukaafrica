@@ -106,23 +106,23 @@ export async function GET(request: NextRequest) {
           }
         }
 
-        // Release the escrow
+        // Release the escrow (funds only — do NOT mark as DELIVERED)
+        // The order stays SHIPPED until the buyer confirms delivery.
         const result = await releaseEscrow({
           orderId: order.id,
           releaseType: 'AUTO',
+          markAsDelivered: false, // Don't prematurely mark as DELIVERED
         })
 
         if (result.success) {
           results.released++
           results.releasedAmount += result.sellerAmount || 0
           
-          // Update order with auto-release timestamp
+          // Update order with auto-release timestamp only (NOT status DELIVERED)
           await prisma.order.update({
             where: { id: order.id },
             data: { 
               autoReleasedAt: now,
-              status: 'DELIVERED',
-              deliveredAt: order.deliveredAt || now,
             }
           })
           
