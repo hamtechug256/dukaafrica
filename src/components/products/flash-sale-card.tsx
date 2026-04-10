@@ -24,11 +24,16 @@ interface FlashSaleProduct {
   flashSaleDiscount: number | null
   flashSaleStock: number | null
   flashSaleClaimed: number
+  weight?: number | null
+  freeShipping?: boolean
+  localShippingOnly?: boolean
+  shipsToCountries?: string | null
   store: {
     id: string
     name: string
     slug: string
     isVerified: boolean
+    country: string
   }
   rating?: number
   reviewCount?: number

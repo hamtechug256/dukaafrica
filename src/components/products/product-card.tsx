@@ -24,6 +24,10 @@ interface Product {
   reviewCount: number
   quantity: number
   currency?: string
+  weight?: number | null
+  freeShipping?: boolean
+  localShippingOnly?: boolean
+  shipsToCountries?: string | null
   // Flash sale fields
   isFlashSale?: boolean
   flashSaleStart?: Date | string | null
@@ -37,6 +41,7 @@ interface Product {
     slug: string
     isVerified: boolean
     rating: number
+    country: string
   }
   category?: {
     id: string
