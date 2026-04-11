@@ -22,6 +22,7 @@ import {
   Flag,
   Megaphone,
   LifeBuoy,
+  Wallet,
 } from 'lucide-react'
 
 export interface NavItem {
@@ -37,6 +38,7 @@ export const adminNavItems: NavItem[] = [
   { href: '/admin/stores', icon: Store, label: 'Stores' },
   { href: '/admin/products', icon: Package, label: 'Products' },
   { href: '/admin/orders', icon: ShoppingCart, label: 'Orders' },
+  { href: '/admin/payouts', icon: Wallet, label: 'Payouts' },
   { href: '/admin/disputes', icon: AlertTriangle, label: 'Disputes' },
   { href: '/admin/escrow', icon: Shield, label: 'Escrow' },
   { href: '/admin/banners', icon: Image, label: 'Banners' },
