@@ -2,18 +2,17 @@
 
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { 
-  ShoppingBag, 
-  Package, 
-  Clock, 
-  CheckCircle, 
-  Truck, 
+import {
+  ShoppingBag,
+  Package,
+  Clock,
+  CheckCircle,
+  Truck,
   Loader2,
-  ChevronRight,
   Eye
 } from 'lucide-react'
 import { useState } from 'react'
@@ -35,10 +34,46 @@ const statusConfig: Record<string, { color: string; icon: any; label: string }> 
   CANCELLED: { color: 'bg-red-100 text-red-700', icon: Package, label: 'Cancelled' },
 }
 
+function safeParseFirstImage(imagesJson: string | null | undefined): string | null {
+  if (!imagesJson) return null
+  try {
+    const parsed = JSON.parse(imagesJson)
+    if (Array.isArray(parsed) && parsed.length > 0) return parsed[0]
+  } catch { /* ignore invalid JSON */ }
+  return null
+}
+
+function OrderItemImage({ item, currency }: { item: any; currency: string }) {
+  const itemImage = safeParseFirstImage(item.Product?.images) || item.productImage || null
+
+  return (
+    <div className="flex items-center gap-3">
+      <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden">
+        {itemImage ? (
+          <img
+            src={itemImage}
+            alt={item.productName}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <Package className="w-6 h-6 text-gray-300" />
+          </div>
+        )}
+      </div>
+      <div>
+        <p className="font-medium text-sm line-clamp-1">{item.productName}</p>
+        <p className="text-xs text-gray-500">Qty: {item.quantity}</p>
+        <p className="text-sm font-semibold">{currency || 'UGX'} {Number(item.total || 0).toLocaleString()}</p>
+      </div>
+    </div>
+  )
+}
+
 export default function OrdersPage() {
   const [activeTab, setActiveTab] = useState('all')
 
-  const { data, isLoading, refetch } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ['user-orders', activeTab],
     queryFn: () => fetchOrders(activeTab === 'all' ? undefined : activeTab),
   })
@@ -55,7 +90,6 @@ export default function OrdersPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
       <header className="bg-white dark:bg-gray-800 border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
@@ -103,11 +137,11 @@ export default function OrdersPage() {
                 {orders.map((order: any) => {
                   const config = statusConfig[order.status] || statusConfig.PENDING
                   const StatusIcon = config.icon
+                  const items = order.OrderItem || []
 
                   return (
                     <Card key={order.id} className="overflow-hidden">
                       <CardContent className="p-0">
-                        {/* Order Header */}
                         <div className="bg-gray-50 dark:bg-gray-800 px-6 py-4 flex flex-wrap items-center justify-between gap-4">
                           <div className="flex items-center gap-6">
                             <div>
@@ -122,7 +156,7 @@ export default function OrdersPage() {
                             </div>
                             <div>
                               <p className="text-sm text-gray-500">Total</p>
-                              <p className="font-semibold">{order.currency || 'UGX'} {order.total.toLocaleString()}</p>
+                              <p className="font-semibold">{order.currency || 'UGX'} {Number(order.total || 0).toLocaleString()}</p>
                             </div>
                           </div>
                           <Badge className={config.color}>
@@ -131,47 +165,18 @@ export default function OrdersPage() {
                           </Badge>
                         </div>
 
-                        {/* Order Items */}
                         <div className="p-6">
                           <div className="flex flex-wrap gap-4 mb-4">
-                            {(order.OrderItem || []).slice(0, 4).map((item: any, idx: number) => {
-                              let itemImage: string | null = null
-                              try {
-                                const imgs = item.Product?.images ? JSON.parse(item.Product.images) : null
-                                if (Array.isArray(imgs) && imgs.length > 0) itemImage = imgs[0]
-                              } catch { /* ignore invalid JSON */ }
-                              if (!itemImage && item.productImage) itemImage = item.productImage
-
-                              return (
-                              <div key={idx} className="flex items-center gap-3">
-                                <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden">
-                                  {itemImage ? (
-                                    <img
-                                      src={itemImage}
-                                      alt={item.productName}
-                                      className="w-full h-full object-cover"
-                                    />
-                                  ) : (
-                                    <div className="w-full h-full flex items-center justify-center">
-                                      <Package className="w-6 h-6 text-gray-300" />
-                                    </div>
-                                  )}
-                                </div>
-                                <div>
-                                  <p className="font-medium text-sm line-clamp-1">{item.productName}</p>
-                                  <p className="text-xs text-gray-500">Qty: {item.quantity}</p>
-                                  <p className="text-sm font-semibold">{order.currency || 'UGX'} {Number(item.total || 0).toLocaleString()}</p>
-                                </div>
-                              </div>
+                            {items.slice(0, 4).map((item: any, idx: number) => (
+                              <OrderItemImage key={idx} item={item} currency={order.currency} />
                             ))}
-                            {(order.OrderItem || []).length > 4 && (
+                            {items.length > 4 && (
                               <div className="text-sm text-gray-500 self-center">
-                                +{(order.OrderItem || []).length - 4} more items
+                                +{items.length - 4} more items
                               </div>
                             )}
                           </div>
 
-                          {/* Actions */}
                           <div className="flex flex-wrap gap-2">
                             <Link href={`/dashboard/orders/${order.id}`}>
                               <Button variant="outline" size="sm">
