@@ -278,8 +278,8 @@ export class PesapalApiError extends Error {
 // --- Auth ---
 
 export interface PesapalTokenRequest {
-  client_id: string
-  client_secret: string
+  consumer_key: string
+  consumer_secret: string
 }
 
 export interface PesapalTokenResponse {
@@ -520,8 +520,8 @@ class PesapalClient {
 
         // Call Pesapal auth API
         const body: PesapalTokenRequest = {
-          client_id: config.clientId,
-          client_secret: config.clientSecret,
+          consumer_key: config.clientId,
+          consumer_secret: config.clientSecret,
         }
 
         // Auth endpoint does NOT require auth header itself
