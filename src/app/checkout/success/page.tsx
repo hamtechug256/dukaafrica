@@ -21,6 +21,7 @@ function SuccessContent() {
   const [pollCount, setPollCount] = useState(0)
   const [pollError, setPollError] = useState<string | null>(null)
   const hasPolledRef = useRef(false)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
     // Clear cart and checkout state
@@ -54,7 +55,7 @@ function SuccessContent() {
       // If not paid yet, poll Pesapal status endpoint every 3 seconds (max 20 times = 60 seconds)
       let count = 0
       const maxPolls = 20
-      const interval = setInterval(async () => {
+      intervalRef.current = setInterval(async () => {
         count++
         setPollCount(count)
 
@@ -62,10 +63,14 @@ function SuccessContent() {
           const res = await fetch(`/api/pesapal/status?orderId=${orderId}`)
           const data = await res.json()
 
-          if (data.paymentStatus === 'PAID' || data.paymentStatus === 'COMPLETED') {
+          // API returns { status: 'COMPLETED' | 'FAILED' | ... } not paymentStatus
+          const pesapalStatus = data.status || data.paymentStatus
+          console.log(`[checkout success] poll #${count}:`, pesapalStatus, data)
+
+          if (pesapalStatus === 'PAID' || pesapalStatus === 'COMPLETED') {
             setPaymentStatus('PAID')
             setIsPolling(false)
-            clearInterval(interval)
+            if (intervalRef.current) clearInterval(intervalRef.current)
 
             // Re-fetch order details with updated status
             const orderRes = await fetch(`/api/orders/${orderId}`)
@@ -76,32 +81,35 @@ function SuccessContent() {
             return
           }
 
-          if (data.paymentStatus === 'FAILED' || data.paymentStatus === 'CANCELLED') {
-            setPaymentStatus(data.paymentStatus)
+          if (pesapalStatus === 'FAILED' || pesapalStatus === 'CANCELLED') {
+            setPaymentStatus(pesapalStatus)
             setIsPolling(false)
-            clearInterval(interval)
+            if (intervalRef.current) clearInterval(intervalRef.current)
             return
           }
 
           if (count >= maxPolls) {
             setIsPolling(false)
             setPollError('Payment is still processing. You will receive a confirmation via SMS once payment is complete.')
-            clearInterval(interval)
+            if (intervalRef.current) clearInterval(intervalRef.current)
           }
         } catch {
           if (count >= maxPolls) {
             setIsPolling(false)
             setPollError('Unable to verify payment status. Please check your order from your dashboard.')
-            clearInterval(interval)
+            if (intervalRef.current) clearInterval(intervalRef.current)
           }
         }
       }, 3000)
-
-      return () => clearInterval(interval)
     }
 
     pollPaymentStatus()
-  }, [orderId])
+
+    // Proper cleanup — stops polling if component unmounts
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current)
+    }
+  }, [orderId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Determine what to show based on payment status
   const isPaid = paymentStatus === 'PAID'
