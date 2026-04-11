@@ -220,7 +220,7 @@ export default function AdminDashboard() {
               <CardContent className="pt-4 md:pt-6">
                 <div className="flex items-center justify-between">
                   <div className="min-w-0">
-                    <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">Revenue</p>
+                    <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">Platform Earnings</p>
                     {statsLoading ? (
                       <Skeleton className="h-7 md:h-9 w-24 mt-1" />
                     ) : (

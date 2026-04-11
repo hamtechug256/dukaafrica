@@ -474,7 +474,7 @@ export default function AdminPayoutsPage() {
         </DialogContent>
       </Dialog>
 
-      <BottomNav navItems={adminNavItems} />
+      <BottomNav items={adminNavItems} />
     </div>
   )
 }

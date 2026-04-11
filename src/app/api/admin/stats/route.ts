@@ -115,12 +115,13 @@ export async function GET() {
       prisma.order.count({ where: { status: 'RETURNED' } }).catch(() => 0),
     ])
 
-    // Revenue queries may fail if Payment table has issues — return 0 gracefully
-    const [totalRevenue, lastMonthRevenue, currentMonthRevenue] = await Promise.all([
+    // Platform earnings = sum of platformAmount (commission) from paid orders
+    // NOT the full order amount (which is seller's money)
+    const [totalPlatformEarnings, lastMonthEarnings, currentMonthEarnings] = await Promise.all([
       prisma.payment.aggregate({
         where: { status: 'PAID' },
-        _sum: { amount: true }
-      }).catch(() => ({ _sum: { amount: null } })),
+        _sum: { platformAmount: true }
+      }).catch(() => ({ _sum: { platformAmount: null } })),
       prisma.payment.aggregate({
         where: {
           status: 'PAID',
@@ -129,8 +130,8 @@ export async function GET() {
             lt: new Date(new Date().setDate(1))
           }
         },
-        _sum: { amount: true }
-      }).catch(() => ({ _sum: { amount: null } })),
+        _sum: { platformAmount: true }
+      }).catch(() => ({ _sum: { platformAmount: null } })),
       prisma.payment.aggregate({
         where: {
           status: 'PAID',
@@ -138,12 +139,12 @@ export async function GET() {
             gte: new Date(new Date().setDate(1))
           }
         },
-        _sum: { amount: true }
-      }).catch(() => ({ _sum: { amount: null } })),
+        _sum: { platformAmount: true }
+      }).catch(() => ({ _sum: { platformAmount: null } })),
     ])
 
-    const revenueGrowth = lastMonthRevenue._sum.amount 
-      ? (toNum(currentMonthRevenue._sum.amount) - toNum(lastMonthRevenue._sum.amount)) / (toNum(lastMonthRevenue._sum.amount) || 1)
+    const earningsGrowth = lastMonthEarnings._sum.platformAmount 
+      ? (toNum(currentMonthEarnings._sum.platformAmount) - toNum(lastMonthEarnings._sum.platformAmount)) / (toNum(lastMonthEarnings._sum.platformAmount) || 1)
       : 0
 
     return NextResponse.json({
@@ -167,8 +168,9 @@ export async function GET() {
         disputed: disputedOrders,
       },
       revenue: {
-        total: toNum(totalRevenue._sum.amount),
-        growth: revenueGrowth,
+        total: toNum(totalPlatformEarnings._sum.platformAmount),
+        growth: earningsGrowth,
+        currency: 'UGX',
       },
       recentActivity: [
         { type: 'user', message: 'New user registered', time: '2 minutes ago' },
