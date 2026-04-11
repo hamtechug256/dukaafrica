@@ -3,7 +3,6 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { Providers } from "@/components/providers";
-import { ErrorBoundary } from "@/components/error-boundary";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -52,6 +51,31 @@ export default function RootLayout({
   return (
     <Providers>
       <html lang="en" suppressHydrationWarning>
+        <head>
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `
+                // Patch: Next.js 16 useActionQueue may pass undefined to new URL()
+                // during initial hydration before the RSC payload canonicalUrl is ready.
+                // This patches the global URL constructor to gracefully handle
+                // undefined/null by falling back to the current page URL.
+                (function() {
+                  var _URL = window.URL;
+                  window.URL = function(url, base) {
+                    if (url == null) url = window.location.href;
+                    return new _URL(url, base);
+                  };
+                  window.URL.createObjectURL = _URL.createObjectURL.bind(_URL);
+                  window.URL.revokeObjectURL = _URL.revokeObjectURL.bind(_URL);
+                  // Preserve static URL methods
+                  window.URL.canParse = _URL.canParse ? _URL.canParse.bind(_URL) : undefined;
+                  window.URL.createBlobURL = _URL.createBlobURL ? _URL.createBlobURL.bind(_URL) : undefined;
+                  window.URL.revokeBlobURL = _URL.revokeBlobURL ? _URL.revokeBlobURL.bind(_URL) : undefined;
+                })();
+              `,
+            }}
+          />
+        </head>
         <body
           className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
         >
@@ -61,9 +85,7 @@ export default function RootLayout({
           >
             Skip to main content
           </a>
-          <ErrorBoundary>
-            {children}
-          </ErrorBoundary>
+          {children}
           <Toaster />
         </body>
       </html>
