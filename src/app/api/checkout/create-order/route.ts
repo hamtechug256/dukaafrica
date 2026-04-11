@@ -209,7 +209,7 @@ export async function POST(req: Request) {
       const availableStock = dbProduct.quantity
       if (item.quantity > availableStock) {
         return NextResponse.json(
-          { error: `Insufficient stock for one or more items. Only ${availableStock} available.` },
+          { error: `Insufficient stock for "${item.name}" (${item.productId}). Only ${availableStock} left, you requested ${item.quantity}.` },
           { status: 400 }
         )
       }

@@ -425,9 +425,16 @@ export default function CheckoutPage() {
         await new Promise(r => setTimeout(r, 1500))
         return handlePlaceOrder(retryCount + 1)
       }
-      const message = error.name === 'AbortError'
-        ? 'The payment server took too long to respond. Please try clicking Pay again.'
-        : (error.message || 'Something went wrong. Please try again.')
+      let message: string
+      if (error.message?.includes('Insufficient stock')) {
+        message = error.message
+        // Also clear cart items that are out of stock
+        useCartStore.getState().refreshCart?.()
+      } else {
+        message = error.name === 'AbortError'
+          ? 'The payment server took too long to respond. Please try clicking Pay again.'
+          : (error.message || 'Something went wrong. Please try again.')
+      }
       setProcessingError(message)
     } finally {
       setIsLoading(false)
