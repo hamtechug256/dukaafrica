@@ -631,7 +631,7 @@ class PesapalClient {
     notificationType: 'GET' | 'POST' = 'POST'
   ): Promise<PesapalIPNResponse> {
     return this.request<PesapalIPNResponse>(
-      '/api/URLSetup/RegisterIPNURL',
+      '/api/URLSetup/RegisterIPN',
       'POST',
       { url, ipn_notification_type: notificationType }
     )

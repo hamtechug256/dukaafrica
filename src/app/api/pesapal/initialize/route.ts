@@ -25,7 +25,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/db'
-import { pesapalClient, generateTransactionReference, PesapalCurrency, getIpnIdFast, saveIpnToDb, getPublicPesapalConfig, PesapalAuthError, PesapalApiError } from '@/lib/pesapal/client'
+import { pesapalClient, generateTransactionReference, PesapalCurrency, getIpnIdFast, saveIpnToDb, getPublicPesapalConfig, PesapalAuthError } from '@/lib/pesapal/client'
 import { Prisma } from '@prisma/client'
 
 function toNum(val: unknown): number {
@@ -282,7 +282,10 @@ export async function POST(request: NextRequest) {
     console.log(`[Pesapal Init] Phase 3 (submitOrder) done — ${Date.now() - startTime}ms`)
 
     if (response.error || response.status !== '200') {
-      throw new Error(response.error || 'Failed to submit Pesapal order')
+      const errMsg = response.error
+        ? (typeof response.error === 'string' ? response.error : JSON.stringify(response.error))
+        : 'Failed to submit Pesapal order'
+      throw new Error(`Pesapal submitOrder failed (status=${response.status}): ${errMsg}`)
     }
 
     // Phase 4: Update DB (~0.3s)
@@ -318,26 +321,55 @@ export async function POST(request: NextRequest) {
       merchantReference: response.merchant_reference,
     })
 
-  } catch (error) {
+  } catch (error: unknown) {
     const elapsed = Date.now() - startTime
-    console.error(`[Pesapal Init] ERROR after ${elapsed}ms:`, error)
 
+    // Safely extract error info — handle objects, strings, and Error instances
     let detail = 'Unknown error'
     let status = 500
+    let errorType = 'unknown'
 
-    if (error instanceof PesapalApiError) {
-      detail = `Pesapal API ${error.statusCode}: ${error.message}`
-      status = 502
-      console.error(`[Pesapal Init] Pesapal API error: endpoint=${error.endpoint}, body=`, error.responseBody)
-    } else if (error instanceof PesapalAuthError) {
-      detail = `Pesapal Auth: ${error.message}`
-      status = 502
-    } else if (error instanceof Error) {
-      detail = error.message
+    if (error && typeof error === 'object') {
+      const errObj = error as Record<string, unknown>
+
+      // Check for PesapalApiError by duck-typing (more reliable than instanceof on Vercel)
+      if ('statusCode' in errObj && 'endpoint' in errObj && 'message' in errObj) {
+        detail = `Pesapal API ${errObj.statusCode}: ${String(errObj.message)}`
+        status = 502
+        errorType = 'PesapalApi'
+        console.error(`[Pesapal Init] Pesapal API error: endpoint=${errObj.endpoint}, statusCode=${errObj.statusCode}, body=`, errObj.responseBody)
+      }
+      // Check for PesapalAuthError by duck-typing
+      else if ('pesapalResponse' in errObj && 'message' in errObj) {
+        detail = `Pesapal Auth: ${String(errObj.message)}`
+        status = 502
+        errorType = 'PesapalAuth'
+        console.error(`[Pesapal Init] Pesapal Auth error:`, errObj.pesapalResponse)
+      }
+      // General Error instance
+      else if (error instanceof Error) {
+        detail = error.message || String(error)
+        errorType = error.constructor?.name || 'Error'
+      }
+      // Plain object thrown (some libraries do this)
+      else if ('message' in errObj) {
+        detail = String(errObj.message)
+        errorType = 'Object'
+      }
+    } else if (typeof error === 'string') {
+      detail = error
+      errorType = 'String'
     }
 
+    // Ensure detail is always a proper string, never '[object Object]'
+    if (typeof detail !== 'string' || detail === '[object Object]') {
+      detail = JSON.stringify(detail)
+    }
+
+    console.error(`[Pesapal Init] ERROR after ${elapsed}ms [${errorType}]: ${detail}`)
+
     return NextResponse.json(
-      { error: detail, elapsed },
+      { error: detail, elapsed, errorType },
       { status }
     )
   }
