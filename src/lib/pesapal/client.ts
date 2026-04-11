@@ -286,7 +286,7 @@ export interface PesapalTokenResponse {
   token: string
   expiryDate: string // ISO datetime
   errorMessage: string
-  error: string | null
+  error: string | Record<string, unknown> | null
   status: string
 }
 
@@ -533,10 +533,22 @@ class PesapalClient {
         )
 
         if (result.error || result.status !== '200') {
+          // Build a human-readable error message — handle object/string/null errors
+          let errorMsg = 'Authentication failed'
+          if (result.errorMessage) {
+            errorMsg = String(result.errorMessage)
+          }
+          if (result.error) {
+            const errStr = typeof result.error === 'string'
+              ? result.error
+              : JSON.stringify(result.error)
+            errorMsg = errStr || errorMsg
+          }
+
           // Log the FULL Pesapal response for debugging
           log.error('Pesapal auth rejected:', JSON.stringify(result))
           throw new PesapalAuthError(
-            result.errorMessage || result.error || 'Authentication failed',
+            errorMsg,
             parseInt(result.status, 10) || 401,
             result // attach full response for diagnostics
           )
