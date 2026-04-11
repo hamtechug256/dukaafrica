@@ -1,7 +1,7 @@
 'use client'
 
 import React, { Component, ReactNode } from 'react'
-import { AlertTriangle, RefreshCw } from 'lucide-react'
+import { AlertTriangle, RefreshCw, Loader2 } from 'lucide-react'
 
 interface ErrorBoundaryProps {
   children: ReactNode
@@ -13,54 +13,105 @@ interface ErrorBoundaryState {
   hasError: boolean
   error: Error | null
   retryCount: number
+  isRetrying: boolean
+}
+
+/**
+ * Detects known Next.js 16 router hydration timing errors.
+ * These occur when useActionQueue returns an undefined canonicalUrl
+ * during the initial client-side hydration before the RSC payload
+ * has been fully processed.
+ */
+function isNextJSHydrationError(error: Error): boolean {
+  const msg = error.message || ''
+  return (
+    msg.includes('URL constructor') ||
+    msg.includes('is not a valid URL') ||
+    msg.includes('Failed to execute')
+  )
 }
 
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  private recoveryTimer: ReturnType<typeof setTimeout> | null = null
+
   constructor(props: ErrorBoundaryProps) {
     super(props)
-    this.state = { hasError: false, error: null, retryCount: 0 }
+    this.state = { hasError: false, error: null, retryCount: 0, isRetrying: false }
   }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    return { hasError: true, error, retryCount: 0 }
+    return { hasError: true, error, retryCount: 0, isRetrying: false }
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error('[ErrorBoundary] Uncaught error:', error, errorInfo)
-  }
 
-  handleReset = () => {
-    this.setState(prev => {
-      const nextRetry = prev.retryCount + 1
-      if (nextRetry > (this.props.maxRetries || 3)) {
-        return { hasError: true, error: prev.error, retryCount: 0 }
-      }
-      return { hasError: false, error: null, retryCount: nextRetry }
-    })
-  }
-
-  // Auto-recover from known Next.js router hydration issues
-  componentDidMount() {
-    if (this.state.hasError && this.state.error) {
-      const msg = this.state.error.message || ''
-      if (msg.includes('URL constructor') || msg.includes('is not a valid URL')) {
-        const timer = setTimeout(() => {
-          this.setState({ hasError: false, error: null, retryCount: 0 })
-        }, 100)
-        return () => clearTimeout(timer)
-      }
+    // Auto-recover from Next.js 16 router hydration timing errors
+    if (isNextJSHydrationError(error)) {
+      this.scheduleRecovery()
     }
   }
 
-  componentDidUpdate(prevProps: ErrorBoundaryProps, prevState: ErrorBoundaryState) {
-    if (prevState.hasError && !this.state.hasError) {
-      // Just recovered from an error
-      console.log('[ErrorBoundary] Recovered from error')
+  private scheduleRecovery() {
+    // Clear any existing timer
+    if (this.recoveryTimer) {
+      clearTimeout(this.recoveryTimer)
+    }
+
+    // Show loading state immediately (not error page)
+    this.setState({ isRetrying: true })
+
+    // Exponential backoff: 200ms, 300ms, 450ms, 675ms, 1013ms, ...
+    const delay = Math.min(200 * Math.pow(1.5, this.state.retryCount), 3000)
+    const maxRetries = this.props.maxRetries || 10
+
+    this.recoveryTimer = setTimeout(() => {
+      this.setState(prev => {
+        if (prev.retryCount >= maxRetries) {
+          // Exhausted retries — show actual error UI
+          console.error('[ErrorBoundary] Max retries exceeded for hydration error')
+          return { hasError: true, error: prev.error, retryCount: 0, isRetrying: false }
+        }
+        // Retry — reset error state so React re-renders children
+        return { hasError: false, error: null, retryCount: prev.retryCount + 1, isRetrying: false }
+      })
+    }, delay)
+  }
+
+  handleReset = () => {
+    if (this.recoveryTimer) {
+      clearTimeout(this.recoveryTimer)
+    }
+    this.setState(prev => {
+      const nextRetry = prev.retryCount + 1
+      if (nextRetry > (this.props.maxRetries || 3)) {
+        return { hasError: true, error: prev.error, retryCount: 0, isRetrying: false }
+      }
+      return { hasError: false, error: null, retryCount: nextRetry, isRetrying: false }
+    })
+  }
+
+  componentWillUnmount() {
+    if (this.recoveryTimer) {
+      clearTimeout(this.recoveryTimer)
     }
   }
 
   render() {
     if (this.state.hasError) {
+      // For known Next.js hydration errors, show a loading spinner while retrying
+      // This prevents the jarring flash of an error page
+      if (this.state.isRetrying && isNextJSHydrationError(this.state.error!)) {
+        return (
+          <div className="min-h-screen flex items-center justify-center">
+            <div className="text-center space-y-3">
+              <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto" />
+              <p className="text-sm text-muted-foreground">Loading page...</p>
+            </div>
+          </div>
+        )
+      }
+
       if (this.props.fallback) {
         return this.props.fallback
       }
