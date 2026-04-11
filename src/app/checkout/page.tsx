@@ -406,12 +406,16 @@ export default function CheckoutPage() {
 
       const paymentData = await paymentResponse.json()
 
+      console.log('[checkout] Pesapal init response:', paymentResponse.status, paymentData)
+
       if (paymentData.success && (paymentData.redirectUrl || paymentData.paymentLink)) {
         // Step 3: Redirect to Pesapal payment page
         setProcessingStage('redirecting')
         window.location.href = paymentData.redirectUrl || paymentData.paymentLink
       } else {
-        throw new Error(paymentData.error || 'Failed to initialize payment')
+        const errMsg = paymentData.error || 'Failed to initialize payment'
+        console.error('[checkout] Pesapal init failed:', paymentResponse.status, errMsg, paymentData)
+        throw new Error(errMsg)
       }
 
     } catch (error: any) {

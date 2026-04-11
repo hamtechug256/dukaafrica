@@ -25,7 +25,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/db'
-import { pesapalClient, generateTransactionReference, PesapalCurrency, getIpnIdFast, saveIpnToDb, getPublicPesapalConfig, PesapalAuthError } from '@/lib/pesapal/client'
+import { pesapalClient, generateTransactionReference, PesapalCurrency, getIpnIdFast, saveIpnToDb, getPublicPesapalConfig, PesapalAuthError, PesapalApiError } from '@/lib/pesapal/client'
 import { Prisma } from '@prisma/client'
 
 function toNum(val: unknown): number {
@@ -186,7 +186,7 @@ export async function POST(request: NextRequest) {
 
     const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_APP_URL || ''
 
-    console.log(`[Pesapal Init] Phase 1 (auth) — ${Date.now() - startTime}ms`)
+    console.log(`[Pesapal Init] Phase 1 (auth) — ${Date.now() - startTime}ms, origin=${origin || '(EMPTY)'}`)
 
     // Phase 2: DB lookups + IPN resolution in PARALLEL (~0.3s)
     // IPN is read from env/DB only — NO Pesapal API call
@@ -220,13 +220,15 @@ export async function POST(request: NextRequest) {
     // This is the ONLY Pesapal API call on the critical path.
     // authenticate() reads from L1 (memory) or L2 (DB) — no extra Pesapal call.
     const orderTrackingId = generateTransactionReference('DUKA')
+    const orderAmount = toNum(order.total)
+    const orderCurrency = order.currency as PesapalCurrency
 
-    console.log(`[Pesapal Init] Phase 3 (submitOrder) starting — ${Date.now() - startTime}ms`)
+    console.log(`[Pesapal Init] Phase 3 (submitOrder) starting — ${Date.now() - startTime}ms, amount=${orderAmount}, currency=${orderCurrency}, ref=${orderTrackingId}`)
 
     const response = await pesapalClient.submitOrder({
       id: orderTrackingId,
-      currency: order.currency as PesapalCurrency,
-      amount: toNum(order.total),
+      currency: orderCurrency,
+      amount: orderAmount,
       description: `Order ${order.orderNumber}`,
       callback_url: `${origin}/checkout/success?orderId=${orderId}`,
       cancellation_url: `${origin}/checkout/success?orderId=${orderId}&cancelled=true`,
@@ -283,10 +285,26 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error(`[Pesapal Init] ERROR after ${Date.now() - startTime}ms:`, error)
+    const elapsed = Date.now() - startTime
+    console.error(`[Pesapal Init] ERROR after ${elapsed}ms:`, error)
+
+    let detail = 'Unknown error'
+    let status = 500
+
+    if (error instanceof PesapalApiError) {
+      detail = `Pesapal API ${error.statusCode}: ${error.message}`
+      status = 502
+      console.error(`[Pesapal Init] Pesapal API error: endpoint=${error.endpoint}, body=`, error.responseBody)
+    } else if (error instanceof PesapalAuthError) {
+      detail = `Pesapal Auth: ${error.message}`
+      status = 502
+    } else if (error instanceof Error) {
+      detail = error.message
+    }
+
     return NextResponse.json(
-      { error: 'Failed to initialize payment' },
-      { status: 500 }
+      { error: detail, elapsed },
+      { status }
     )
   }
 }
