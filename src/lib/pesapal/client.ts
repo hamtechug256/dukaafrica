@@ -45,6 +45,8 @@ interface ResolvedConfig {
 }
 
 let resolvedConfig: ResolvedConfig | null = null
+let resolvedConfigAt: number = 0
+const CONFIG_CACHE_TTL_MS = 60_000 // Re-read DB every 60s so credential changes take effect quickly
 
 /**
  * Read Pesapal config from DB (PlatformSettings) in a SINGLE query.
@@ -53,7 +55,9 @@ let resolvedConfig: ResolvedConfig | null = null
  * Returns: { env, clientId, clientSecret, source }
  */
 async function resolveConfig(): Promise<ResolvedConfig> {
-  if (resolvedConfig) return resolvedConfig
+  if (resolvedConfig && Date.now() - resolvedConfigAt < CONFIG_CACHE_TTL_MS) return resolvedConfig
+  // Cache expired or empty — re-read from DB
+  resolvedConfig = null
 
   try {
     const settings = await prisma.platformSettings.findFirst({
@@ -75,6 +79,7 @@ async function resolveConfig(): Promise<ResolvedConfig> {
         : PESAPAL_ENV_FALLBACK
 
       resolvedConfig = { env, clientId, clientSecret, source: 'DB PlatformSettings' }
+      resolvedConfigAt = Date.now()
       log.info(`Config resolved from DB: env=${env}, clientId=${clientId.slice(0, 8)}...`)
       return resolvedConfig
     }
@@ -89,6 +94,7 @@ async function resolveConfig(): Promise<ResolvedConfig> {
         clientSecret: envClientSecret,
         source: `env vars (env from DB: ${dbEnv})`,
       }
+      resolvedConfigAt = Date.now()
       log.info(`Config: env=${dbEnv} from DB, creds from env vars`)
       return resolvedConfig
     }
@@ -105,6 +111,7 @@ async function resolveConfig(): Promise<ResolvedConfig> {
     clientSecret: envClientSecret,
     source: 'env vars',
   }
+  resolvedConfigAt = Date.now()
   log.info(`Config: everything from env vars, env=${PESAPAL_ENV_FALLBACK}`)
   return resolvedConfig
 }
@@ -575,11 +582,17 @@ class PesapalClient {
 
   /**
    * Manually invalidate cached token (useful after credential rotation).
+   * Clears L1 memory, L2 DB token, and config cache.
    */
   invalidateToken(): void {
     cachedToken = null
-    resolvedConfig = null // also clear config cache
+    resolvedConfig = null
+    resolvedConfigAt = 0
     log.info('Token + config cache cleared')
+    // Fire-and-forget: also clear DB token cache so next cold start gets fresh token
+    prisma.setting.deleteMany({
+      where: { key: { in: ['pesapal_access_token', 'pesapal_token_expires_at'] } },
+    }).catch(() => {})
   }
 
   // --------------------------------------------------
