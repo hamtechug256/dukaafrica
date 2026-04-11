@@ -603,7 +603,7 @@ class PesapalClient {
     orderData: PesapalSubmitOrderRequest
   ): Promise<PesapalSubmitOrderResponse> {
     return this.request<PesapalSubmitOrderResponse>(
-      '/api/Transactions/SubmitOrder',
+      '/api/Transactions/SubmitOrderRequest',
       'POST',
       orderData
     )
@@ -631,7 +631,7 @@ class PesapalClient {
     notificationType: 'GET' | 'POST' = 'POST'
   ): Promise<PesapalIPNResponse> {
     return this.request<PesapalIPNResponse>(
-      '/api/URLSetup/RegisterIPN',
+      '/api/URLSetup/RegisterIPNURL',
       'POST',
       { url, ipn_notification_type: notificationType }
     )

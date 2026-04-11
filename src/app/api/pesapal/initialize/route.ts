@@ -216,14 +216,51 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Payment record not found' }, { status: 404 })
     }
 
+    // Phase 2.5: Register IPN if not already stored
+    // Pesapal v3 REQUIRES notification_id (a valid GUID) in SubmitOrder.
+    // If we don't have one, register it NOW (before submitting the order).
+    let resolvedIpnId = ipnId
+    if (!resolvedIpnId && origin) {
+      console.log(`[Pesapal Init] Phase 2.5 (registerIPN) — ${Date.now() - startTime}ms`)
+      try {
+        await pesapalClient.authenticate() // ensure token is available
+        const ipnUrl = `${origin}/api/pesapal/ipn`
+        const registered = await pesapalClient.registerIPN(ipnUrl, 'POST')
+        if (registered.ipn_id) {
+          resolvedIpnId = registered.ipn_id
+          await saveIpnToDb(registered.ipn_id)
+          // Also save to PlatformSettings
+          try {
+            const existing = await prisma.platformSettings.findFirst({ select: { id: true } })
+            if (existing) {
+              await prisma.platformSettings.update({
+                where: { id: existing.id },
+                data: { pesapalIpnId: registered.ipn_id },
+              })
+            } else {
+              await prisma.platformSettings.create({
+                data: { pesapalIpnId: registered.ipn_id },
+              })
+            }
+          } catch (dbErr) {
+            console.error('[Pesapal Init] Failed to save IPN to PlatformSettings:', dbErr)
+          }
+          console.log(`[Pesapal Init] IPN registered: ${registered.ipn_id}`)
+        } else {
+          console.error('[Pesapal Init] IPN registration returned no ipn_id:', registered)
+        }
+      } catch (ipnErr) {
+        console.error('[Pesapal Init] IPN registration failed (will proceed without):', ipnErr)
+      }
+    }
+
     // Phase 3: Submit to Pesapal (3-5s)
-    // This is the ONLY Pesapal API call on the critical path.
     // authenticate() reads from L1 (memory) or L2 (DB) — no extra Pesapal call.
     const orderTrackingId = generateTransactionReference('DUKA')
     const orderAmount = toNum(order.total)
     const orderCurrency = order.currency as PesapalCurrency
 
-    console.log(`[Pesapal Init] Phase 3 (submitOrder) starting — ${Date.now() - startTime}ms, amount=${orderAmount}, currency=${orderCurrency}, ref=${orderTrackingId}`)
+    console.log(`[Pesapal Init] Phase 3 (submitOrder) starting — ${Date.now() - startTime}ms, amount=${orderAmount}, currency=${orderCurrency}, ref=${orderTrackingId}, ipnId=${resolvedIpnId ? 'yes' : 'NO'}`)
 
     const response = await pesapalClient.submitOrder({
       id: orderTrackingId,
@@ -232,7 +269,7 @@ export async function POST(request: NextRequest) {
       description: `Order ${order.orderNumber}`,
       callback_url: `${origin}/checkout/success?orderId=${orderId}`,
       cancellation_url: `${origin}/checkout/success?orderId=${orderId}&cancelled=true`,
-      notification_id: ipnId,
+      notification_id: resolvedIpnId,
       billing_address: {
         email_address: customerEmail || user.email || '',
         phone_number: customerPhone || '',
@@ -272,10 +309,7 @@ export async function POST(request: NextRequest) {
 
     console.log(`[Pesapal Init] DONE — ${Date.now() - startTime}ms TOTAL`)
 
-    // Fire-and-forget: register IPN if not already stored
-    if (!ipnId) {
-      registerIpnAsync(origin)
-    }
+    // IPN was registered in Phase 2.5 if needed — no fire-and-forget required
 
     return NextResponse.json({
       success: true,
