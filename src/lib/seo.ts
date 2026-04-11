@@ -1,11 +1,13 @@
 import { Metadata } from 'next'
 
 // Site configuration
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://duukaafrica.com'
+
 export const siteConfig = {
   name: 'DuukaAfrica',
   description: 'East Africa\'s Trusted Marketplace. Shop millions of products from verified sellers across East Africa.',
-  url: 'https://duukaafrica.com',
-  ogImage: 'https://duukaafrica.com/og-image.jpg',
+  url: APP_URL,
+  ogImage: `${APP_URL}/og-image.jpg`,
   links: {
     twitter: 'https://twitter.com/duukaafrica',
     facebook: 'https://facebook.com/duukaafrica',

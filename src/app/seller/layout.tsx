@@ -5,7 +5,9 @@ import { headers } from 'next/headers'
 import { prisma } from '@/lib/db'
 
 export async function generateMetadata(): Promise<Metadata> {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://duukaafrica.com'
   return {
+    metadataBase: new URL(appUrl),
     title: 'Seller Center - DuukaAfrica | Start Selling Today',
     description: 'Join DuukaAfrica as a seller. Set up your store, list products, manage orders, and reach millions of buyers across East Africa with secure escrow payments.',
     openGraph: {
