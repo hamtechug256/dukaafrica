@@ -142,6 +142,13 @@ export async function GET(req: Request) {
         limit,
       },
       stats,
+      _debug: {
+        deployCommit: 'd2b6f0f',
+        itemCounts: transformedOrders.slice(0, 3).map(o => ({
+          order: o.orderNumber,
+          itemsCount: o.itemsCount,
+        })),
+      },
     })
   } catch (error) {
     console.error('Error fetching admin orders:', error)
