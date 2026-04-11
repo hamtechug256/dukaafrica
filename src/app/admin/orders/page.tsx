@@ -212,7 +212,7 @@ export default function AdminOrdersPage() {
               <CardContent className="pt-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Revenue</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Platform Earnings</p>
                     <p className="text-2xl font-bold text-primary">
                       {formatPrice(stats.revenue || 0, 'UGX')}
                     </p>

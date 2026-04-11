@@ -114,15 +114,18 @@ export async function GET(req: Request) {
       prisma.order.count({ where: { status: 'PROCESSING' } }),
       prisma.order.count({ where: { status: { in: ['SHIPPED', 'OUT_FOR_DELIVERY'] } } }),
       prisma.order.count({ where: { status: 'DELIVERED' } }),
-      // Sum revenue from PAID orders — manual sum avoids Prisma aggregate Decimal serialization bugs
+      // Sum platform earnings from PAID orders — manual sum avoids Prisma aggregate Decimal serialization bugs
+      // Platform earnings = commission from product sales + shipping markup (NOT the full order total)
       prisma.order.findMany({
         where: { paymentStatus: 'PAID' },
-        select: { total: true },
+        select: { platformProductCommission: true, platformShippingMarkup: true },
       }),
     ])
 
-    // Compute revenue sum manually (safer than Prisma aggregate with Decimal)
-    const revenue = revenueData.reduce((sum, o) => sum + toNum(o.total), 0)
+    // Compute platform earnings sum manually (safer than Prisma aggregate with Decimal)
+    const revenue = revenueData.reduce((sum, o) =>
+      sum + toNum(o.platformProductCommission) + toNum(o.platformShippingMarkup), 0
+    )
 
     const stats = {
       total: totalCount,
@@ -130,7 +133,7 @@ export async function GET(req: Request) {
       processing: processingCount,
       shipped: shippedCount,
       delivered: deliveredCount,
-      revenue,
+      revenue, // Platform earnings (commission), NOT total order amount
     }
 
     return NextResponse.json({
