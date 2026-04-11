@@ -85,12 +85,32 @@ function registerIpnAsync(origin: string) {
 export async function GET() {
   const t0 = Date.now()
   try {
-    // Diagnostic: check where credentials come from and if env matches
+    // Diagnostic: check where credentials come from and their format
     const config = getPublicPesapalConfig()
     const envFromDb = await prisma.platformSettings.findFirst({
-      select: { pesapalEnvironment: true, pesapalClientId: true },
+      select: { pesapalEnvironment: true, pesapalClientId: true, pesapalClientSecret: true },
     })
-    console.log(`[Pesapal Warm] env=${config.env}, baseUrl=${config.baseUrl}, dbEnv=${envFromDb?.pesapalEnvironment || 'not set'}, hasDbClientId=${!!envFromDb?.pesapalClientId}`)
+
+    // Read raw env vars for diagnostics (masked — only first 4 + last 4 chars)
+    const rawEnvKey = process.env.PESAPAL_CLIENT_ID || ''
+    const rawEnvSecret = process.env.PESAPAL_CLIENT_SECRET || ''
+    const mask = (s: string) => s.length <= 8 ? '***' : `${s.slice(0, 4)}...${s.slice(-4)}`
+
+    const diagnostics = {
+      env: config.env,
+      baseUrl: config.baseUrl,
+      dbEnv: envFromDb?.pesapalEnvironment || null,
+      hasDbCreds: !!envFromDb?.pesapalClientId,
+      dbKeyLen: envFromDb?.pesapalClientId?.length || 0,
+      dbKeyPrefix: mask(envFromDb?.pesapalClientId || ''),
+      envKeyLen: rawEnvKey.length,
+      envKeyPrefix: mask(rawEnvKey),
+      envSecretLen: rawEnvSecret.length,
+      envSecretPrefix: mask(rawEnvSecret),
+      source: envFromDb?.pesapalClientId ? 'DB PlatformSettings' : (rawEnvKey ? 'env var PESAPAL_CLIENT_ID' : 'NONE'),
+    }
+
+    console.log(`[Pesapal Warm] diagnostics:`, JSON.stringify(diagnostics))
 
     // authenticate() checks L1 → L2 (DB) → L3 (Pesapal API)
     const token = await pesapalClient.authenticate()
@@ -101,7 +121,7 @@ export async function GET() {
     const ipnId = await getIpnIdFast()
     console.log(`[Pesapal Warm] IPN ID resolved: ${ipnId ? 'yes' : 'no'}`)
 
-    return NextResponse.json({ ok: true, elapsed, env: config.env, dbEnv: envFromDb?.pesapalEnvironment || null, hasDbCreds: !!envFromDb?.pesapalClientId })
+    return NextResponse.json({ ok: true, elapsed, ...diagnostics })
   } catch (error: unknown) {
     const elapsed = Date.now() - t0
     const name = error instanceof Error ? error.name : 'UnknownError'
@@ -114,9 +134,29 @@ export async function GET() {
     }
 
     const envFromDb = await prisma.platformSettings.findFirst({
-      select: { pesapalEnvironment: true, pesapalClientId: true },
+      select: { pesapalEnvironment: true, pesapalClientId: true, pesapalClientSecret: true },
     }).catch(() => null)
-    console.error(`[Pesapal Warm] Failed after ${elapsed}ms:`, name, message, pesapalDetail)
+
+    // Read raw env vars for diagnostics (masked)
+    const rawEnvKey = process.env.PESAPAL_CLIENT_ID || ''
+    const rawEnvSecret = process.env.PESAPAL_CLIENT_SECRET || ''
+    const mask = (s: string) => s.length <= 8 ? '***' : `${s.slice(0, 4)}...${s.slice(-4)}`
+
+    const diagnostics = {
+      env: getPublicPesapalConfig().env,
+      baseUrl: getPublicPesapalConfig().baseUrl,
+      dbEnv: envFromDb?.pesapalEnvironment || null,
+      hasDbCreds: !!envFromDb?.pesapalClientId,
+      dbKeyLen: envFromDb?.pesapalClientId?.length || 0,
+      dbKeyPrefix: mask(envFromDb?.pesapalClientId || ''),
+      envKeyLen: rawEnvKey.length,
+      envKeyPrefix: mask(rawEnvKey),
+      envSecretLen: rawEnvSecret.length,
+      envSecretPrefix: mask(rawEnvSecret),
+      source: envFromDb?.pesapalClientId ? 'DB PlatformSettings' : (rawEnvKey ? 'env var PESAPAL_CLIENT_ID' : 'NONE'),
+    }
+
+    console.error(`[Pesapal Warm] Failed after ${elapsed}ms:`, name, message, JSON.stringify(diagnostics))
 
     // Return 200 with diagnostic info — don't block checkout
     return NextResponse.json({
@@ -124,9 +164,7 @@ export async function GET() {
       error: `${name}: ${message}`,
       elapsed,
       pesapalResponse: pesapalDetail,
-      env: getPublicPesapalConfig().env,
-      dbEnv: envFromDb?.pesapalEnvironment || null,
-      hasDbCreds: !!envFromDb?.pesapalClientId,
+      ...diagnostics,
     })
   }
 }
