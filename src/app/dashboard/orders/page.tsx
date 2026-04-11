@@ -134,18 +134,20 @@ export default function OrdersPage() {
                         {/* Order Items */}
                         <div className="p-6">
                           <div className="flex flex-wrap gap-4 mb-4">
-                            {(order.OrderItem || []).slice(0, 4).map((item: any, idx: number) => (
+                            {(order.OrderItem || []).slice(0, 4).map((item: any, idx: number) => {
+                              let itemImage: string | null = null
+                              try {
+                                const imgs = item.Product?.images ? JSON.parse(item.Product.images) : null
+                                if (Array.isArray(imgs) && imgs.length > 0) itemImage = imgs[0]
+                              } catch { /* ignore invalid JSON */ }
+                              if (!itemImage && item.productImage) itemImage = item.productImage
+
+                              return (
                               <div key={idx} className="flex items-center gap-3">
                                 <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden">
-                                  {item.Product?.images ? (
+                                  {itemImage ? (
                                     <img
-                                      src={JSON.parse(item.Product.images)[0]}
-                                      alt={item.productName}
-                                      className="w-full h-full object-cover"
-                                    />
-                                  ) : item.productImage ? (
-                                    <img
-                                      src={item.productImage}
+                                      src={itemImage}
                                       alt={item.productName}
                                       className="w-full h-full object-cover"
                                     />

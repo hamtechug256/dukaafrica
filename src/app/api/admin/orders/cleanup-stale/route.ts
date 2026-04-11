@@ -29,7 +29,11 @@ async function handleCleanup(req: Request) {
     }
 
     const { searchParams } = new URL(req.url)
-    const olderThanMinutes = parseInt(searchParams.get('olderThanMinutes') || '30')
+    const rawMinutes = searchParams.get('olderThanMinutes') || '30'
+    const olderThanMinutes = parseInt(rawMinutes, 10)
+    if (isNaN(olderThanMinutes) || olderThanMinutes < 1) {
+      return NextResponse.json({ error: 'olderThanMinutes must be a positive integer' }, { status: 400 })
+    }
     const dryRun = searchParams.get('dryRun') === 'true'
     const cutoff = new Date(Date.now() - olderThanMinutes * 60 * 1000)
 
@@ -97,16 +101,19 @@ async function handleCleanup(req: Request) {
                 where: { id: item.variantId },
                 data: { quantity: { increment: item.quantity } },
               })
-            } else {
-              // No variant — increment product's lowStockThreshold isn't right,
-              // so just log it. Products without variants manage stock differently.
-              console.log(`[Cleanup] Item ${item.id} has no variantId, skipping stock restore`)
+            } else if (item.productId) {
+              // No variant — restore stock on the Product model itself
+              await tx.product.update({
+                where: { id: item.productId },
+                data: { quantity: { increment: item.quantity } },
+              })
             }
           }
         })
         cancelled++
-      } catch (err: any) {
-        errors.push(`${order.orderNumber}: ${err.message}`)
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err)
+        errors.push(`${order.orderNumber}: ${msg}`)
       }
     }
 
@@ -117,9 +124,10 @@ async function handleCleanup(req: Request) {
       errors: errors.length > 0 ? errors : undefined,
     })
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[Cleanup] Error:', error)
-    return NextResponse.json({ error: error.message || 'Cleanup failed' }, { status: 500 })
+    const msg = error instanceof Error ? error.message : 'Cleanup failed'
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 }
 
