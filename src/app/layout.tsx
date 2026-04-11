@@ -15,13 +15,15 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://duukaafrica.com'),
+  // metadataBase intentionally omitted to avoid Next.js hydration bug where
+  // new URL(metadataBase) is called before router state is initialized.
+  // All URLs in metadata below are absolute, so metadataBase is not needed.
   title: "DuukaAfrica - East Africa's Trusted Marketplace",
   description: "Shop millions of products from verified sellers across East Africa. Best prices on electronics, fashion, home & more. Fast delivery to Uganda, Kenya, Tanzania, Rwanda.",
   keywords: ["DuukaAfrica", "East Africa", "Marketplace", "Online Shopping", "Uganda", "Kenya", "Tanzania", "Rwanda", "Electronics", "Fashion", "Jumia alternative", "Jiji alternative"],
   authors: [{ name: "DuukaAfrica Team" }],
   icons: {
-    icon: "https://duukaafrica.com/logo.svg",
+    icon: "/logo.svg",
   },
   openGraph: {
     title: "DuukaAfrica - East Africa's Trusted Marketplace",
@@ -51,6 +53,13 @@ export default function RootLayout({
   return (
     <Providers>
       <html lang="en" suppressHydrationWarning>
+        <head>
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `(function(){var _U=window.URL;window.URL=function(u,b){if(u===undefined||u===null)return new _U(b||location.href);return b!==undefined?new _U(u,b):new _U(u)};window.URL.prototype=_U.prototype;window.URL.createObjectURL=_U.createObjectURL;window.URL.revokeObjectURL=_U.revokeObjectURL})();`,
+            }}
+          />
+        </head>
         <body
           className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
         >
