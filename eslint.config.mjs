@@ -1,12 +1,18 @@
-import nextCoreWebVitals from "eslint-config-next/core-web-vitals.js";
-import nextTypescript from "eslint-config-next/typescript.js";
+import nextPlugin from "eslint-config-next";
 import { dirname } from "path";
 import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const eslintConfig = [...nextCoreWebVitals, ...nextTypescript, {
+// eslint-config-next exports an object with configs property
+const coreWebVitals = nextPlugin.configs?.["flat/recommended"] 
+  || nextPlugin.configs?.recommended 
+  || nextPlugin;
+
+const configs = Array.isArray(coreWebVitals) ? coreWebVitals : [coreWebVitals];
+
+const eslintConfig = [...configs, {
   rules: {
     // TypeScript rules
     "@typescript-eslint/no-explicit-any": "off",

@@ -95,13 +95,13 @@ export async function POST(req: Request) {
             if (item.variantId) {
               await tx.productVariant.updateMany({
                 where: { id: item.variantId },
-                data: { stock: { increment: item.quantity } },
+                data: { quantity: { increment: item.quantity } },
               })
+            } else {
+              // No variant — increment product's lowStockThreshold isn't right,
+              // so just log it. Products without variants manage stock differently.
+              console.log(`[Cleanup] Item ${item.id} has no variantId, skipping stock restore`)
             }
-            await tx.product.updateMany({
-              where: { id: item.productId },
-              data: { stock: { increment: item.quantity } },
-            })
           }
         })
         cancelled++
