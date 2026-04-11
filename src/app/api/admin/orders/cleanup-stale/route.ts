@@ -1,5 +1,5 @@
 /**
- * POST /api/admin/orders/cleanup-stale
+ * POST/GET /api/admin/orders/cleanup-stale
  *
  * Admin endpoint to cancel orders that are stuck in PENDING with UNPAID status
  * and restore stock for their items. Used to clean up test orders.
@@ -12,7 +12,7 @@ import { auth } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 
-export async function POST(req: Request) {
+async function handleCleanup(req: Request) {
   try {
     const { userId } = await auth()
     if (!userId) {
@@ -121,4 +121,13 @@ export async function POST(req: Request) {
     console.error('[Cleanup] Error:', error)
     return NextResponse.json({ error: error.message || 'Cleanup failed' }, { status: 500 })
   }
+}
+
+// Support both GET (browser) and POST
+export async function GET(req: Request) {
+  return handleCleanup(req)
+}
+
+export async function POST(req: Request) {
+  return handleCleanup(req)
 }
