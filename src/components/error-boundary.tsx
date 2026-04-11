@@ -6,21 +6,23 @@ import { AlertTriangle, RefreshCw } from 'lucide-react'
 interface ErrorBoundaryProps {
   children: ReactNode
   fallback?: ReactNode
+  maxRetries?: number
 }
 
 interface ErrorBoundaryState {
   hasError: boolean
   error: Error | null
+  retryCount: number
 }
 
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props)
-    this.state = { hasError: false, error: null }
+    this.state = { hasError: false, error: null, retryCount: 0 }
   }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    return { hasError: true, error }
+    return { hasError: true, error, retryCount: 0 }
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
@@ -28,7 +30,33 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 
   handleReset = () => {
-    this.setState({ hasError: false, error: null })
+    this.setState(prev => {
+      const nextRetry = prev.retryCount + 1
+      if (nextRetry > (this.props.maxRetries || 3)) {
+        return { hasError: true, error: prev.error, retryCount: 0 }
+      }
+      return { hasError: false, error: null, retryCount: nextRetry }
+    })
+  }
+
+  // Auto-recover from known Next.js router hydration issues
+  componentDidMount() {
+    if (this.state.hasError && this.state.error) {
+      const msg = this.state.error.message || ''
+      if (msg.includes('URL constructor') || msg.includes('is not a valid URL')) {
+        const timer = setTimeout(() => {
+          this.setState({ hasError: false, error: null, retryCount: 0 })
+        }, 100)
+        return () => clearTimeout(timer)
+      }
+    }
+  }
+
+  componentDidUpdate(prevProps: ErrorBoundaryProps, prevState: ErrorBoundaryState) {
+    if (prevState.hasError && !this.state.hasError) {
+      // Just recovered from an error
+      console.log('[ErrorBoundary] Recovered from error')
+    }
   }
 
   render() {
