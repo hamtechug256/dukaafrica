@@ -428,8 +428,6 @@ export default function CheckoutPage() {
       let message: string
       if (error.message?.includes('Insufficient stock')) {
         message = error.message
-        // Also clear cart items that are out of stock
-        useCartStore.getState().refreshCart?.()
       } else {
         message = error.name === 'AbortError'
           ? 'The payment server took too long to respond. Please try clicking Pay again.'
