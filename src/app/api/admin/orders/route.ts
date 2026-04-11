@@ -69,8 +69,8 @@ export async function GET(req: Request) {
       prisma.order.findMany({
         where,
         include: {
-          OrderItem: {
-            select: { id: true },
+          _count: {
+            select: { OrderItem: true },
           },
           Store: {
             select: { id: true, name: true, slug: true },
@@ -89,9 +89,15 @@ export async function GET(req: Request) {
     // Transform to match expected format
     const transformedOrders = orders.map((order) => ({
       ...order,
-      items: order.OrderItem,
+      itemsCount: order._count.OrderItem,
       store: order.Store,
       user: order.User,
+      // Serialize Decimal fields to numbers for JSON
+      total: toNum(order.total),
+      subtotal: toNum(order.subtotal),
+      shippingFee: toNum(order.shippingFee),
+      tax: toNum(order.tax),
+      discount: toNum(order.discount),
     }))
 
     // Calculate stats using efficient count queries (no full table scan)
@@ -101,18 +107,22 @@ export async function GET(req: Request) {
       processingCount,
       shippedCount,
       deliveredCount,
-      paidRevenue,
+      revenueData,
     ] = await Promise.all([
       prisma.order.count(),
       prisma.order.count({ where: { status: 'PENDING' } }),
       prisma.order.count({ where: { status: 'PROCESSING' } }),
       prisma.order.count({ where: { status: { in: ['SHIPPED', 'OUT_FOR_DELIVERY'] } } }),
       prisma.order.count({ where: { status: 'DELIVERED' } }),
-      prisma.order.aggregate({
+      // Sum revenue from PAID orders — manual sum avoids Prisma aggregate Decimal serialization bugs
+      prisma.order.findMany({
         where: { paymentStatus: 'PAID' },
-        _sum: { total: true },
+        select: { total: true },
       }),
     ])
+
+    // Compute revenue sum manually (safer than Prisma aggregate with Decimal)
+    const revenue = revenueData.reduce((sum, o) => sum + toNum(o.total), 0)
 
     const stats = {
       total: totalCount,
@@ -120,7 +130,7 @@ export async function GET(req: Request) {
       processing: processingCount,
       shipped: shippedCount,
       delivered: deliveredCount,
-      revenue: toNum(paidRevenue._sum.total),
+      revenue,
     }
 
     return NextResponse.json({

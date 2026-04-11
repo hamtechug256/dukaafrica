@@ -311,7 +311,7 @@ export default function AdminOrdersPage() {
                           <TableCell>
                             <div>
                               <p className="font-medium">{order.orderNumber}</p>
-                              <p className="text-xs text-gray-500">{order.items?.length || 0} items</p>
+                              <p className="text-xs text-gray-500">{order.itemsCount || 0} items</p>
                             </div>
                           </TableCell>
                           <TableCell>
