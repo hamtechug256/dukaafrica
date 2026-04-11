@@ -1,7 +1,7 @@
 /**
  * API: Pesapal Transaction Status Polling
  *
- * GET /api/pesapal/status?orderTrackingId=xxx
+ * GET /api/pesapal/status?orderTrackingId=xxx&orderId=xxx
  *
  * Allows the frontend to poll the status of a Pesapal transaction.
  * Useful as a fallback when the IPN hasn't arrived yet.
@@ -81,10 +81,28 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ status: payment.status, resolvedLocally: true })
     }
 
+    console.log(`[Pesapal Status] Checking transaction: ${trackingId}`)
+
     const transactionStatus = await pesapalClient.getTransactionStatus(trackingId)
 
+    // Log the full response for debugging
+    console.log(`[Pesapal Status] Response for ${trackingId}:`, JSON.stringify(transactionStatus))
+
+    const pesapalStatus = transactionStatus.transaction_status
+
+    // If Pesapal returns null/empty status, the transaction may be invalid or not found
+    if (!pesapalStatus) {
+      console.warn(`[Pesapal Status] No transaction_status returned for ${trackingId}. Transaction may not exist on Pesapal.`)
+      return NextResponse.json({
+        status: null,
+        message: 'Transaction not found on Pesapal. The payment may not have completed.',
+        rawResponse: transactionStatus,
+        resolvedLocally: false,
+      })
+    }
+
     return NextResponse.json({
-      status: transactionStatus.transaction_status,
+      status: pesapalStatus,
       merchantReference: transactionStatus.merchant_reference,
       paymentMethod: transactionStatus.payment_method,
       paymentAccount: transactionStatus.payment_account,
@@ -95,7 +113,7 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Pesapal status check error:', error)
+    console.error('[Pesapal Status] Check error:', error)
     return NextResponse.json(
       { error: 'Failed to check transaction status' },
       { status: 500 }

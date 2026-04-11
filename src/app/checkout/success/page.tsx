@@ -63,9 +63,21 @@ function SuccessContent() {
           const res = await fetch(`/api/pesapal/status?orderId=${orderId}`)
           const data = await res.json()
 
-          // API returns { status: 'COMPLETED' | 'FAILED' | ... } not paymentStatus
-          const pesapalStatus = data.status || data.paymentStatus
-          console.log(`[checkout success] poll #${count}:`, pesapalStatus, data)
+          // API returns { status: 'COMPLETED' | 'FAILED' | null } not paymentStatus
+          // Use ?? to preserve null values (unlike || which treats null as falsy)
+          const pesapalStatus = data.status ?? data.paymentStatus
+          console.log(`[checkout success] poll #${count}: status=${pesapalStatus}, resolvedLocally=${data.resolvedLocally}`, data)
+
+          // Handle Pesapal returning null (transaction not found / invalid)
+          if (pesapalStatus === null && data.resolvedLocally === false) {
+            console.warn(`[checkout success] Pesapal returned null status — transaction may be invalid`)
+            // Don't keep polling — the transaction doesn't exist on Pesapal
+            setIsPolling(false)
+            setPollError('This transaction could not be found on Pesapal. The payment may not have been completed. Please try placing a new order.')
+            setPaymentStatus('FAILED')
+            if (intervalRef.current) clearInterval(intervalRef.current)
+            return
+          }
 
           if (pesapalStatus === 'PAID' || pesapalStatus === 'COMPLETED') {
             setPaymentStatus('PAID')
