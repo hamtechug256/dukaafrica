@@ -134,12 +134,18 @@ export default function OrdersPage() {
                         {/* Order Items */}
                         <div className="p-6">
                           <div className="flex flex-wrap gap-4 mb-4">
-                            {order.items.slice(0, 4).map((item: any, idx: number) => (
+                            {(order.OrderItem || []).slice(0, 4).map((item: any, idx: number) => (
                               <div key={idx} className="flex items-center gap-3">
                                 <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden">
-                                  {item.product?.images ? (
+                                  {item.Product?.images ? (
                                     <img
-                                      src={JSON.parse(item.product.images)[0]}
+                                      src={JSON.parse(item.Product.images)[0]}
+                                      alt={item.productName}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  ) : item.productImage ? (
+                                    <img
+                                      src={item.productImage}
                                       alt={item.productName}
                                       className="w-full h-full object-cover"
                                     />
@@ -152,13 +158,13 @@ export default function OrdersPage() {
                                 <div>
                                   <p className="font-medium text-sm line-clamp-1">{item.productName}</p>
                                   <p className="text-xs text-gray-500">Qty: {item.quantity}</p>
-                                  <p className="text-sm font-semibold">{order.currency || 'UGX'} {item.total.toLocaleString()}</p>
+                                  <p className="text-sm font-semibold">{order.currency || 'UGX'} {Number(item.total || 0).toLocaleString()}</p>
                                 </div>
                               </div>
                             ))}
-                            {order.items.length > 4 && (
+                            {(order.OrderItem || []).length > 4 && (
                               <div className="text-sm text-gray-500 self-center">
-                                +{order.items.length - 4} more items
+                                +{(order.OrderItem || []).length - 4} more items
                               </div>
                             )}
                           </div>
