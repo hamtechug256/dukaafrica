@@ -35,8 +35,11 @@ export async function POST(request: NextRequest) {
       select: { role: true },
     })
 
-    if (!user || !['ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+    if (!user) {
+      return NextResponse.json({ error: 'User not found in database', clerkId: userId }, { status: 403 })
+    }
+    if (!['ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
+      return NextResponse.json({ error: 'Insufficient role', role: user.role, required: 'ADMIN or SUPER_ADMIN' }, { status: 403 })
     }
 
     // Verify we're in sandbox mode
