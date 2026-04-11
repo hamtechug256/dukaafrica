@@ -5,128 +5,194 @@ import { useCartStore } from '@/store/cart-store'
 import { useCheckoutStore } from '@/store/checkout-store'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { CheckCircle, Package, Home, ArrowRight, Loader2, Clock, AlertCircle } from 'lucide-react'
+import { CheckCircle, Package, Home, Loader2, Clock, AlertCircle, RefreshCw, ArrowRight } from 'lucide-react'
 import Link from 'next/link'
-import { useEffect, useState, useRef, Suspense } from 'react'
+import { useEffect, useState, useRef, Suspense, useCallback } from 'react'
+
+const MAX_POLL_SECONDS = 90
+const POLL_INTERVAL_MS = 4000
+
+type PaymentState = 'polling' | 'paid' | 'failed' | 'cancelled' | 'timeout' | 'not_found' | 'error'
 
 function SuccessContent() {
   const searchParams = useSearchParams()
   const orderId = searchParams.get('orderId')
-  const reference = searchParams.get('reference')
+  const isCancelled = searchParams.get('cancelled') === 'true'
   const { clearCart } = useCartStore()
   const { reset: resetCheckout } = useCheckoutStore()
   const [orderDetails, setOrderDetails] = useState<any>(null)
-  const [paymentStatus, setPaymentStatus] = useState<string | null>(null)
-  const [isPolling, setIsPolling] = useState(true)
-  const [pollCount, setPollCount] = useState(0)
+  const [paymentState, setPaymentState] = useState<PaymentState>('polling')
+  const [secondsElapsed, setSecondsElapsed] = useState(0)
   const [pollError, setPollError] = useState<string | null>(null)
   const hasPolledRef = useRef(false)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
-    // Clear cart and checkout state
     clearCart()
     resetCheckout()
   }, [clearCart, resetCheckout])
 
-  // Poll for payment status
+  const stopPolling = useCallback(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current)
+      intervalRef.current = null
+    }
+    if (timerRef.current) {
+      clearInterval(timerRef.current)
+      timerRef.current = null
+    }
+  }, [])
+
+  const manualRefresh = useCallback(async () => {
+    if (!orderId) return
+    setPaymentState('polling')
+    setPollError(null)
+    setSecondsElapsed(0)
+
+    try {
+      const res = await fetch(`/api/pesapal/status?orderId=${orderId}`)
+      const data = await res.json()
+      const pesapalStatus = data.status ?? data.paymentStatus
+
+      if (pesapalStatus === 'COMPLETED' || pesapalStatus === 'PAID') {
+        setPaymentState('paid')
+        const orderRes = await fetch(`/api/orders/${orderId}`)
+        const orderData = await orderRes.json()
+        if (orderData.order) setOrderDetails(orderData.order)
+        return
+      }
+      if (pesapalStatus === 'FAILED') {
+        setPaymentState('failed')
+        return
+      }
+      if (pesapalStatus === 'CANCELLED') {
+        setPaymentState('cancelled')
+        return
+      }
+      if (pesapalStatus === null && data.resolvedLocally === false) {
+        setPaymentState('not_found')
+        setPollError('This transaction could not be found on Pesapal. The payment may not have been completed.')
+        return
+      }
+      // Still pending
+      setPaymentState('timeout')
+      setPollError('Payment is still being processed by Pesapal. This may take a few minutes.')
+    } catch {
+      setPaymentState('error')
+      setPollError('Unable to reach the server. Check your connection and try again.')
+    }
+  }, [orderId])
+
+  // Initial poll + fetch order details
   useEffect(() => {
     if (!orderId || hasPolledRef.current) return
     hasPolledRef.current = true
 
-    const pollPaymentStatus = async () => {
-      // First, fetch order details
+    const poll = async () => {
+      // Fetch order details first
       try {
         const res = await fetch(`/api/orders/${orderId}`)
         const data = await res.json()
         if (data.order) {
           setOrderDetails(data.order)
-          setPaymentStatus(data.order.paymentStatus)
-
+          // If already paid locally (IPN arrived before redirect)
           if (data.order.paymentStatus === 'PAID') {
-            setIsPolling(false)
+            setPaymentState('paid')
             return
           }
         }
       } catch {
-        // Continue polling
+        // continue polling
       }
 
-      // If not paid yet, poll Pesapal status endpoint every 3 seconds (max 20 times = 60 seconds)
+      // If user was redirected with cancelled flag
+      if (isCancelled) {
+        setPaymentState('cancelled')
+        return
+      }
+
+      // Start elapsed time counter
+      timerRef.current = setInterval(() => {
+        setSecondsElapsed(prev => prev + 1)
+      }, 1000)
+
+      // Start polling Pesapal
       let count = 0
-      const maxPolls = 20
+      const maxPolls = Math.ceil(MAX_POLL_SECONDS / (POLL_INTERVAL_MS / 1000))
+
       intervalRef.current = setInterval(async () => {
         count++
-        setPollCount(count)
 
         try {
           const res = await fetch(`/api/pesapal/status?orderId=${orderId}`)
           const data = await res.json()
-
-          // API returns { status: 'COMPLETED' | 'FAILED' | null } not paymentStatus
-          // Use ?? to preserve null values (unlike || which treats null as falsy)
           const pesapalStatus = data.status ?? data.paymentStatus
-          console.log(`[checkout success] poll #${count}: status=${pesapalStatus}, resolvedLocally=${data.resolvedLocally}`, data)
 
-          // Handle Pesapal returning null (transaction not found / invalid)
-          if (pesapalStatus === null && data.resolvedLocally === false) {
-            console.warn(`[checkout success] Pesapal returned null status — transaction may be invalid`)
-            // Don't keep polling — the transaction doesn't exist on Pesapal
-            setIsPolling(false)
-            setPollError('This transaction could not be found on Pesapal. The payment may not have been completed. Please try placing a new order.')
-            setPaymentStatus('FAILED')
-            if (intervalRef.current) clearInterval(intervalRef.current)
-            return
-          }
+          console.log(`[checkout success] poll #${count}: status=${pesapalStatus}`, data)
 
-          if (pesapalStatus === 'PAID' || pesapalStatus === 'COMPLETED') {
-            setPaymentStatus('PAID')
-            setIsPolling(false)
-            if (intervalRef.current) clearInterval(intervalRef.current)
-
-            // Re-fetch order details with updated status
+          if (pesapalStatus === 'COMPLETED' || pesapalStatus === 'PAID') {
+            setPaymentState('paid')
+            stopPolling()
+            // Re-fetch order with updated status
             const orderRes = await fetch(`/api/orders/${orderId}`)
             const orderData = await orderRes.json()
-            if (orderData.order) {
-              setOrderDetails(orderData.order)
-            }
+            if (orderData.order) setOrderDetails(orderData.order)
             return
           }
 
-          if (pesapalStatus === 'FAILED' || pesapalStatus === 'CANCELLED') {
-            setPaymentStatus(pesapalStatus)
-            setIsPolling(false)
-            if (intervalRef.current) clearInterval(intervalRef.current)
+          if (pesapalStatus === 'FAILED') {
+            setPaymentState('failed')
+            stopPolling()
+            return
+          }
+
+          if (pesapalStatus === 'CANCELLED') {
+            setPaymentState('cancelled')
+            stopPolling()
+            return
+          }
+
+          if (pesapalStatus === null && data.resolvedLocally === false) {
+            setPaymentState('not_found')
+            setPollError('This transaction could not be found on Pesapal. The payment may not have been completed.')
+            stopPolling()
             return
           }
 
           if (count >= maxPolls) {
-            setIsPolling(false)
-            setPollError('Payment is still processing. You will receive a confirmation via SMS once payment is complete.')
-            if (intervalRef.current) clearInterval(intervalRef.current)
+            setPaymentState('timeout')
+            setPollError('Payment is still being processed by Pesapal. This may take a few minutes. Don\'t worry — your order is safe and will be confirmed automatically once Pesapal sends the notification.')
+            stopPolling()
           }
         } catch {
           if (count >= maxPolls) {
-            setIsPolling(false)
-            setPollError('Unable to verify payment status. Please check your order from your dashboard.')
-            if (intervalRef.current) clearInterval(intervalRef.current)
+            setPaymentState('error')
+            setPollError('We couldn\'t verify your payment right now. Your order is recorded and will be updated automatically.')
+            stopPolling()
           }
         }
-      }, 3000)
+      }, POLL_INTERVAL_MS)
     }
 
-    pollPaymentStatus()
+    poll()
 
-    // Proper cleanup — stops polling if component unmounts
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current)
+      stopPolling()
     }
-  }, [orderId]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [orderId, isCancelled, stopPolling])
 
-  // Determine what to show based on payment status
-  const isPaid = paymentStatus === 'PAID'
-  const isFailed = paymentStatus === 'FAILED' || paymentStatus === 'CANCELLED'
-  const isProcessing = isPolling && !isPaid && !isFailed
+  const formatTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60)
+    const s = seconds % 60
+    return `${m}:${s.toString().padStart(2, '0')}`
+  }
+
+  const isPolling = paymentState === 'polling'
+  const isPaid = paymentState === 'paid'
+  const isFailed = paymentState === 'failed' || paymentState === 'cancelled'
+  const isWaiting = paymentState === 'timeout' || paymentState === 'error'
+  const isNotFound = paymentState === 'not_found'
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
@@ -134,7 +200,7 @@ function SuccessContent() {
         <CardContent className="pt-8 pb-8">
           {/* Status Icon */}
           <div className="w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6">
-            {isProcessing && (
+            {isPolling && (
               <div className="w-24 h-24 bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center animate-pulse">
                 <Loader2 className="w-12 h-12 text-yellow-500 animate-spin" />
               </div>
@@ -149,55 +215,114 @@ function SuccessContent() {
                 <AlertCircle className="w-16 h-16 text-red-500" />
               </div>
             )}
-            {!isProcessing && !isPaid && !isFailed && (
+            {isWaiting && (
               <div className="w-24 h-24 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
                 <Clock className="w-16 h-16 text-blue-500" />
               </div>
             )}
+            {isNotFound && (
+              <div className="w-24 h-24 bg-orange-100 dark:bg-orange-900/30 rounded-full flex items-center justify-center">
+                <AlertCircle className="w-16 h-16 text-orange-500" />
+              </div>
+            )}
           </div>
 
-          {/* Title & Description based on status */}
-          {isProcessing && (
+          {/* Polling State — with live timer */}
+          {isPolling && (
             <>
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                Processing Payment...
+                Waiting for Payment Confirmation
               </h1>
-              <p className="text-gray-600 dark:text-gray-400 mb-6">
-                Waiting for payment confirmation from Pesapal. Please complete payment on the Pesapal page if you haven't already.
+              <p className="text-gray-600 dark:text-gray-400 mb-2">
+                {secondsElapsed < 5
+                  ? 'Checking payment status with Pesapal...'
+                  : secondsElapsed < 20
+                    ? 'Still waiting for Pesapal to confirm...'
+                    : 'This is taking a bit longer than usual...'
+                }
               </p>
+              <div className="flex items-center justify-center gap-2 mb-6">
+                <span className="text-sm font-mono text-gray-500 dark:text-gray-400">
+                  {formatTime(secondsElapsed)}
+                </span>
+                <span className="text-xs text-gray-400 dark:text-gray-500">
+                  elapsed
+                </span>
+                <span className="mx-2 text-gray-300 dark:text-gray-600">|</span>
+                <div className="w-32 bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
+                  <div
+                    className="bg-yellow-500 h-1.5 rounded-full transition-all duration-1000"
+                    style={{ width: `${Math.min(100, (secondsElapsed / MAX_POLL_SECONDS) * 100)}%` }}
+                  />
+                </div>
+                <span className="text-xs text-gray-400 dark:text-gray-500">
+                  {Math.max(0, Math.ceil((MAX_POLL_SECONDS - secondsElapsed)))}s
+                </span>
+              </div>
             </>
           )}
+
+          {/* Paid */}
           {isPaid && (
             <>
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                Order Placed Successfully!
+                Payment Confirmed!
               </h1>
               <p className="text-gray-600 dark:text-gray-400 mb-6">
-                Thank you for your order. You will receive a confirmation SMS shortly.
+                Your payment was successful. Thank you for your order! The seller will begin preparing your shipment.
               </p>
             </>
           )}
+
+          {/* Failed / Cancelled */}
           {isFailed && (
             <>
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                Payment {paymentStatus === 'CANCELLED' ? 'Cancelled' : 'Failed'}
+                {paymentState === 'cancelled' ? 'Payment Cancelled' : 'Payment Failed'}
               </h1>
               <p className="text-gray-600 dark:text-gray-400 mb-6">
-                Your payment was not completed. You can try placing the order again from your dashboard.
+                {paymentState === 'cancelled'
+                  ? 'You cancelled the payment. No charges were made. Feel free to place a new order anytime.'
+                  : 'The payment could not be completed. No charges were made. Please try again with a different payment method.'}
               </p>
             </>
           )}
-          {!isProcessing && !isPaid && !isFailed && (
+
+          {/* Timeout / Still Processing */}
+          {isWaiting && (
             <>
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                Order Created
+                Payment Still Processing
               </h1>
-              <p className="text-gray-600 dark:text-gray-400 mb-4">
-                Your order has been created. Payment confirmation is pending.
+              <p className="text-gray-600 dark:text-gray-400 mb-2">
+                Your order is recorded and safe. Payment confirmation may take a few minutes, especially with mobile money.
               </p>
               {pollError && (
-                <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 mb-4">
-                  <p className="text-sm text-yellow-700 dark:text-yellow-400">{pollError}</p>
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-4">
+                  <p className="text-sm text-blue-700 dark:text-blue-400">{pollError}</p>
+                </div>
+              )}
+              <div className="flex flex-col sm:flex-row gap-2 justify-center mb-6">
+                <Button variant="outline" size="sm" onClick={manualRefresh}>
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Check Again
+                </Button>
+              </div>
+            </>
+          )}
+
+          {/* Not Found */}
+          {isNotFound && (
+            <>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Transaction Not Found
+              </h1>
+              <p className="text-gray-600 dark:text-gray-400 mb-2">
+                The payment was not completed on Pesapal&apos;s side. This can happen if the payment page was closed before finishing.
+              </p>
+              {pollError && (
+                <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-3 mb-4">
+                  <p className="text-sm text-orange-700 dark:text-orange-400">{pollError}</p>
                 </div>
               )}
             </>
@@ -209,7 +334,13 @@ function SuccessContent() {
               {orderDetails.orderNumber && (
                 <div className="flex justify-between mb-2">
                   <span className="text-gray-600 dark:text-gray-400">Order Number:</span>
-                  <span className="font-semibold">{orderDetails.orderNumber}</span>
+                  <span className="font-semibold font-mono text-sm">{orderDetails.orderNumber}</span>
+                </div>
+              )}
+              {orderDetails.trackingId && (
+                <div className="flex justify-between mb-2">
+                  <span className="text-gray-600 dark:text-gray-400">Tracking ID:</span>
+                  <span className="font-mono text-xs text-gray-500 break-all">{orderDetails.trackingId}</span>
                 </div>
               )}
               <div className="flex justify-between mb-2">
@@ -223,32 +354,56 @@ function SuccessContent() {
                 <span className={`font-semibold ${
                   isPaid ? 'text-green-600' :
                   isFailed ? 'text-red-600' :
+                  isNotFound ? 'text-orange-600' :
                   'text-yellow-600'
                 }`}>
                   {isPaid ? 'Confirmed' :
-                   isFailed ? paymentStatus :
-                   paymentStatus || 'Processing'}
+                   isFailed ? (paymentState === 'cancelled' ? 'Cancelled' : 'Failed') :
+                   isNotFound ? 'Not Found' :
+                   isPolling ? 'Processing...' :
+                   'Pending'}
                 </span>
               </div>
             </div>
           )}
 
-          {/* Next Steps (only show when paid) */}
+          {/* What's Next — only when paid */}
           {isPaid && (
-            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 mb-6 text-left">
-              <h3 className="font-medium mb-2">What's Next?</h3>
+            <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4 mb-6 text-left">
+              <h3 className="font-medium mb-2 text-green-800 dark:text-green-300">What&apos;s Next?</h3>
+              <ul className="text-sm text-green-700 dark:text-green-400 space-y-2">
+                <li className="flex items-start gap-2">
+                  <Package className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                  <span>The seller will prepare and ship your order</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                  <span>You&apos;ll receive SMS/email updates on delivery</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                  <span>Track your order anytime from your dashboard</span>
+                </li>
+              </ul>
+            </div>
+          )}
+
+          {/* Reassurance note when waiting */}
+          {isWaiting && (
+            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 mb-6 text-left">
+              <h3 className="font-medium mb-2 text-gray-700 dark:text-gray-300">Good to know:</h3>
               <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-2">
                 <li className="flex items-start gap-2">
-                  <Package className="w-4 h-4 mt-0.5 text-blue-500 flex-shrink-0" />
-                  <span>The seller will prepare your order for shipping</span>
+                  <CheckCircle className="w-4 h-4 mt-0.5 text-green-500 flex-shrink-0" />
+                  <span>Your order has been recorded in our system</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <CheckCircle className="w-4 h-4 mt-0.5 text-blue-500 flex-shrink-0" />
-                  <span>You'll receive SMS updates on your order status</span>
+                  <CheckCircle className="w-4 h-4 mt-0.5 text-green-500 flex-shrink-0" />
+                  <span>Stock has been reserved for your items</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <CheckCircle className="w-4 h-4 mt-0.5 text-blue-500 flex-shrink-0" />
-                  <span>Track your order from your dashboard</span>
+                  <Clock className="w-4 h-4 mt-0.5 text-blue-500 flex-shrink-0" />
+                  <span>Pesapal will send us a confirmation automatically — no action needed from you</span>
                 </li>
               </ul>
             </div>
@@ -269,6 +424,16 @@ function SuccessContent() {
               </Button>
             </Link>
           </div>
+
+          {/* Need help link */}
+          {!isPaid && (
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-4">
+              Having trouble?{' '}
+              <Link href="/contact" className="underline hover:text-gray-600 dark:hover:text-gray-300">
+                Contact support
+              </Link>
+            </p>
+          )}
         </CardContent>
       </Card>
     </div>
@@ -277,7 +442,11 @@ function SuccessContent() {
 
 export default function SuccessPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-gray-400" /></div>}>
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
+        <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+      </div>
+    }>
       <SuccessContent />
     </Suspense>
   )
