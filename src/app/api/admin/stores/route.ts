@@ -24,19 +24,32 @@ export async function GET() {
           select: { id: true, name: true, email: true }
         },
         _count: {
-          select: { Product: true }
+          select: { Product: true, Order: true }
         }
       },
       orderBy: { createdAt: 'desc' },
     })
 
-    // Transform to match expected format
+    // Transform to match expected format for admin pages
     const transformedStores = stores.map((store) => ({
-      ...store,
-      user: store.User,
-      _count: {
-        products: store._count.Product,
+      id: store.id,
+      name: store.name,
+      slug: store.slug,
+      logo: store.logo,
+      description: store.description,
+      isVerified: store.isVerified,
+      verificationTier: store.verificationTier || 'STARTER',
+      commissionRate: store.commissionRate ? Number(store.commissionRate) : null,
+      country: store.country,
+      isActive: store.isActive,
+      createdAt: store.createdAt,
+      user: {
+        id: store.User.id,
+        name: store.User.name,
+        email: store.User.email,
       },
+      totalOrders: store._count.Order,
+      totalProducts: store._count.Product,
     }))
 
     return NextResponse.json({ stores: transformedStores })

@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useRouter } from 'next/navigation'
+import { useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -47,7 +49,8 @@ import { useToast } from '@/hooks/use-toast'
 import { MobileNav, DesktopSidebar, BottomNav } from '@/components/dashboard/mobile-nav'
 import { adminNavItems } from '@/lib/admin-nav'
 
-const TIER_CONFIG = {
+// Default tier config used as fallback when API is unavailable
+const DEFAULT_TIER_CONFIG: Record<string, any> = {
   STARTER: {
     name: 'STARTER',
     displayName: 'Starter Seller',
@@ -55,18 +58,9 @@ const TIER_CONFIG = {
     color: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
     border: 'border-gray-200 dark:border-gray-700',
     icon: Store,
-    requirements: {
-      minOrders: 0,
-      minRating: 0,
-    },
-    limits: {
-      maxProducts: 10,
-      maxTransaction: '500K UGX',
-    },
-    fees: {
-      commission: 15,
-      escrowHoldDays: 7,
-    },
+    requirements: { minOrders: 0, minRating: 0 },
+    limits: { maxProducts: 10, maxTransaction: '500K UGX' },
+    fees: { commission: 15, escrowHoldDays: 7 },
   },
   VERIFIED: {
     name: 'VERIFIED',
@@ -75,18 +69,9 @@ const TIER_CONFIG = {
     color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
     border: 'border-green-200 dark:border-green-800',
     icon: Shield,
-    requirements: {
-      minOrders: 0,
-      minRating: 0,
-    },
-    limits: {
-      maxProducts: 100,
-      maxTransaction: '5M UGX',
-    },
-    fees: {
-      commission: 10,
-      escrowHoldDays: 5,
-    },
+    requirements: { minOrders: 0, minRating: 0 },
+    limits: { maxProducts: 100, maxTransaction: '5M UGX' },
+    fees: { commission: 10, escrowHoldDays: 5 },
   },
   PREMIUM: {
     name: 'PREMIUM',
@@ -95,24 +80,51 @@ const TIER_CONFIG = {
     color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
     border: 'border-amber-200 dark:border-amber-800',
     icon: Crown,
-    requirements: {
-      minOrders: 50,
-      minRating: 4.5,
-    },
-    limits: {
-      maxProducts: 'Unlimited',
-      maxTransaction: 'Unlimited',
-    },
-    fees: {
-      commission: 8,
-      escrowHoldDays: 3,
-    },
+    requirements: { minOrders: 50, minRating: 4.5 },
+    limits: { maxProducts: 'Unlimited', maxTransaction: 'Unlimited' },
+    fees: { commission: 8, escrowHoldDays: 3 },
   },
 }
 
+const TIER_ICONS: Record<string, any> = {
+  STARTER: Store,
+  VERIFIED: Shield,
+  PREMIUM: Crown,
+}
+
+// Convert DB tier data to display config
+function tierFromDB(tier: any): any {
+  const defaults = DEFAULT_TIER_CONFIG[tier.tierName] || DEFAULT_TIER_CONFIG.STARTER
+  return {
+    ...defaults,
+    name: tier.tierName,
+    displayName: tier.displayName || defaults.displayName,
+    description: tier.description || defaults.description,
+    icon: TIER_ICONS[tier.tierName] || Store,
+    requirements: {
+      minOrders: tier.requiresMinOrders ?? defaults.requirements.minOrders,
+      minRating: tier.requiresMinRating ?? defaults.requirements.minRating,
+    },
+    limits: {
+      maxProducts: Number(tier.maxProducts) < 0 ? 'Unlimited' : (Number(tier.maxProducts) || defaults.limits.maxProducts),
+      maxTransaction: Number(tier.maxTransactionAmount) < 0 ? 'Unlimited' : `${(Number(tier.maxTransactionAmount) / 1000000).toFixed(0)}M UGX`,
+    },
+    fees: {
+      commission: Number(tier.commissionRate) || defaults.fees.commission,
+      escrowHoldDays: tier.escrowHoldDays || defaults.fees.escrowHoldDays,
+    },
+  }
+}
+
 async function fetchStores() {
-  const res = await fetch('/api/stores?limit=200')
+  const res = await fetch('/api/admin/stores')
   if (!res.ok) throw new Error('Failed to fetch stores')
+  return res.json()
+}
+
+async function fetchTierConfigs() {
+  const res = await fetch('/api/admin/tiers')
+  if (!res.ok) throw new Error('Failed to fetch tier configs')
   return res.json()
 }
 
@@ -132,6 +144,7 @@ async function overrideStoreTier(data: { storeId: string; tier: string }) {
 export default function AdminTiersPage() {
   const { toast } = useToast()
   const queryClient = useQueryClient()
+  const router = useRouter()
   const [search, setSearch] = useState('')
   const [tierFilter, setTierFilter] = useState('all')
   const [overrideDialog, setOverrideDialog] = useState<{
@@ -140,10 +153,47 @@ export default function AdminTiersPage() {
     newTier: string
   }>({ open: false, store: null, newTier: '' })
 
+  // Auth check — same pattern as other admin pages
+  const { data: roleData, isLoading: roleLoading } = useQuery({
+    queryKey: ['user-role'],
+    queryFn: async () => {
+      const res = await fetch('/api/user/role')
+      return res.json()
+    },
+    staleTime: 1000 * 60 * 5,
+  })
+
+  useEffect(() => {
+    if (!roleLoading && roleData && !roleData.user?.isAdmin) {
+      router.push('/dashboard')
+    }
+  }, [roleData, roleLoading, router])
+
+  // Fetch stores
   const { data, isLoading } = useQuery({
     queryKey: ['admin-tiers-stores'],
     queryFn: fetchStores,
+    enabled: !!roleData?.user?.isAdmin,
   })
+
+  // Fetch tier configs from DB (dynamic, not hardcoded)
+  const { data: tierData } = useQuery({
+    queryKey: ['admin-tier-configs'],
+    queryFn: fetchTierConfigs,
+    staleTime: 1000 * 60 * 10,
+  })
+
+  // Build TIER_CONFIG from API data, falling back to defaults
+  const TIER_CONFIG: Record<string, any> = (() => {
+    if (tierData?.tiers?.length > 0) {
+      const config: Record<string, any> = {}
+      tierData.tiers.forEach((t: any) => {
+        config[t.tierName] = tierFromDB(t)
+      })
+      return config
+    }
+    return DEFAULT_TIER_CONFIG
+  })()
 
   const overrideMutation = useMutation({
     mutationFn: overrideStoreTier,
@@ -169,11 +219,19 @@ export default function AdminTiersPage() {
   const filteredStores = stores.filter((s: any) => {
     const matchesSearch = s.name?.toLowerCase().includes(search.toLowerCase()) ||
       s.user?.email?.toLowerCase().includes(search.toLowerCase())
-    const matchesFilter = tierFilter === 'all' ||
-      s.verificationTier === tierFilter ||
-      (!s.verificationTier && tierFilter === 'STARTER')
+    const storeTier = s.verificationTier || 'STARTER'
+    const matchesFilter = tierFilter === 'all' || storeTier === tierFilter
     return matchesSearch && matchesFilter
   })
+
+  // Loading state: check auth first
+  if (roleLoading || !roleData?.user?.isAdmin) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    )
+  }
 
   const getTierBadge = (tier: string) => {
     const config = TIER_CONFIG[tier as keyof typeof TIER_CONFIG] || TIER_CONFIG.STARTER
@@ -339,8 +397,8 @@ export default function AdminTiersPage() {
                         <TableHead>Store</TableHead>
                         <TableHead>Owner</TableHead>
                         <TableHead>Current Tier</TableHead>
+                        <TableHead>Products</TableHead>
                         <TableHead>Total Orders</TableHead>
-                        <TableHead>Rating</TableHead>
                         <TableHead>Commission</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
@@ -380,13 +438,10 @@ export default function AdminTiersPage() {
                               </Badge>
                             </TableCell>
                             <TableCell>
-                              <span className="font-medium">{store.totalOrders || 0}</span>
+                              <span className="font-medium">{store.totalProducts || 0}</span>
                             </TableCell>
                             <TableCell>
-                              <div className="flex items-center gap-1">
-                                <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-                                <span>{(store.rating || 0).toFixed(1)}</span>
-                              </div>
+                              <span className="font-medium">{store.totalOrders || 0}</span>
                             </TableCell>
                             <TableCell>
                               <span className="font-medium">{store.commissionRate || config.fees.commission}%</span>

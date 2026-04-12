@@ -1,7 +1,6 @@
 'use client'
 
 
-import { useUser } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -94,7 +93,6 @@ async function moderateProduct(data: { productId: string; action: 'approve' | 'r
 }
 
 export default function ModerationPage() {
-  const { user, isLoaded } = useUser()
   const router = useRouter()
   const queryClient = useQueryClient()
   const { toast } = useToast()
@@ -105,9 +103,26 @@ export default function ModerationPage() {
   const [showRejectDialog, setShowRejectDialog] = useState(false)
   const [rejectionReason, setRejectionReason] = useState('')
 
+  // Auth check — same database-backed pattern as other admin pages
+  const { data: roleData, isLoading: roleLoading } = useQuery({
+    queryKey: ['user-role'],
+    queryFn: async () => {
+      const res = await fetch('/api/user/role')
+      return res.json()
+    },
+    staleTime: 1000 * 60 * 5,
+  })
+
+  useEffect(() => {
+    if (!roleLoading && roleData && !roleData.user?.isAdmin) {
+      router.push('/dashboard')
+    }
+  }, [roleData, roleLoading, router])
+
   const { data, isLoading } = useQuery({
     queryKey: ['moderation-queue', activeTab, page],
     queryFn: () => fetchModerationQueue({ status: activeTab, page }),
+    enabled: !!roleData?.user?.isAdmin,
   })
 
   const moderateMutation = useMutation({
@@ -131,15 +146,6 @@ export default function ModerationPage() {
     },
   })
 
-  useEffect(() => {
-    if (isLoaded && user) {
-      const role = user.publicMetadata?.role || user.unsafeMetadata?.role
-      if (role !== 'ADMIN' && role !== 'SUPER_ADMIN') {
-        router.push('/dashboard')
-      }
-    }
-  }, [isLoaded, user, router])
-
   const handleApprove = (productId: string) => {
     moderateMutation.mutate({ productId, action: 'approve' })
   }
@@ -153,7 +159,7 @@ export default function ModerationPage() {
     })
   }
 
-  if (!isLoaded) {
+  if (roleLoading || !roleData?.user?.isAdmin) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />

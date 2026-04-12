@@ -32,3 +32,29 @@ CREATE INDEX "Announcement_createdAt_idx" ON "Announcement"("createdAt");
 
 -- CreateIndex
 CREATE INDEX "Announcement_expiresAt_idx" ON "Announcement"("expiresAt");
+
+-- CreateTable
+CREATE TABLE "Banner" (
+    "id" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "subtitle" TEXT,
+    "image" TEXT NOT NULL,
+    "imageMobile" TEXT,
+    "link" TEXT,
+    "buttonText" TEXT,
+    "position" TEXT NOT NULL DEFAULT 'HOME_SLIDER',
+    "order" INTEGER NOT NULL DEFAULT 0,
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "startDate" TIMESTAMP(3),
+    "endDate" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Banner_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex
+CREATE INDEX "Banner_isActive_idx" ON "Banner"("isActive");
+
+-- CreateIndex
+CREATE INDEX "Banner_position_idx" ON "Banner"("position");
