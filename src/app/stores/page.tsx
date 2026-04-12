@@ -25,6 +25,14 @@ export const metadata: Metadata = {
     description: 'Browse verified stores and sellers on DuukaAfrica. Find trusted merchants across East Africa.',
     type: 'website',
   },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Stores - DuukaAfrica',
+    description: 'Browse verified stores and sellers on DuukaAfrica.',
+  },
+  alternates: {
+    canonical: 'https://duukaafrica.com/stores',
+  },
 }
 
 const COUNTRIES = [

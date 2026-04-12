@@ -6,6 +6,8 @@ import { Suspense } from 'react'
 import { CategoryFiltersClient } from './category-filters-client'
 import { Header } from '@/components/home/header'
 import { Footer } from '@/components/home/footer'
+import { JsonLd } from '@/components/json-ld'
+import { generateBreadcrumbSchema, generateCategoryMetadata } from '@/lib/seo'
 import { DynamicIcon, getCategoryEmoji } from '@/components/ui/dynamic-icon'
 import { safeParseImages } from '@/lib/helpers'
 
@@ -134,18 +136,14 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     const category = await getCategory(slug)
     if (!category) return { title: 'Category Not Found' }
 
-    return {
-      title: `${category.name} - DuukaAfrica | Shop ${category.name} Online`,
-      description: category.description || `Browse the best ${category.name} products on DuukaAfrica. Shop from verified sellers across East Africa with secure payments.`,
-      openGraph: {
-        title: `${category.name} - DuukaAfrica`,
-        description: category.description || `Shop ${category.name} products on DuukaAfrica.`,
-        type: 'website',
-      },
-    }
+    return generateCategoryMetadata({
+      name: category.name,
+      description: category.description,
+      slug: category.slug,
+    })
   } catch (error) {
     console.error('[Category Page] generateMetadata failed:', error)
-    return { title: 'Category - DuukaAfrica' }
+    return { title: 'Category | DuukaAfrica' }
   }
 }
 
@@ -224,8 +222,15 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
     const sort = sp.sort || 'newest'
     const search = sp.search || ''
 
+    const breadcrumbSchema = generateBreadcrumbSchema([
+      { name: 'Home', url: '/' },
+      { name: 'Categories', url: '/categories' },
+      { name: category.name, url: `/categories/${category.slug}` },
+    ])
+
   return (
     <div className="min-h-screen flex flex-col bg-[oklch(0.99_0.005_85)] dark:bg-[oklch(0.12_0.02_45)]">
+      <JsonLd data={breadcrumbSchema} />
       <Header />
       
       <main className="flex-1">

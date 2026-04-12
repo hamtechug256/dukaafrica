@@ -1,7 +1,27 @@
+import { Metadata } from 'next'
 import { prisma } from '@/lib/db'
 import { Header } from '@/components/home/header'
 import { Footer } from '@/components/home/footer'
 import { CategoryCard } from './category-card'
+import { JsonLd } from '@/components/json-ld'
+import { generateBreadcrumbSchema } from '@/lib/seo'
+
+export const metadata: Metadata = {
+  title: 'All Categories - Shop by Category on DuukaAfrica',
+  description: 'Browse all product categories on DuukaAfrica. Find electronics, fashion, home & garden, beauty, sports, vehicles, real estate and more across East Africa.',
+  openGraph: {
+    title: 'All Categories - DuukaAfrica',
+    description: 'Browse all product categories on DuukaAfrica. Find electronics, fashion, home & garden, beauty, sports and more.',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'All Categories - DuukaAfrica',
+    description: 'Browse all product categories on DuukaAfrica.',
+  },
+  alternates: {
+    canonical: 'https://duukaafrica.com/categories',
+  },
+}
 
 // Force dynamic rendering - don't try to pre-render at build time
 export const dynamic = 'force-dynamic'
@@ -38,8 +58,14 @@ export default async function CategoriesPage() {
     console.error('[Categories Page] Failed to fetch categories:', error)
   }
 
+  const breadcrumbSchema = generateBreadcrumbSchema([
+    { name: 'Home', url: '/' },
+    { name: 'Categories', url: '/categories' },
+  ])
+
   return (
     <div className="min-h-screen flex flex-col bg-[oklch(0.99_0.005_85)] dark:bg-[oklch(0.12_0.02_45)]">
+      <JsonLd data={breadcrumbSchema} />
       <Header />
       
       <main className="flex-1">

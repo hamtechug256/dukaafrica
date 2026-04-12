@@ -14,6 +14,14 @@ export const metadata: Metadata = {
     description: 'Find answers to common questions or contact our support team.',
     type: 'website',
   },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Help Center - DuukaAfrica | FAQs & Support',
+    description: 'Get help with your DuukaAfrica orders, payments, shipping, and account. Find answers to frequently asked questions or contact',
+  },
+  alternates: {
+    canonical: 'https://duukaafrica.com/help',
+  },
 }
 
 export default function HelpPage() {

@@ -4,43 +4,103 @@ import { prisma } from '@/lib/db'
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = 'https://duukaafrica.com'
 
-  // Static pages
-  const staticPages = [
+  // Static pages — all public-facing pages
+  const staticPages: MetadataRoute.Sitemap = [
     {
       url: baseUrl,
       lastModified: new Date(),
-      changeFrequency: 'daily' as const,
+      changeFrequency: 'daily',
       priority: 1,
     },
     {
       url: `${baseUrl}/products`,
       lastModified: new Date(),
-      changeFrequency: 'daily' as const,
+      changeFrequency: 'daily',
       priority: 0.9,
+    },
+    {
+      url: `${baseUrl}/products/featured`,
+      lastModified: new Date(),
+      changeFrequency: 'daily',
+      priority: 0.8,
     },
     {
       url: `${baseUrl}/categories`,
       lastModified: new Date(),
-      changeFrequency: 'weekly' as const,
+      changeFrequency: 'weekly',
       priority: 0.8,
     },
     {
-      url: `${baseUrl}/seller`,
+      url: `${baseUrl}/stores`,
       lastModified: new Date(),
-      changeFrequency: 'monthly' as const,
+      changeFrequency: 'weekly',
       priority: 0.7,
     },
     {
-      url: `${baseUrl}/sign-in`,
+      url: `${baseUrl}/flash-sales`,
       lastModified: new Date(),
-      changeFrequency: 'monthly' as const,
+      changeFrequency: 'daily',
+      priority: 0.8,
+    },
+    {
+      url: `${baseUrl}/about`,
+      lastModified: new Date(),
+      changeFrequency: 'monthly',
       priority: 0.5,
     },
     {
-      url: `${baseUrl}/sign-up`,
+      url: `${baseUrl}/contact`,
       lastModified: new Date(),
-      changeFrequency: 'monthly' as const,
-      priority: 0.5,
+      changeFrequency: 'monthly',
+      priority: 0.4,
+    },
+    {
+      url: `${baseUrl}/help`,
+      lastModified: new Date(),
+      changeFrequency: 'monthly',
+      priority: 0.4,
+    },
+    {
+      url: `${baseUrl}/seller/register`,
+      lastModified: new Date(),
+      changeFrequency: 'monthly',
+      priority: 0.7,
+    },
+    {
+      url: `${baseUrl}/shipping`,
+      lastModified: new Date(),
+      changeFrequency: 'monthly',
+      priority: 0.4,
+    },
+    {
+      url: `${baseUrl}/returns`,
+      lastModified: new Date(),
+      changeFrequency: 'monthly',
+      priority: 0.3,
+    },
+    {
+      url: `${baseUrl}/track-order`,
+      lastModified: new Date(),
+      changeFrequency: 'monthly',
+      priority: 0.3,
+    },
+    {
+      url: `${baseUrl}/terms`,
+      lastModified: new Date(),
+      changeFrequency: 'yearly',
+      priority: 0.2,
+    },
+    {
+      url: `${baseUrl}/privacy`,
+      lastModified: new Date(),
+      changeFrequency: 'yearly',
+      priority: 0.2,
+    },
+    {
+      url: `${baseUrl}/cookies`,
+      lastModified: new Date(),
+      changeFrequency: 'yearly',
+      priority: 0.1,
     },
   ]
 
@@ -54,7 +114,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       },
     })
 
-    const productPages = products.map((product) => ({
+    const productPages: MetadataRoute.Sitemap = products.map((product) => ({
       url: `${baseUrl}/products/${product.slug}`,
       lastModified: product.updatedAt,
       changeFrequency: 'weekly' as const,
@@ -70,7 +130,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       },
     })
 
-    const categoryPages = categories.map((category) => ({
+    const categoryPages: MetadataRoute.Sitemap = categories.map((category) => ({
       url: `${baseUrl}/categories/${category.slug}`,
       lastModified: category.updatedAt,
       changeFrequency: 'weekly' as const,
@@ -86,7 +146,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       },
     })
 
-    const storePages = stores.map((store) => ({
+    const storePages: MetadataRoute.Sitemap = stores.map((store) => ({
       url: `${baseUrl}/stores/${store.slug}`,
       lastModified: store.updatedAt,
       changeFrequency: 'weekly' as const,

@@ -5,6 +5,18 @@ import { Footer } from '@/components/home/footer'
 export const metadata: Metadata = {
   title: 'Privacy Policy - DuukaAfrica',
   description: 'Learn how DuukaAfrica collects, uses, and protects your personal data. Your privacy is important to us.',
+  openGraph: {
+    title: 'Privacy Policy - DuukaAfrica',
+    description: 'Learn how DuukaAfrica collects, uses, and protects your personal data. Your privacy is important to us.',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Privacy Policy - DuukaAfrica',
+    description: 'Learn how DuukaAfrica collects, uses, and protects your personal data. Your privacy is important to us.',
+  },
+  alternates: {
+    canonical: 'https://duukaafrica.com/privacy',
+  },
 }
 
 export default function PrivacyPage() {

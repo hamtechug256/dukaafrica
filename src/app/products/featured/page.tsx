@@ -98,6 +98,14 @@ export const metadata: Metadata = {
     title: 'Featured Products - Top Picks | DuukaAfrica',
     description: 'Discover our curated selection of featured products from verified sellers across East Africa.',
   },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Featured Products - Top Picks | DuukaAfrica',
+    description: 'Discover our curated selection of featured products from verified sellers across East Africa. Quality products at the best',
+  },
+  alternates: {
+    canonical: 'https://duukaafrica.com/products/featured',
+  },
 }
 
 export default async function FeaturedProductsPage() {

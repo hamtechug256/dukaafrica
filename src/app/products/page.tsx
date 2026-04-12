@@ -46,6 +46,16 @@ export async function generateMetadata({ searchParams }: ProductsPageProps): Pro
       description,
       type: 'website',
     },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description: description.substring(0, 200),
+    },
+    alternates: {
+      canonical: params.q || params.category
+        ? undefined // Don't set canonical on filtered/search URLs to avoid duplicate content
+        : 'https://duukaafrica.com/products',
+    },
   }
 }
 

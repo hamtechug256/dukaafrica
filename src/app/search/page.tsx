@@ -7,6 +7,18 @@ export const metadata: Metadata = {
   title: 'Search Products - DuukaAfrica',
   description: 'Search thousands of products from verified sellers across East Africa on DuukaAfrica. Find electronics, fashion, home goods and more.',
   keywords: 'search products, find items, online shopping, East Africa marketplace',
+  openGraph: {
+    title: 'Search Products - DuukaAfrica',
+    description: 'Search thousands of products from verified sellers across East Africa on DuukaAfrica. Find electronics, fashion, home goods and more.',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Search Products - DuukaAfrica',
+    description: 'Search thousands of products from verified sellers across East Africa on DuukaAfrica. Find electronics, fashion, home goods and',
+  },
+  alternates: {
+    canonical: 'https://duukaafrica.com/search',
+  },
 }
 
 import { ProductGrid } from '../products/product-grid'

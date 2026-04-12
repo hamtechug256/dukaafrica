@@ -15,6 +15,18 @@ import ContactForm from '@/components/contact/contact-form'
 export const metadata: Metadata = {
   title: 'Contact Us - DuukaAfrica',
   description: 'Get in touch with DuukaAfrica. We are here to help you with any questions about orders, products, or seller accounts.',
+  openGraph: {
+    title: 'Contact Us - DuukaAfrica',
+    description: 'Get in touch with DuukaAfrica. We are here to help you with any questions about orders, products, or seller accounts.',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Contact Us - DuukaAfrica',
+    description: 'Get in touch with DuukaAfrica. We are here to help you with any questions about orders, products, or seller accounts.',
+  },
+  alternates: {
+    canonical: 'https://duukaafrica.com/contact',
+  },
 }
 
 export default function ContactPage() {

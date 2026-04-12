@@ -1,6 +1,15 @@
 import { prisma } from '@/lib/db'
 import { notFound } from 'next/navigation'
 import { ProductDetailClient } from './product-detail-client'
+import { generateProductMetadata, generateProductSchema, generateBreadcrumbSchema } from '@/lib/seo'
+import { JsonLd } from '@/components/json-ld'
+import { Prisma } from '@prisma/client'
+
+function toNum(val: unknown): number {
+  if (val instanceof Prisma.Decimal) return val.toNumber()
+  if (typeof val === 'number') return val
+  return 0
+}
 
 // Get product by slug
 async function getProduct(slug: string) {
@@ -46,7 +55,6 @@ async function getProduct(slug: string) {
 
   if (!product) return null
 
-  // Transform to match component expected structure (lowercase store/category)
   return {
     ...product,
     store: product.Store,
@@ -81,7 +89,6 @@ async function getRelatedProducts(productId: string, categoryId: string | null) 
     orderBy: { createdAt: 'desc' },
   })
 
-  // Transform to match expected structure
   return products.map(p => ({
     ...p,
     store: p.Store,
@@ -96,12 +103,10 @@ function checkFlashSale(product: any) {
   const startDate = product.flashSaleStart ? new Date(product.flashSaleStart) : null
   const endDate = product.flashSaleEnd ? new Date(product.flashSaleEnd) : null
   
-  // Check if flash sale is currently active
   const isActive = startDate && endDate && now >= startDate && now <= endDate
   
   if (!isActive) return null
   
-  // Calculate flash sale price
   const flashSalePrice = product.flashSaleDiscount 
     ? product.price * (1 - product.flashSaleDiscount / 100)
     : product.price
@@ -124,6 +129,35 @@ interface ProductPageProps {
   params: Promise<{ slug: string }>
 }
 
+// Generate metadata using the SEO helper (uses metaTitle/metaDesc from DB!)
+export async function generateMetadata({ params }: ProductPageProps) {
+  try {
+    const { slug } = await params
+    const product = await getProduct(slug)
+
+    if (!product) {
+      return { title: 'Product Not Found' }
+    }
+
+    return generateProductMetadata({
+      name: product.name,
+      description: product.description,
+      shortDesc: product.shortDesc,
+      metaTitle: product.metaTitle,
+      metaDesc: product.metaDesc,
+      slug: product.slug,
+      images: product.images as string | null,
+      price: toNum(product.price),
+      currency: product.currency,
+      store: product.store ? { name: product.store.name } : null,
+      category: product.category ? { name: product.category.name } : null,
+    })
+  } catch (error) {
+    console.error('[Product Detail] generateMetadata failed:', error)
+    return { title: 'Product | DuukaAfrica' }
+  }
+}
+
 export default async function ProductPage({ params }: ProductPageProps) {
   try {
     const { slug } = await params
@@ -140,49 +174,46 @@ export default async function ProductPage({ params }: ProductPageProps) {
       console.error('[Product Detail] getRelatedProducts failed:', error)
     }
 
-    // Parse images
     const images = product.images ? JSON.parse(product.images as string) : []
-    
-    // Check for active flash sale
     const flashSale = checkFlashSale(product)
 
+    // JSON-LD structured data
+    const productSchema = generateProductSchema({
+      id: product.id,
+      name: product.name,
+      description: product.description,
+      slug: product.slug,
+      images: product.images as string | null,
+      price: toNum(product.price),
+      comparePrice: product.comparePrice ? toNum(product.comparePrice) : null,
+      currency: product.currency,
+      rating: product.rating,
+      reviewCount: product.reviewCount,
+      quantity: product.quantity,
+      category: product.category,
+      store: product.store,
+    })
+
+    const breadcrumbSchema = generateBreadcrumbSchema([
+      { name: 'Home', url: '/' },
+      ...(product.category ? [{ name: product.category.name, url: `/categories/${product.category.slug}` }] : []),
+      { name: product.name, url: `/products/${product.slug}` },
+    ])
+
     return (
-      <ProductDetailClient 
-        product={JSON.parse(JSON.stringify(product))} 
-        images={images}
-        relatedProducts={JSON.parse(JSON.stringify(relatedProducts))}
-        flashSale={flashSale}
-      />
+      <>
+        <JsonLd data={productSchema} />
+        <JsonLd data={breadcrumbSchema} />
+        <ProductDetailClient 
+          product={JSON.parse(JSON.stringify(product))} 
+          images={images}
+          relatedProducts={JSON.parse(JSON.stringify(relatedProducts))}
+          flashSale={flashSale}
+        />
+      </>
     )
   } catch (error) {
     console.error('[Product Detail] Page render failed:', error)
     notFound()
-  }
-}
-
-// Generate metadata for SEO
-export async function generateMetadata({ params }: ProductPageProps) {
-  try {
-    const { slug } = await params
-    const product = await getProduct(slug)
-
-    if (!product) {
-      return {
-        title: 'Product Not Found - DuukaAfrica',
-      }
-    }
-
-    return {
-      title: `${product.name} - DuukaAfrica`,
-      description: product.description || product.shortDesc || `Buy ${product.name} at the best price from ${product.store?.name}. Fast delivery across East Africa.`,
-      openGraph: {
-        title: product.name,
-        description: product.description || undefined,
-        images: product.images ? JSON.parse(product.images as string).slice(0, 1) : [],
-      },
-    }
-  } catch (error) {
-    console.error('[Product Detail] generateMetadata failed:', error)
-    return { title: 'Product - DuukaAfrica' }
   }
 }

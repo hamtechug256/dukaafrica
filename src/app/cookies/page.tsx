@@ -13,6 +13,14 @@ export const metadata: Metadata = {
     description: 'How DuukaAfrica uses cookies to improve your shopping experience.',
     type: 'website',
   },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Cookie Policy - DuukaAfrica',
+    description: 'Learn about how DuukaAfrica uses cookies and how you can manage your cookie preferences. Our cookie policy covers essen',
+  },
+  alternates: {
+    canonical: 'https://duukaafrica.com/cookies',
+  },
 }
 
 export default function CookiesPage() {

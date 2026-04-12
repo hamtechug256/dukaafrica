@@ -17,6 +17,18 @@ import {
 export const metadata: Metadata = {
   title: 'About Us - DuukaAfrica',
   description: 'DuukaAfrica is the leading e-commerce marketplace in East Africa. Shop millions of products from verified sellers across the region.',
+  openGraph: {
+    title: 'About Us - DuukaAfrica',
+    description: 'DuukaAfrica is the leading e-commerce marketplace in East Africa. Shop millions of products from verified sellers across the region.',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'About Us - DuukaAfrica',
+    description: 'DuukaAfrica is the leading e-commerce marketplace in East Africa. Shop millions of products from verified sellers across th',
+  },
+  alternates: {
+    canonical: 'https://duukaafrica.com/about',
+  },
 }
 
 const stats = [

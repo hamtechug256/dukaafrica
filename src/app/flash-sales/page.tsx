@@ -103,6 +103,14 @@ export const metadata: Metadata = {
     title: 'Flash Sales - Limited Time Deals | DuukaAfrica',
     description: 'Discover amazing flash sale deals across East Africa. Limited time offers on electronics, fashion, home goods and more.',
   },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Flash Sales - Limited Time Deals | DuukaAfrica',
+    description: 'Discover amazing flash sale deals across East Africa. Limited time offers on electronics, fashion, home goods and more. Shop now',
+  },
+  alternates: {
+    canonical: 'https://duukaafrica.com/flash-sales',
+  },
 }
 
 export default async function FlashSalesPage() {

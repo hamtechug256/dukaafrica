@@ -16,6 +16,18 @@ import Link from 'next/link'
 export const metadata: Metadata = {
   title: 'Returns & Refunds - DuukaAfrica',
   description: 'Learn about DuukaAfrica return and refund policy. Easy returns within 7 days for eligible products.',
+  openGraph: {
+    title: 'Returns & Refunds - DuukaAfrica',
+    description: 'Learn about DuukaAfrica return and refund policy. Easy returns within 7 days for eligible products.',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Returns & Refunds - DuukaAfrica',
+    description: 'Learn about DuukaAfrica return and refund policy. Easy returns within 7 days for eligible products.',
+  },
+  alternates: {
+    canonical: 'https://duukaafrica.com/returns',
+  },
 }
 
 const returnSteps = [

@@ -4,6 +4,8 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { Providers } from "@/components/providers";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { JsonLd } from "@/components/json-ld";
+import { organizationSchema, websiteSchema } from "@/lib/seo";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,14 +17,37 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const SITE_URL = "https://duukaafrica.com";
+
 export const metadata: Metadata = {
-  // metadataBase intentionally omitted to avoid Next.js hydration bug where
-  // new URL(metadataBase) is called before router state is initialized.
-  // All URLs in metadata below are absolute, so metadataBase is not needed.
-  title: "DuukaAfrica - East Africa's Trusted Marketplace",
-  description: "Shop millions of products from verified sellers across East Africa. Best prices on electronics, fashion, home & more. Fast delivery to Uganda, Kenya, Tanzania, Rwanda.",
-  keywords: ["DuukaAfrica", "East Africa", "Marketplace", "Online Shopping", "Uganda", "Kenya", "Tanzania", "Rwanda", "Electronics", "Fashion", "Jumia alternative", "Jiji alternative"],
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: "DuukaAfrica - East Africa's Trusted Marketplace",
+    template: "%s | DuukaAfrica",
+  },
+  description:
+    "Shop millions of products from verified sellers across East Africa. Best prices on electronics, fashion, home & more. Fast delivery to Uganda, Kenya, Tanzania, Rwanda.",
+  keywords: [
+    "DuukaAfrica",
+    "East Africa marketplace",
+    "online shopping Uganda",
+    "online shopping Kenya",
+    "online shopping Tanzania",
+    "online shopping Rwanda",
+    "buy electronics online Africa",
+    "fashion online East Africa",
+    "Jumia alternative",
+    "Jiji alternative",
+    "Kilimall alternative",
+    "multi-vendor marketplace Africa",
+    "escrow payments Africa",
+    "buyer protection Africa",
+    "sell products online Uganda",
+    "sell products online Kenya",
+  ],
   authors: [{ name: "DuukaAfrica Team" }],
+  creator: "DuukaAfrica Team",
+  publisher: "DuukaAfrica",
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "48x48" },
@@ -33,22 +58,44 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: "DuukaAfrica - East Africa's Trusted Marketplace",
-    description: "Shop millions of products from verified sellers across East Africa. Best prices on electronics, fashion, home & more.",
-    url: "https://duukaafrica.com",
+    description:
+      "Shop millions of products from verified sellers across East Africa. Best prices on electronics, fashion, home & more.",
+    url: SITE_URL,
     siteName: "DuukaAfrica",
     type: "website",
     locale: "en_US",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "DuukaAfrica - East Africa's Trusted Marketplace",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "DuukaAfrica - East Africa's Trusted Marketplace",
-    description: "Shop millions of products from verified sellers across East Africa. Best prices on electronics, fashion, home & more.",
+    description:
+      "Shop millions of products from verified sellers across East Africa. Best prices on electronics, fashion, home & more.",
     creator: "@duukaafrica",
+    images: ["/og-image.png"],
   },
   robots: {
     index: true,
     follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
   },
+  alternates: {
+    canonical: SITE_URL,
+  },
+  category: "shopping",
 };
 
 export default function RootLayout({
@@ -69,6 +116,9 @@ export default function RootLayout({
         <body
           className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
         >
+          {/* Global JSON-LD: Organization + WebSite with SearchAction */}
+          <JsonLd data={organizationSchema} />
+          <JsonLd data={websiteSchema} />
           <a
             href="#main-content"
             className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[200] focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:rounded-md"

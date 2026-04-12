@@ -5,9 +5,9 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://duukaafrica.com'
 
 export const siteConfig = {
   name: 'DuukaAfrica',
-  description: 'East Africa\'s Trusted Marketplace. Shop millions of products from verified sellers across East Africa.',
+  description: "East Africa's Trusted Marketplace. Shop millions of products from verified sellers across East Africa.",
   url: APP_URL,
-  ogImage: `${APP_URL}/og-image.jpg`,
+  ogImage: `${APP_URL}/og-image.png`,
   links: {
     twitter: 'https://twitter.com/duukaafrica',
     facebook: 'https://facebook.com/duukaafrica',
@@ -36,6 +36,8 @@ export const defaultMetadata: Metadata = {
     'marketplace',
     'e-commerce Africa',
     'multi-vendor marketplace',
+    'Jumia alternative',
+    'Jiji alternative',
   ],
   authors: [{ name: siteConfig.creator }],
   creator: siteConfig.creator,
@@ -73,39 +75,54 @@ export const defaultMetadata: Metadata = {
       'max-snippet': -1,
     },
   },
-  verification: {
-    google: 'your-google-verification-code',
-  },
   alternates: {
     canonical: siteConfig.url,
   },
 }
 
-// Generate product metadata
+// Generate product metadata — now uses metaTitle/metaDesc from DB when available
 export function generateProductMetadata(product: {
   name: string
   description?: string | null
+  shortDesc?: string | null
+  metaTitle?: string | null
+  metaDesc?: string | null
   slug: string
   images?: string | null
   price: number
   currency: string
+  store?: { name: string } | null
+  category?: { name: string } | null
 }): Metadata {
   const images = product.images ? JSON.parse(product.images) : []
   const imageUrl = images[0] || siteConfig.ogImage
 
+  const title = product.metaTitle || `${product.name} - Buy Online at Best Price`
+  const description = product.metaDesc || product.description || product.shortDesc ||
+    `Buy ${product.name} at ${product.currency} ${Number(product.price).toLocaleString()} on DuukaAfrica. ${product.category ? `Shop ${product.category.name} ` : ''}from ${product.store?.name || 'verified sellers'}. Fast delivery across East Africa.`
+
   return {
-    title: product.name,
-    description: product.description || `Buy ${product.name} at ${product.currency} ${product.price.toLocaleString()} on DuukaAfrica. Quality products from verified sellers.`,
+    title,
+    description,
+    keywords: [
+      product.name,
+      `buy ${product.name} online`,
+      `${product.name} ${product.currency}`,
+      product.category?.name || '',
+      product.store?.name || '',
+      'DuukaAfrica',
+      'East Africa',
+    ].filter(Boolean).join(', '),
     openGraph: {
-      title: `${product.name} - DuukaAfrica`,
-      description: product.description || `Buy ${product.name} at ${product.currency} ${product.price.toLocaleString()} on DuukaAfrica.`,
-      images: [{ url: imageUrl, width: 800, height: 800 }],
+      title,
+      description,
+      images: [{ url: imageUrl, width: 800, height: 800, alt: product.name }],
       type: 'website',
     },
     twitter: {
       card: 'summary_large_image',
-      title: `${product.name} - DuukaAfrica`,
-      description: product.description || `Buy ${product.name} on DuukaAfrica.`,
+      title,
+      description: description.substring(0, 200),
       images: [imageUrl],
     },
     alternates: {
@@ -120,12 +137,21 @@ export function generateCategoryMetadata(category: {
   description?: string | null
   slug: string
 }): Metadata {
+  const title = `${category.name} - Shop ${category.name} Products Online`
+  const description = category.description ||
+    `Browse the best ${category.name} products on DuukaAfrica. Shop from verified sellers across Uganda, Kenya, Tanzania, and Rwanda with secure payments and fast delivery.`
+
   return {
-    title: `${category.name} - Shop Online`,
-    description: category.description || `Shop ${category.name} products on DuukaAfrica. Best prices, quality guaranteed, fast delivery across East Africa.`,
+    title,
+    description,
     openGraph: {
-      title: `${category.name} - DuukaAfrica`,
-      description: category.description || `Shop ${category.name} products on DuukaAfrica.`,
+      title,
+      description,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description: description.substring(0, 200),
     },
     alternates: {
       canonical: `${siteConfig.url}/categories/${category.slug}`,
@@ -138,13 +164,27 @@ export function generateStoreMetadata(store: {
   name: string
   description?: string | null
   slug: string
+  country?: string | null
+  city?: string | null
+  rating?: number | null
+  reviewCount?: number | null
 }): Metadata {
+  const location = [store.city, store.country].filter(Boolean).join(', ')
+  const title = `${store.name} - Official Store${location ? ` in ${location}` : ''} on DuukaAfrica`
+  const description = store.description ||
+    `Shop from ${store.name}${location ? ` in ${location}` : ''} on DuukaAfrica. Verified seller with quality products${store.rating ? `, ${store.rating.toFixed(1)} star rating` : ''} and great prices.`
+
   return {
-    title: `${store.name} - Store`,
-    description: store.description || `Shop from ${store.name} on DuukaAfrica. Verified seller with quality products and great prices.`,
+    title,
+    description,
     openGraph: {
-      title: `${store.name} - DuukaAfrica Store`,
-      description: store.description || `Shop from ${store.name} on DuukaAfrica.`,
+      title,
+      description,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description: description.substring(0, 200),
     },
     alternates: {
       canonical: `${siteConfig.url}/stores/${store.slug}`,
@@ -162,26 +202,26 @@ export function generateProductSchema(product: {
   price: number
   comparePrice?: number | null
   currency: string
-  rating?: number
-  reviewCount?: number
+  rating?: number | null
+  reviewCount?: number | null
   quantity: number
   category?: { name: string } | null
   store: { name: string }
 }) {
   const images = product.images ? JSON.parse(product.images) : []
-
-  return {
+  const cleanSchema: Record<string, unknown> = {
     '@context': 'https://schema.org',
     '@type': 'Product',
     name: product.name,
     description: product.description || `${product.name} - Available on DuukaAfrica`,
-    image: images,
+    image: images.length > 0 ? images : undefined,
     sku: product.id,
+    url: `${siteConfig.url}/products/${product.slug}`,
     offers: {
       '@type': 'Offer',
       url: `${siteConfig.url}/products/${product.slug}`,
       priceCurrency: product.currency,
-      price: product.price,
+      price: Number(product.price),
       priceValidUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       availability: product.quantity > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
       seller: {
@@ -189,17 +229,27 @@ export function generateProductSchema(product: {
         name: product.store.name,
       },
     },
-    aggregateRating: product.reviewCount && product.reviewCount > 0 ? {
-      '@type': 'AggregateRating',
-      ratingValue: product.rating || 0,
-      reviewCount: product.reviewCount,
-    } : undefined,
     brand: {
       '@type': 'Brand',
       name: product.store.name,
     },
-    category: product.category?.name || 'General',
   }
+
+  // Only add category if it exists
+  if (product.category?.name) {
+    cleanSchema.category = product.category.name
+  }
+
+  // Only add aggregateRating if there are reviews
+  if (product.reviewCount && product.reviewCount > 0) {
+    cleanSchema.aggregateRating = {
+      '@type': 'AggregateRating',
+      ratingValue: product.rating || 0,
+      reviewCount: product.reviewCount,
+    }
+  }
+
+  return cleanSchema
 }
 
 // JSON-LD for organization
@@ -208,7 +258,7 @@ export const organizationSchema = {
   '@type': 'Organization',
   name: siteConfig.name,
   url: siteConfig.url,
-  logo: `${siteConfig.url}/logo.png`,
+  logo: `${siteConfig.url}/brand/logo-icon.png`,
   description: siteConfig.description,
   sameAs: [
     siteConfig.links.twitter,
@@ -217,14 +267,14 @@ export const organizationSchema = {
   ],
   contactPoint: {
     '@type': 'ContactPoint',
-    telephone: '+256-700-123-456',
+    telephone: '+256-700-000000',
     contactType: 'customer service',
     availableLanguage: ['English', 'Swahili'],
     areaServed: ['UG', 'KE', 'TZ', 'RW'],
   },
 }
 
-// JSON-LD for website
+// JSON-LD for website with sitelinks search box
 export const websiteSchema = {
   '@context': 'https://schema.org',
   '@type': 'WebSite',
@@ -249,7 +299,30 @@ export function generateBreadcrumbSchema(items: { name: string; url: string }[])
       '@type': 'ListItem',
       position: index + 1,
       name: item.name,
-      item: `${siteConfig.url}${item.url}`,
+      item: item.url.startsWith('http') ? item.url : `${siteConfig.url}${item.url}`,
+    })),
+  }
+}
+
+// JSON-LD for ItemList (category pages, store product listings)
+export function generateItemListSchema(
+  name: string,
+  description: string,
+  url: string,
+  items: { name: string; url: string; position: number }[]
+) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name,
+    description,
+    url,
+    numberOfItems: items.length,
+    itemListElement: items.map((item) => ({
+      '@type': 'ListItem',
+      position: item.position,
+      name: item.name,
+      url: item.url.startsWith('http') ? item.url : `${siteConfig.url}${item.url}`,
     })),
   }
 }

@@ -13,6 +13,14 @@ export const metadata: Metadata = {
     description: 'Fast, reliable delivery across East Africa. Free shipping on qualifying orders.',
     type: 'website',
   },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Shipping Information - DuukaAfrica | Delivery Across East Africa',
+    description: 'Learn about DuukaAfrica shipping zones, delivery times, and costs across East Africa. Free shipping on qualifying orders.',
+  },
+  alternates: {
+    canonical: 'https://duukaafrica.com/shipping',
+  },
 }
 
 export default function ShippingPage() {

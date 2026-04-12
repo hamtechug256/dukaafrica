@@ -5,6 +5,18 @@ import { Footer } from '@/components/home/footer'
 export const metadata: Metadata = {
   title: 'Terms of Service - DuukaAfrica',
   description: 'Read the DuukaAfrica Terms of Service. Understand your rights and obligations as a buyer or seller on East Africa\'s trusted online marketplace.',
+  openGraph: {
+    title: 'Terms of Service - DuukaAfrica',
+    description: 'Read the DuukaAfrica Terms of Service. Understand your rights and obligations as a buyer or seller on East Africa\'s trusted online marketplace.',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Terms of Service - DuukaAfrica',
+    description: 'Read the DuukaAfrica Terms of Service. Understand your rights and obligations as a buyer or seller on East Africa\'s trusted onl',
+  },
+  alternates: {
+    canonical: 'https://duukaafrica.com/terms',
+  },
 }
 
 export default function TermsPage() {
