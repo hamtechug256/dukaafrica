@@ -10,22 +10,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const position = searchParams.get('position')
-    const debug = searchParams.get('debug') === 'true'
-
     const now = new Date()
-
-    if (debug) {
-      // Debug mode: return ALL banners with full details (no filters)
-      const allBanners = await prisma.banner.findMany({
-        orderBy: [{ createdAt: 'desc' }],
-      })
-      return NextResponse.json({
-        banners: allBanners,
-        debug: true,
-        serverTime: now.toISOString(),
-        note: 'Showing all banners regardless of active status or date range',
-      })
-    }
 
     const where: any = {
       isActive: true,
@@ -62,16 +47,14 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ banners })
   } catch (error: any) {
-    // Log the actual error for debugging
     console.error('[BANNERS API ERROR]', error?.message || error)
 
-    // Check if it's a "table doesn't exist" error
+    // If Banner table doesn't exist, return empty gracefully
     const errorMsg = error?.message?.toLowerCase() || ''
     if (errorMsg.includes('does not exist') || errorMsg.includes('relation') || errorMsg.includes('table')) {
-      return NextResponse.json({ banners: [], error: 'Banner table not yet created' })
+      return NextResponse.json({ banners: [] })
     }
 
-    // For other errors, still return empty but include error info in debug mode
     return NextResponse.json({ banners: [] })
   }
 }
