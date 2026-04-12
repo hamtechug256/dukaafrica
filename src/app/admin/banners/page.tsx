@@ -19,6 +19,21 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ImageUploader } from '@/components/ui/image-uploader'
 import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragOverlay,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  arrayMove,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import {
   Image,
   Plus,
   Loader2,
@@ -34,7 +49,8 @@ import {
   Clock,
   Smartphone,
   Monitor,
-  Minus,
+  GripVertical,
+  ArrowUpDown,
   AlertCircle,
   CheckCircle2,
   Layers,
@@ -167,6 +183,16 @@ async function deleteBanner(id: string): Promise<{ success: boolean }> {
   return res.json()
 }
 
+async function reorderBanners(items: { id: string; order: number }[]): Promise<{ success: boolean; updated: number }> {
+  const res = await fetch('/api/admin/banners', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ items }),
+  })
+  if (!res.ok) throw new Error('Failed to reorder banners')
+  return res.json()
+}
+
 // ─── Helpers ────────────────────────────────────────────────────────
 
 function getBannerStatus(banner: Banner): { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; className: string } {
@@ -192,6 +218,190 @@ function formatDate(dateStr: string | null): string {
   })
 }
 
+function getOverlayGradient(style: string): string {
+  const map: Record<string, string> = {
+    dark: 'bg-gradient-to-r from-black/70 via-black/40 to-transparent',
+    light: 'bg-gradient-to-r from-white/70 via-white/40 to-transparent',
+    gradient: 'bg-gradient-to-r from-black/80 via-black/30 to-transparent',
+    none: '',
+  }
+  return map[style] || map.dark
+}
+
+function getPosClass(pos: string): string {
+  const map: Record<string, string> = {
+    left: 'items-start text-left',
+    center: 'items-center text-center',
+    right: 'items-end text-right',
+  }
+  return map[pos] || map.left
+}
+
+function getPositionLabel(index: number): { text: string; color: string } {
+  const safeIndex = Math.max(0, index)
+  const labels = ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th']
+  const colors = [
+    'bg-amber-500 text-white',
+    'bg-gray-400 text-white',
+    'bg-orange-700 text-white',
+    'bg-blue-500 text-white',
+    'bg-blue-500 text-white',
+    'bg-blue-500 text-white',
+    'bg-blue-500 text-white',
+    'bg-blue-500 text-white',
+    'bg-blue-500 text-white',
+    'bg-blue-500 text-white',
+  ]
+  return {
+    text: safeIndex < labels.length ? labels[safeIndex] : `${safeIndex + 1}th`,
+    color: safeIndex < colors.length ? colors[safeIndex] : colors[9],
+  }
+}
+
+// ─── Sortable Banner Card Component ─────────────────────────────────
+
+function SortableBannerCard({ banner, index, onToggle, onEdit, onDelete, isToggling, isDeleting }: {
+  banner: Banner
+  index: number
+  onToggle: () => void
+  onEdit: () => void
+  onDelete: () => void
+  isToggling: boolean
+  isDeleting: boolean
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: banner.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : undefined,
+    zIndex: isDragging ? 50 : undefined,
+  }
+
+  const status = getBannerStatus(banner)
+  const badgeColorClass = BADGE_COLORS.find(c => c.value === banner.badgeColor)?.tw || 'bg-orange-500'
+  const overlayGradient = getOverlayGradient(banner.overlayStyle)
+  const textPosClass = getPosClass(banner.textPosition)
+  const textColor = banner.overlayStyle === 'light' ? 'text-gray-900' : 'text-white'
+  const subTextColor = banner.overlayStyle === 'light' ? 'text-gray-700/80' : 'text-white/80'
+  const btnStyle = banner.overlayStyle === 'light' ? 'bg-gray-900 text-white' : 'bg-white text-gray-900'
+  const position = getPositionLabel(index)
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      <Card
+        className={`overflow-hidden border-0 shadow-sm transition-all ${
+          !banner.isActive ? 'opacity-60' : 'hover:shadow-md'
+        } ${isDragging ? 'shadow-xl ring-2 ring-primary/30' : ''}`}
+      >
+        {/* Banner Preview - Full Width Slider Look */}
+        <div className="relative aspect-video w-full overflow-hidden bg-gray-200 dark:bg-gray-700">
+          {banner.image ? (
+            <img src={banner.image} alt={banner.title} className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-300 to-gray-400 dark:from-gray-600 dark:to-gray-700">
+              <ImageIcon className="w-12 h-12 text-white/50" />
+            </div>
+          )}
+
+          {overlayGradient && (
+            <div className={`absolute inset-0 ${overlayGradient}`} />
+          )}
+
+          {!banner.isActive && (
+            <div className="absolute inset-0 bg-gray-900/40 flex items-center justify-center z-10">
+              <span className="px-4 py-2 bg-black/60 text-white rounded-full text-sm font-semibold backdrop-blur-sm">
+                Inactive
+              </span>
+            </div>
+          )}
+
+          <div className={`absolute inset-0 flex flex-col justify-center px-6 md:px-12 ${textPosClass}`}>
+            {banner.badgeText && (
+              <span className={`inline-flex w-fit px-3 py-1 rounded-full text-xs font-bold text-white mb-2 ${badgeColorClass}`}>
+                {banner.badgeText}
+              </span>
+            )}
+            <h3 className={`text-xl md:text-3xl font-bold ${textColor} drop-shadow-lg leading-tight`}>
+              {banner.title}
+            </h3>
+            {banner.subtitle && (
+              <p className={`text-sm md:text-base ${subTextColor} mt-1 drop-shadow max-w-lg`}>
+                {banner.subtitle}
+              </p>
+            )}
+            {banner.buttonText && (
+              <span className={`inline-flex w-fit mt-3 px-5 py-2 rounded-full text-sm font-semibold ${btnStyle}`}>
+                {banner.buttonText}
+              </span>
+            )}
+          </div>
+
+          {/* Status Badge - Top Right */}
+          <div className="absolute top-3 right-3 z-20">
+            <Badge className={`${status.className} backdrop-blur-sm border-0 text-xs font-medium`}>
+              {status.label}
+            </Badge>
+          </div>
+
+          {/* Position Badge - Top Left */}
+          <div className="absolute top-3 left-3 z-20">
+            <Badge className={`${position.color} backdrop-blur-sm border-0 text-xs font-bold px-2`}>
+              {position.text}
+            </Badge>
+          </div>
+        </div>
+
+        {/* Card Footer - Actions */}
+        <div className="px-4 py-3 flex items-center justify-between gap-3 bg-white dark:bg-gray-800 border-t">
+          <div className="flex items-center gap-2 min-w-0">
+            {/* Drag Handle */}
+            <button
+              className="cursor-grab active:cursor-grabbing p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors touch-none shrink-0"
+              {...attributes}
+              {...listeners}
+              title="Drag to reorder"
+            >
+              <GripVertical className="w-5 h-5" />
+            </button>
+            <h4 className="font-medium text-sm truncate max-w-[200px] md:max-w-none">
+              {banner.title}
+            </h4>
+            <span className="text-xs text-muted-foreground hidden sm:inline">
+              {banner.position}
+            </span>
+            {(banner.startDate || banner.endDate) && (
+              <span className="text-xs text-muted-foreground hidden md:flex items-center gap-1">
+                <Calendar className="w-3 h-3" />
+                {formatDate(banner.startDate)}
+                {banner.endDate && ` - ${formatDate(banner.endDate)}`}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-1 shrink-0">
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onToggle} disabled={isToggling} title={banner.isActive ? 'Deactivate' : 'Activate'}>
+              {isToggling ? <Loader2 className="w-4 h-4 animate-spin" /> : banner.isActive ? <ToggleRight className="w-5 h-5 text-green-600" /> : <ToggleLeft className="w-5 h-5 text-gray-400" />}
+            </Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onEdit} title="Edit">
+              <Edit className="w-4 h-4" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onDelete} disabled={isDeleting} title="Delete">
+              {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4 text-red-500" />}
+            </Button>
+          </div>
+        </div>
+      </Card>
+    </div>
+  )
+}
+
 // ─── Main Component ─────────────────────────────────────────────────
 
 export default function AdminBannersPage() {
@@ -203,6 +413,8 @@ export default function AdminBannersPage() {
   const [editingBanner, setEditingBanner] = useState<Banner | null>(null)
   const [formData, setFormData] = useState<BannerFormData>({ ...EMPTY_FORM })
   const [activeTab, setActiveTab] = useState('content')
+  const [activeId, setActiveId] = useState<string | null>(null)
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
 
   // ─── Queries & Mutations ────────────────────────────────────────
 
@@ -260,6 +472,17 @@ export default function AdminBannersPage() {
     },
     onError: (error: Error) => {
       toast({ title: 'Error toggling banner', description: error.message, variant: 'destructive' })
+    },
+  })
+
+  const reorderMutation = useMutation({
+    mutationFn: reorderBanners,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-banners'] })
+      toast({ title: 'Order updated', description: 'Banner positions have been saved.' })
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error reordering', description: error.message, variant: 'destructive' })
     },
   })
 
@@ -358,26 +581,23 @@ export default function AdminBannersPage() {
   const isSubmitting = createMutation.isPending || updateMutation.isPending
   const isFormValid = formData.title.trim().length > 0 && formData.image.trim().length > 0
 
-  // ─── Overlay preview style for card ─────────────────────────────
+  // ─── Drag Handlers ─────────────────────────────────────────────
 
-  function getOverlayGradient(style: string): string {
-    const map: Record<string, string> = {
-      dark: 'bg-gradient-to-r from-black/70 via-black/40 to-transparent',
-      light: 'bg-gradient-to-r from-white/70 via-white/40 to-transparent',
-      gradient: 'bg-gradient-to-r from-black/80 via-black/30 to-transparent',
-      none: '',
-    }
-    return map[style] || map.dark
-  }
+  const handleDragEnd = useCallback((event: { active: { id: string | number }; over: { id: string | number } | null }) => {
+    const { active, over } = event
+    setActiveId(null)
 
-  function getPosClass(pos: string): string {
-    const map: Record<string, string> = {
-      left: 'items-start text-left',
-      center: 'items-center text-center',
-      right: 'items-end text-right',
-    }
-    return map[pos] || map.left
-  }
+    if (!over || active.id === over.id) return
+
+    const oldIndex = banners.findIndex(b => b.id === active.id)
+    const newIndex = banners.findIndex(b => b.id === over.id)
+
+    if (oldIndex === -1 || newIndex === -1) return
+
+    const reordered = arrayMove(banners, oldIndex, newIndex)
+    const items = reordered.map((b, i) => ({ id: b.id, order: i }))
+    reorderMutation.mutate(items)
+  }, [banners, reorderMutation])
 
   // ─── Loading / Auth Guard ───────────────────────────────────────
 
@@ -498,154 +718,62 @@ export default function AdminBannersPage() {
             </Card>
           )}
 
-          {/* Banner List */}
+          {/* Banner List with Drag & Drop */}
           {!isLoading && banners.length > 0 && (
             <div className="space-y-4">
-              {banners.map((banner: Banner) => {
-                const status = getBannerStatus(banner)
-                const badgeColorClass = BADGE_COLORS.find(c => c.value === banner.badgeColor)?.tw || 'bg-orange-500'
-                const overlayGradient = getOverlayGradient(banner.overlayStyle)
-                const textPosClass = getPosClass(banner.textPosition)
-                const textColor = banner.overlayStyle === 'light' ? 'text-gray-900' : 'text-white'
-                const subTextColor = banner.overlayStyle === 'light' ? 'text-gray-700/80' : 'text-white/80'
-                const btnStyle = banner.overlayStyle === 'light'
-                  ? 'bg-gray-900 text-white'
-                  : 'bg-white text-gray-900'
+              {/* Drag Hint */}
+              <div className="flex items-center gap-2 text-xs text-muted-foreground px-1">
+                <ArrowUpDown className="w-3.5 h-3.5" />
+                <span>Drag and drop banners to reorder. {reorderMutation.isPending && 'Saving...'}</span>
+              </div>
 
-                return (
-                  <Card
-                    key={banner.id}
-                    className={`overflow-hidden border-0 shadow-sm transition-all ${
-                      !banner.isActive ? 'opacity-60' : 'hover:shadow-md'
-                    }`}
-                  >
-                    {/* Banner Preview - Full Width Slider Look */}
-                    <div className="relative aspect-video w-full overflow-hidden bg-gray-200 dark:bg-gray-700">
-                      {banner.image ? (
-                        <img
-                          src={banner.image}
-                          alt={banner.title}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-300 to-gray-400 dark:from-gray-600 dark:to-gray-700">
-                          <ImageIcon className="w-12 h-12 text-white/50" />
-                        </div>
-                      )}
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragStart={({ active }) => setActiveId(active.id as string)}
+                onDragEnd={handleDragEnd}
+                onDragCancel={() => setActiveId(null)}
+              >
+                <SortableContext
+                  items={banners.map(b => b.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  {banners.map((banner: Banner, index: number) => (
+                    <SortableBannerCard
+                      key={banner.id}
+                      banner={banner}
+                      index={index}
+                      onToggle={() => toggleMutation.mutate(banner)}
+                      onEdit={() => openEdit(banner)}
+                      onDelete={() => deleteMutation.mutate(banner.id)}
+                      isToggling={toggleMutation.isPending}
+                      isDeleting={deleteMutation.isPending}
+                    />
+                  ))}
+                </SortableContext>
 
-                      {/* Overlay */}
-                      {overlayGradient && (
-                        <div className={`absolute inset-0 ${overlayGradient}`} />
-                      )}
-
-                      {/* Inactive Overlay */}
-                      {!banner.isActive && (
-                        <div className="absolute inset-0 bg-gray-900/40 flex items-center justify-center z-10">
-                          <span className="px-4 py-2 bg-black/60 text-white rounded-full text-sm font-semibold backdrop-blur-sm">
-                            Inactive
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Content Overlay */}
-                      <div className={`absolute inset-0 flex flex-col justify-center px-6 md:px-12 ${textPosClass}`}>
-                        {banner.badgeText && (
-                          <span className={`inline-flex w-fit px-3 py-1 rounded-full text-xs font-bold text-white mb-2 ${badgeColorClass}`}>
-                            {banner.badgeText}
-                          </span>
-                        )}
-                        <h3 className={`text-xl md:text-3xl font-bold ${textColor} drop-shadow-lg leading-tight`}>
-                          {banner.title}
-                        </h3>
-                        {banner.subtitle && (
-                          <p className={`text-sm md:text-base ${subTextColor} mt-1 drop-shadow max-w-lg`}>
-                            {banner.subtitle}
-                          </p>
-                        )}
-                        {banner.buttonText && (
-                          <span className={`inline-flex w-fit mt-3 px-5 py-2 rounded-full text-sm font-semibold ${btnStyle}`}>
-                            {banner.buttonText}
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Status Badge - Top Right */}
-                      <div className="absolute top-3 right-3 z-20">
-                        <Badge className={`${status.className} backdrop-blur-sm border-0 text-xs font-medium`}>
-                          {status.label}
-                        </Badge>
-                      </div>
-
-                      {/* Order Badge - Top Left */}
-                      <div className="absolute top-3 left-3 z-20">
-                        <Badge variant="secondary" className="backdrop-blur-sm text-xs font-mono">
-                          #{banner.order}
-                        </Badge>
-                      </div>
-                    </div>
-
-                    {/* Card Footer - Actions */}
-                    <div className="px-4 py-3 flex items-center justify-between gap-3 bg-white dark:bg-gray-800 border-t">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <h4 className="font-medium text-sm truncate max-w-[200px] md:max-w-none">
-                          {banner.title}
-                        </h4>
-                        <span className="text-xs text-muted-foreground hidden sm:inline">
-                          {banner.position}
-                        </span>
-                        {(banner.startDate || banner.endDate) && (
-                          <span className="text-xs text-muted-foreground hidden md:flex items-center gap-1">
-                            <Calendar className="w-3 h-3" />
-                            {formatDate(banner.startDate)}
-                            {banner.endDate && ` - ${formatDate(banner.endDate)}`}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1 shrink-0">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => toggleMutation.mutate(banner)}
-                          disabled={toggleMutation.isPending}
-                          title={banner.isActive ? 'Deactivate' : 'Activate'}
-                        >
-                          {toggleMutation.isPending ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : banner.isActive ? (
-                            <ToggleRight className="w-5 h-5 text-green-600" />
-                          ) : (
-                            <ToggleLeft className="w-5 h-5 text-gray-400" />
+                <DragOverlay>
+                  {activeId && (() => {
+                    const activeBanner = banners.find(b => b.id === activeId)
+                    if (!activeBanner) return null
+                    return (
+                      <Card className="overflow-hidden border-2 border-primary shadow-2xl w-full max-w-2xl">
+                        <div className="relative aspect-video w-full overflow-hidden bg-gray-200">
+                          {activeBanner.image && (
+                            <img src={activeBanner.image} alt={activeBanner.title} className="w-full h-full object-cover" />
                           )}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => openEdit(banner)}
-                          title="Edit"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => deleteMutation.mutate(banner.id)}
-                          disabled={deleteMutation.isPending}
-                          title="Delete"
-                        >
-                          {deleteMutation.isPending ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <Trash2 className="w-4 h-4 text-red-500" />
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-                  </Card>
-                )
-              })}
+                          <div className="absolute inset-0 bg-primary/10" />
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <p className="text-sm font-medium px-4 py-2 bg-white/90 backdrop-blur rounded-lg shadow">
+                              Moving: {activeBanner.title}
+                            </p>
+                          </div>
+                        </div>
+                      </Card>
+                    )
+                  })()}
+                </DragOverlay>
+              </DndContext>
             </div>
           )}
         </div>
@@ -1002,39 +1130,22 @@ export default function AdminBannersPage() {
                   </div>
                 </div>
 
-                {/* Display Order */}
+                {/* Display Order Info */}
                 <div className="space-y-2">
-                  <Label htmlFor="banner-order">Display Order</Label>
+                  <Label className="flex items-center gap-1.5">
+                    <GripVertical className="w-4 h-4" />
+                    Display Position
+                  </Label>
                   <p className="text-xs text-muted-foreground">
-                    Lower numbers appear first. Banners are sorted by order, then by creation date.
+                    Position is controlled by drag-and-drop on the banner list above.
+                    Drag any banner card up or down to change its position.
+                    The first banner in the list appears first on the storefront.
                   </p>
-                  <div className="flex items-center gap-2 max-w-[200px]">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      className="h-10 w-10"
-                      onClick={() => updateField('order', Math.max(0, formData.order - 1))}
-                    >
-                      <Minus className="w-4 h-4" />
-                    </Button>
-                    <Input
-                      id="banner-order"
-                      type="number"
-                      min={0}
-                      value={formData.order}
-                      onChange={(e) => updateField('order', parseInt(e.target.value) || 0)}
-                      className="text-center h-10 font-mono"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      className="h-10 w-10"
-                      onClick={() => updateField('order', formData.order + 1)}
-                    >
-                      <Plus className="w-4 h-4" />
-                    </Button>
+                  <div className="flex items-center gap-2 p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50 border">
+                    <ArrowUpDown className="w-4 h-4 text-primary shrink-0" />
+                    <span className="text-sm">
+                      Current position: <strong>{getPositionLabel(banners.findIndex(b => b.id === editingBanner?.id)).text}</strong>
+                    </span>
                   </div>
                 </div>
               </TabsContent>

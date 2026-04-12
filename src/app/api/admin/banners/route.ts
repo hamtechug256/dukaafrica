@@ -202,6 +202,45 @@ export async function PATCH(request: NextRequest) {
   }
 }
 
+// PUT /api/admin/banners/reorder - Batch reorder banners
+export async function PUT(request: NextRequest) {
+  try {
+    const admin = await checkAdminAccess()
+    if (!admin) {
+      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 })
+    }
+
+    const body = await request.json()
+    const { items } = body
+
+    if (!Array.isArray(items) || items.length === 0) {
+      return NextResponse.json({ error: 'items array is required' }, { status: 400 })
+    }
+
+    // Validate each item has id and order
+    for (const item of items) {
+      if (!item.id || typeof item.order !== 'number') {
+        return NextResponse.json({ error: 'Each item must have id and order' }, { status: 400 })
+      }
+    }
+
+    // Batch update using Prisma transaction
+    await prisma.$transaction(
+      items.map((item: { id: string; order: number }) =>
+        prisma.banner.update({
+          where: { id: item.id },
+          data: { order: item.order },
+        })
+      )
+    )
+
+    return NextResponse.json({ success: true, updated: items.length })
+  } catch (error) {
+    console.error('Error reordering banners:', error)
+    return NextResponse.json({ error: 'Failed to reorder banners' }, { status: 500 })
+  }
+}
+
 // DELETE /api/admin/banners - Delete banner
 export async function DELETE(request: NextRequest) {
   try {
