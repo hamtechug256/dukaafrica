@@ -102,6 +102,11 @@ export async function POST(request: NextRequest) {
     const readTimeMin = calculateReadTime(content)
     const autoExcerpt = excerpt?.trim() || generateExcerpt(content)
 
+    // Auto-generate SEO if not provided
+    const finalMetaTitle = metaTitle?.trim() || (title.length > 60 ? title.substring(0, 57) + '...' : title)
+    const finalMetaDesc = metaDesc?.trim() || generateExcerpt(content, 155)
+    const finalKeywords = keywords?.trim() || `${title}, DuukaAfrica blog, East Africa marketplace`
+
     const post = await prisma.blogPost.create({
       data: {
         title: title.trim(),
@@ -113,9 +118,9 @@ export async function POST(request: NextRequest) {
         status,
         isFeatured,
         readTimeMin,
-        metaTitle: metaTitle || null,
-        metaDesc: metaDesc || null,
-        keywords: keywords || null,
+        metaTitle: finalMetaTitle,
+        metaDesc: finalMetaDesc,
+        keywords: finalKeywords,
         authorId: authorId || admin.id,
         categoryId: categoryId || null,
         publishedAt: status === 'PUBLISHED' ? new Date() : null,
@@ -168,9 +173,18 @@ export async function PATCH(request: NextRequest) {
         }
         if (key === 'content' && typeof data[key] === 'string') {
           allowedFields.readTimeMin = calculateReadTime(data[key])
+          // Auto-generate excerpt if content changed but excerpt is empty
+          if (!data.excerpt) {
+            allowedFields.excerpt = generateExcerpt(data[key])
+          }
         }
         if (key === 'excerpt' && data[key] === '__auto__' && typeof data.content === 'string') {
           allowedFields.excerpt = generateExcerpt(data.content)
+        }
+        // Auto-fill SEO fields when title is set but SEO fields are empty
+        if (key === 'title' && typeof data[key] === 'string' && !data.metaTitle) {
+          const t = String(data[key])
+          allowedFields.metaTitle = t.length > 60 ? t.substring(0, 57) + '...' : t
         }
         allowedFields[key] = data[key]
       }

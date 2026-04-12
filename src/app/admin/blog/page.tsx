@@ -49,6 +49,10 @@ import {
   X,
   Star,
   Wand2,
+  ChevronDown,
+  ChevronUp,
+  Sparkles,
+  Check,
 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 
@@ -247,6 +251,9 @@ export default function AdminBlogPage() {
   const [formData, setFormData] = useState<PostFormData>({ ...EMPTY_FORM })
   const [showPreview, setShowPreview] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [showSeoSection, setShowSeoSection] = useState(false)
+  const [generatingSeo, setGeneratingSeo] = useState(false)
+  const [seoGenerated, setSeoGenerated] = useState(false)
 
   // Category dialog
   const [showCatDialog, setShowCatDialog] = useState(false)
@@ -324,6 +331,8 @@ export default function AdminBlogPage() {
     setEditingPost(null)
     setFormData({ ...EMPTY_FORM })
     setShowPreview(false)
+    setShowSeoSection(false)
+    setSeoGenerated(false)
   }, [])
 
   const openCreate = useCallback(() => {
@@ -352,6 +361,43 @@ export default function AdminBlogPage() {
     setShowPreview(false)
     setShowPostDialog(true)
   }, [])
+
+  // Auto-generate SEO using AI
+  const handleAutoSeo = useCallback(async () => {
+    if (!formData.title.trim() || !formData.content.trim()) {
+      toast({ title: 'Please add title and content first', variant: 'destructive' })
+      return
+    }
+    setGeneratingSeo(true)
+    try {
+      const res = await fetch('/api/admin/blog/generate-seo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: formData.title,
+          content: formData.content,
+          category: categories.find(c => c.id === formData.categoryId)?.name || undefined,
+        }),
+      })
+      if (!res.ok) throw new Error('Failed to generate SEO')
+      const seo = await res.json()
+      setFormData(prev => ({
+        ...prev,
+        metaTitle: seo.metaTitle || prev.metaTitle,
+        metaDesc: seo.metaDesc || prev.metaDesc,
+        keywords: seo.keywords || prev.keywords,
+        excerpt: seo.excerpt || prev.excerpt,
+      }))
+      setSeoGenerated(true)
+      setShowSeoSection(true)
+      toast({ title: 'SEO generated!', description: 'All SEO fields have been auto-filled for you.' })
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Failed'
+      toast({ title: 'SEO generation failed', description: msg, variant: 'destructive' })
+    } finally {
+      setGeneratingSeo(false)
+    }
+  }, [formData.title, formData.content, formData.categoryId, categories, toast])
 
   const handleSubmitPost = useCallback(() => {
     if (!formData.title.trim() || !formData.content.trim()) return
@@ -682,20 +728,60 @@ export default function AdminBlogPage() {
               )}
             </div>
 
-            <div className="border-t pt-5 space-y-4">
-              <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">SEO</h4>
-              <div className="space-y-2">
-                <Label htmlFor="post-meta-title">Meta Title</Label>
-                <Input id="post-meta-title" value={formData.metaTitle} onChange={e => updateField('metaTitle', e.target.value)} placeholder="Custom meta title (optional)" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="post-meta-desc">Meta Description</Label>
-                <Textarea id="post-meta-desc" value={formData.metaDesc} onChange={e => updateField('metaDesc', e.target.value)} placeholder="Custom meta description (optional)" rows={2} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="post-keywords">Keywords</Label>
-                <Input id="post-keywords" value={formData.keywords} onChange={e => updateField('keywords', e.target.value)} placeholder="keyword1, keyword2, ..." />
-              </div>
+            {/* Auto-Generate SEO Button */}
+            <div className="border-t pt-5">
+              <Button
+                type="button"
+                variant={seoGenerated ? 'outline' : 'default'}
+                className={`w-full h-12 text-sm gap-2 ${seoGenerated ? 'border-green-300 text-green-700 bg-green-50 dark:bg-green-950/30 dark:text-green-400 dark:border-green-800' : ''}`}
+                onClick={handleAutoSeo}
+                disabled={generatingSeo || !formData.title.trim() || !formData.content.trim()}
+              >
+                {generatingSeo ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Generating SEO with AI...</>
+                ) : seoGenerated ? (
+                  <><Check className="w-4 h-4" /> SEO Generated — Click to Regenerate</>
+                ) : (
+                  <><Sparkles className="w-4 h-4" /> Auto-Generate SEO with AI</>
+                )}
+              </Button>
+              <p className="text-xs text-muted-foreground text-center mt-2">
+                One click fills meta title, description, keywords & excerpt automatically. No SEO knowledge needed!
+              </p>
+            </div>
+
+            {/* Collapsible Advanced SEO Section */}
+            <div className="border-t pt-5">
+              <button
+                type="button"
+                className="flex items-center justify-between w-full text-sm font-semibold text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors"
+                onClick={() => setShowSeoSection(!showSeoSection)}
+              >
+                <span>Advanced SEO (optional — already auto-optimized)</span>
+                {showSeoSection ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </button>
+              {showSeoSection && (
+                <div className="mt-4 space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="post-meta-title">Meta Title</Label>
+                      <span className={`text-xs ${formData.metaTitle.length > 60 ? 'text-red-500' : 'text-muted-foreground'}`}>{formData.metaTitle.length}/60</span>
+                    </div>
+                    <Input id="post-meta-title" value={formData.metaTitle} onChange={e => updateField('metaTitle', e.target.value)} placeholder="Custom meta title (optional)" />
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="post-meta-desc">Meta Description</Label>
+                      <span className={`text-xs ${formData.metaDesc.length > 155 ? 'text-red-500' : 'text-muted-foreground'}`}>{formData.metaDesc.length}/155</span>
+                    </div>
+                    <Textarea id="post-meta-desc" value={formData.metaDesc} onChange={e => updateField('metaDesc', e.target.value)} placeholder="Custom meta description (optional)" rows={2} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="post-keywords">Keywords</Label>
+                    <Input id="post-keywords" value={formData.keywords} onChange={e => updateField('keywords', e.target.value)} placeholder="keyword1, keyword2, ..." />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
