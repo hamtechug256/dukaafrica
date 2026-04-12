@@ -304,6 +304,88 @@ export function generateBreadcrumbSchema(items: { name: string; url: string }[])
   }
 }
 
+// ─── Blog SEO Helpers ──────────────────────────────────────────────
+
+// Generate metadata for a blog post page
+export function generateBlogPostMetadata(post: {
+  title: string
+  slug: string
+  excerpt?: string | null
+  metaTitle?: string | null
+  metaDesc?: string | null
+  coverImage?: string | null
+  publishedAt?: string | Date | null
+  author?: { name: string | null } | null
+  category?: { name: string } | null
+}): Metadata {
+  const title = post.metaTitle || `${post.title} - DuukaAfrica Blog`
+  const description = post.metaDesc || post.excerpt || `Read "${post.title}" on the DuukaAfrica blog. Insights, tips, and updates from East Africa's trusted marketplace.`
+  const ogImage = post.coverImage || siteConfig.ogImage
+
+  return {
+    title,
+    description,
+    keywords: [
+      post.title,
+      post.category?.name || '',
+      'DuukaAfrica blog',
+      'East Africa marketplace',
+    ].filter(Boolean).join(', '),
+    openGraph: {
+      title,
+      description,
+      type: 'article',
+      publishedTime: post.publishedAt ? new Date(post.publishedAt).toISOString() : undefined,
+      authors: post.author?.name ? [post.author.name] : undefined,
+      url: `${siteConfig.url}/blog/${post.slug}`,
+      images: [{ url: ogImage, width: 1200, height: 630, alt: post.title }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description: description.substring(0, 200),
+      images: [ogImage],
+    },
+    alternates: {
+      canonical: `${siteConfig.url}/blog/${post.slug}`,
+    },
+  }
+}
+
+// Generate Article JSON-LD for a blog post
+export function generateBlogPostSchema(post: {
+  title: string
+  slug: string
+  excerpt?: string | null
+  coverImage?: string | null
+  publishedAt?: string | Date | null
+  author?: { name: string | null } | null
+}): Record<string, unknown> {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: post.title,
+    description: post.excerpt || post.title,
+    image: post.coverImage || siteConfig.ogImage,
+    url: `${siteConfig.url}/blog/${post.slug}`,
+    datePublished: post.publishedAt || undefined,
+    author: {
+      '@type': 'Organization',
+      name: siteConfig.name,
+      url: siteConfig.url,
+    },
+    publisher: {
+      '@type': 'Organization',
+      name: siteConfig.name,
+      url: siteConfig.url,
+      logo: {
+        '@type': 'ImageObject',
+        url: `${siteConfig.url}/brand/logo-icon.png`,
+      },
+    },
+  }
+}
+
 // JSON-LD for ItemList (category pages, store product listings)
 export function generateItemListSchema(
   name: string,

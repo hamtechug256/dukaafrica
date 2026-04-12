@@ -162,6 +162,7 @@ export function Header() {
               </Link>
             )}
             <Link href="/help" className="hover:underline hidden sm:inline whitespace-nowrap">Help</Link>
+            <Link href="/blog" className="hover:underline hidden sm:inline whitespace-nowrap">Blog</Link>
           </div>
         </div>
       </div>

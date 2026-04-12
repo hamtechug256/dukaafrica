@@ -47,6 +47,7 @@ export const adminNavItems: NavItem[] = [
   { href: '/admin/tiers', icon: Award, label: 'Tiers' },
   { href: '/admin/moderation', icon: Flag, label: 'Moderation' },
   { href: '/admin/announcements', icon: Megaphone, label: 'Announcements' },
+  { href: '/admin/blog', icon: FileText, label: 'Blog' },
   { href: '/admin/support-tickets', icon: LifeBuoy, label: 'Support Tickets' },
   { href: '/admin/settings', icon: Settings, label: 'Settings' },
 ]

@@ -102,6 +102,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: 'yearly',
       priority: 0.1,
     },
+    {
+      url: `${baseUrl}/blog`,
+      lastModified: new Date(),
+      changeFrequency: 'daily',
+      priority: 0.7,
+    },
   ]
 
   try {
@@ -153,7 +159,33 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.6,
     }))
 
-    return [...staticPages, ...productPages, ...categoryPages, ...storePages]
+    // Get all published blog posts
+    const blogPosts = await prisma.blogPost.findMany({
+      where: { status: 'PUBLISHED' },
+      select: { slug: true, updatedAt: true },
+    })
+
+    const blogPostPages: MetadataRoute.Sitemap = blogPosts.map((post) => ({
+      url: `${baseUrl}/blog/${post.slug}`,
+      lastModified: post.updatedAt,
+      changeFrequency: 'monthly' as const,
+      priority: 0.6,
+    }))
+
+    // Get all active blog categories
+    const blogCategories = await prisma.blogCategory.findMany({
+      where: { isActive: true },
+      select: { slug: true, updatedAt: true },
+    })
+
+    const blogCategoryPages: MetadataRoute.Sitemap = blogCategories.map((cat) => ({
+      url: `${baseUrl}/blog/category/${cat.slug}`,
+      lastModified: cat.updatedAt,
+      changeFrequency: 'weekly' as const,
+      priority: 0.5,
+    }))
+
+    return [...staticPages, ...productPages, ...categoryPages, ...storePages, ...blogPostPages, ...blogCategoryPages]
   } catch (error) {
     console.error('Error generating sitemap:', error)
     return staticPages

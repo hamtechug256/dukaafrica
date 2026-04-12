@@ -692,6 +692,7 @@ model User {
   Store             Store?
   Wishlist          Wishlist[]
   Document     Document[]  @relation("DocumentCreator")
+  BlogPost     BlogPost[]    @relation("BlogPostAuthor")
 
   @@unique([phone, country])
   @@index([country])
@@ -1066,6 +1067,72 @@ model Document {
   @@index([isFeatured])
   @@index([sortOrder])
   @@index([createdAt])
+}
+
+// ============================================
+// BLOG SYSTEM
+// ============================================
+
+model BlogCategory {
+  id          String      @id @default(uuid())
+  name        String
+  slug        String      @unique
+  description String?
+  image       String?
+  order       Int         @default(0)
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  BlogPost    BlogPost[]
+
+  @@index([isActive])
+  @@index([slug])
+  @@index([order])
+}
+
+model BlogTag {
+  id        String     @id @default(uuid())
+  name      String     @unique
+  slug      String     @unique
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  BlogPost  BlogPost[]
+
+  @@index([slug])
+}
+
+model BlogPost {
+  id            String        @id @default(uuid())
+  title         String
+  slug          String        @unique
+  excerpt       String?       @db.Text
+  content       String        @db.Text
+  coverImage    String?
+  coverImageKey String?
+  status        String        @default("DRAFT")
+  isFeatured    Boolean       @default(false)
+  viewCount     Int           @default(0)
+  readTimeMin   Int           @default(5)
+  metaTitle     String?
+  metaDesc      String?
+  keywords      String?
+  authorId      String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  publishedAt   DateTime?
+  author        User?         @relation("BlogPostAuthor", fields: [authorId], references: [id])
+  category      BlogCategory? @relation(fields: [categoryId], references: [id])
+  categoryId    String?
+  tags          BlogTag[]
+
+  @@index([status])
+  @@index([slug])
+  @@index([categoryId])
+  @@index([authorId])
+  @@index([isFeatured])
+  @@index([publishedAt])
+  @@index([createdAt])
+  @@index([status, publishedAt])
 }
 
 // ============================================
