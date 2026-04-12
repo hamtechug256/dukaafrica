@@ -44,3 +44,27 @@ Stage Summary:
 - Key fix: `/api/banners` added to public routes in middleware — this was the main reason banners didn't show on homepage
 - PATCH 403 likely caused by session/auth issues or the data spread bug corrupting the update
 - All changes deployed via push to main
+
+---
+Task ID: 2
+Agent: Main Agent
+Task: Fix banner not appearing on live site (duukaafrica.com)
+
+Work Log:
+- Curl'd live /api/banners endpoint - returned {"banners":[]} with 200 status
+- Added diagnostic to /api/health to check Banner table existence - table EXISTS with 1 row
+- Added debug mode to /api/banners to inspect actual banner data
+- Discovered TWO issues with the existing banner:
+  1. `isActive: false` — banner was inactive (likely from failed PATCH toggle attempts)
+  2. `position: "HOME_TOP"` — but BannerSlider only fetched `position=HOME_SLIDER`
+- Created temporary /api/fix-banners endpoint to activate the banner
+- Called it via curl POST — successfully activated 1 banner
+- Removed position filter from BannerSlider (now fetches ALL active banners)
+- Cleaned up: removed temporary fix endpoint, debug mode, and fix script
+- Verified /api/banners now returns the active banner correctly
+
+Stage Summary:
+- Root cause 1: Banner was isActive:false (user's toggle attempts got 403 and may have corrupted state)
+- Root cause 2: BannerSlider filtered by position=HOME_SLIDER but banner was HOME_TOP
+- Fixed by: activating banner + removing position filter from slider
+- Banner "The best affordable snickers" is now live on duukaafrica.com
