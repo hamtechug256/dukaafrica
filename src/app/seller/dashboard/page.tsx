@@ -175,7 +175,7 @@ export default function SellerDashboardPage() {
               )}
             </div>
             <p className="text-gray-600 dark:text-gray-400 mt-1 text-sm md:text-base">
-              {store.city}, {store.country} • {store._count?.products || 0} products
+              {store.city}, {store.country} • {store._count?.Product || 0} products
             </p>
           </div>
           <div className="flex gap-2">
@@ -287,7 +287,7 @@ export default function SellerDashboardPage() {
                 <div>
                   <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">Products</p>
                   <p className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white">
-                    {store._count?.products || 0}
+                    {store._count?.Product || 0}
                   </p>
                 </div>
                 <div className="p-2 md:p-3 bg-purple-50 dark:bg-purple-950/30 rounded-full">

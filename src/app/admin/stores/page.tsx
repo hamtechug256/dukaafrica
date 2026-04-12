@@ -257,7 +257,7 @@ export default function AdminStoresPage() {
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline">
-                            {store._count?.products || 0} products
+                            {store._count?.Product || 0} products
                           </Badge>
                         </TableCell>
                         <TableCell>

@@ -134,11 +134,11 @@ export default function StoreProfilePage() {
                   </div>
                   <div className="flex items-center gap-1">
                     <Package className="w-4 h-4" />
-                    <span>{store._count?.products || 0} products</span>
+                    <span>{store._count?.Product || 0} products</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <ShoppingBag className="w-4 h-4" />
-                    <span>{store._count?.orders || 0} orders</span>
+                    <span>{store._count?.Order || 0} orders</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <Clock className="w-4 h-4" />
