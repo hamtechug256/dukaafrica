@@ -6,16 +6,21 @@ import { prisma } from '@/lib/db'
  * Check if user has admin access
  */
 async function checkAdminAccess() {
-  const { userId } = await auth()
-  if (!userId) return null
+  try {
+    const { userId } = await auth()
+    if (!userId) return null
 
-  const user = await prisma.user.findUnique({
-    where: { clerkId: userId },
-    select: { id: true, role: true }
-  })
+    const user = await prisma.user.findUnique({
+      where: { clerkId: userId },
+      select: { id: true, role: true }
+    })
 
-  if (!user || !['ADMIN', 'SUPER_ADMIN'].includes(user.role)) return null
-  return user
+    if (!user || !['ADMIN', 'SUPER_ADMIN'].includes(user.role)) return null
+    return user
+  } catch (error) {
+    console.error('[BANNER AUTH ERROR]', error)
+    return null
+  }
 }
 
 /**

@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 import { Header } from '@/components/home/header'
+import { BannerSlider } from '@/components/home/banner-slider'
 import { HeroSection } from '@/components/home/hero-section'
 import { HowItWorksSection } from '@/components/home/how-it-works-section'
 import { LivePulseTicker } from '@/components/home/live-pulse-ticker'
@@ -56,6 +57,9 @@ export default function HomePage() {
 
       {/* Header */}
       <Header />
+
+      {/* Banner Slider */}
+      <BannerSlider />
 
       {/* Main Content */}
       <main id="main-content" className="flex-1">
