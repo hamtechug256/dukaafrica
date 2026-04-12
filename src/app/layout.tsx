@@ -24,7 +24,11 @@ export const metadata: Metadata = {
   keywords: ["DuukaAfrica", "East Africa", "Marketplace", "Online Shopping", "Uganda", "Kenya", "Tanzania", "Rwanda", "Electronics", "Fashion", "Jumia alternative", "Jiji alternative"],
   authors: [{ name: "DuukaAfrica Team" }],
   icons: {
-    icon: "/logo.svg",
+    icon: [
+      { url: "/brand/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/brand/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+    ],
+    apple: "/apple-touch-icon.png",
   },
   openGraph: {
     title: "DuukaAfrica - East Africa's Trusted Marketplace",

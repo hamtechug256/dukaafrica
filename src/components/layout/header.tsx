@@ -178,11 +178,8 @@ export function Header() {
             </SheetTrigger>
             <SheetContent side="left" className="w-80 p-0">
               <SheetHeader className="p-4 border-b">
-                <SheetTitle className="flex items-center gap-2">
-                  <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                    <span className="text-white font-bold text-lg">D</span>
-                  </div>
-                  <span className="font-bold text-lg">Duuka<span className="text-emerald-600">Africa</span></span>
+                <SheetTitle className="flex items-center">
+                  <img src="/brand/logo-horizontal.png" alt="DuukaAfrica" className="h-8 w-auto object-contain" />
                 </SheetTitle>
               </SheetHeader>
               <nav className="p-4 space-y-1 overflow-y-auto flex-1" aria-label="Mobile categories">
@@ -202,14 +199,8 @@ export function Header() {
           </Sheet>
 
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 shrink-0">
-            <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-xl">D</span>
-            </div>
-            <div className="hidden sm:block">
-              <span className="font-bold text-xl text-primary">Duuka</span>
-              <span className="font-bold text-xl text-emerald-600">Africa</span>
-            </div>
+          <Link href="/" className="flex items-center shrink-0">
+            <img src="/brand/logo-horizontal.png" alt="DuukaAfrica" className="h-10 w-auto object-contain" />
           </Link>
 
           {/* Search Bar */}

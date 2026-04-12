@@ -283,18 +283,14 @@ export function Header() {
           {/* Main Row */}
           <div className="flex items-center gap-4 lg:gap-6 py-4">
             {/* Logo */}
-            <Link href="/" className="flex items-center gap-2 shrink-0 group">
-              <motion.div
-                whileHover={{ rotate: 10 }}
-                className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg"
-                style={{ background: 'linear-gradient(135deg, oklch(0.6 0.2 35), oklch(0.55 0.18 40))' }}
-              >
-                <span className="text-white font-bold text-xl">D</span>
-              </motion.div>
-              <div className="hidden sm:block">
-                <span className="font-bold text-xl text-[oklch(0.15_0.02_45)] dark:text-white">Duuka</span>
-                <span className="font-bold text-xl text-[oklch(0.55_0.15_140)]">Africa</span>
-              </div>
+            <Link href="/" className="flex items-center shrink-0 group">
+              {/* Horizontal logo (icon + text on right) */}
+              <img
+                src="/brand/logo-horizontal.png"
+                alt="DuukaAfrica"
+                className="h-10 sm:h-11 w-auto object-contain"
+                loading="eager"
+              />
             </Link>
 
             {/* Location Selector */}

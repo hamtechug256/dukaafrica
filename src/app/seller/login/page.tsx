@@ -37,14 +37,8 @@ export default function SellerLoginPage() {
           {/* Left Side - Info */}
           <div className="hidden lg:block">
             <div className="mb-8">
-              <Link href="/" className="flex items-center gap-2 mb-6">
-                <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
-                  <span className="text-white font-bold text-xl">D</span>
-                </div>
-                <div>
-                  <span className="font-bold text-xl text-primary">Duuka</span>
-                  <span className="font-bold text-xl text-emerald-600">Africa</span>
-                </div>
+              <Link href="/" className="flex items-center mb-6">
+                <img src="/brand/logo-horizontal.png" alt="DuukaAfrica" className="h-10 w-auto object-contain" />
               </Link>
               <h1 className="text-4xl font-bold text-gray-900 mb-4">
                 Welcome Back, Seller!
@@ -101,14 +95,8 @@ export default function SellerLoginPage() {
           <div className="flex justify-center">
             <Card className="w-full max-w-md">
               <CardHeader className="text-center">
-                <div className="lg:hidden flex items-center justify-center gap-2 mb-4">
-                  <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
-                    <span className="text-white font-bold text-xl">D</span>
-                  </div>
-                  <div>
-                    <span className="font-bold text-xl text-primary">Duuka</span>
-                    <span className="font-bold text-xl text-emerald-600">Africa</span>
-                  </div>
+                <div className="lg:hidden flex items-center justify-center mb-4">
+                  <img src="/brand/logo-horizontal.png" alt="DuukaAfrica" className="h-10 w-auto object-contain" />
                 </div>
                 <CardTitle className="text-2xl">Seller Sign In</CardTitle>
                 <CardDescription>

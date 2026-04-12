@@ -106,14 +106,8 @@ export async function Footer() {
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-8">
           {/* About */}
           <div className="col-span-2 lg:col-span-1">
-            <Link href="/" className="flex items-center gap-2 mb-4">
-              <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-xl">D</span>
-              </div>
-              <div>
-                <span className="font-bold text-xl text-white">Duuka</span>
-                <span className="font-bold text-xl text-emerald-500">Africa</span>
-              </div>
+            <Link href="/" className="flex items-center mb-4">
+              <img src="/brand/logo-horizontal-white.png" alt="DuukaAfrica" className="h-10 w-auto object-contain" />
             </Link>
             <p className="text-sm text-gray-400 mb-4">{aboutText}</p>
             <div className="flex gap-3">
@@ -259,8 +253,8 @@ export async function Footer() {
               </div>
             </div>
             <div className="flex items-center gap-4 text-sm">
-              <Image
-                src="/logo.svg"
+              <img
+                src="/brand/logo-icon.png"
                 alt="Secure"
                 width={24}
                 height={24}

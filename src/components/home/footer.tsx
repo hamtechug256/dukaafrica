@@ -264,21 +264,13 @@ export function Footer() {
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-8 mb-12">
           {/* Brand + Contact */}
           <div className="col-span-2 md:col-span-3 lg:col-span-2">
-            <Link href="/" className="inline-flex items-center gap-2 mb-6">
-              <motion.div
-                whileHover={{ rotate: 10 }}
-                className="w-12 h-12 rounded-xl flex items-center justify-center"
-                style={{
-                  background:
-                    'linear-gradient(135deg, oklch(0.6 0.2 35), oklch(0.55 0.18 40))',
-                }}
-              >
-                <span className="text-white font-bold text-2xl">D</span>
-              </motion.div>
-              <div>
-                <span className="font-bold text-2xl text-white">Duuka</span>
-                <span className="font-bold text-2xl text-[oklch(0.55_0.15_140)]">Africa</span>
-              </div>
+            <Link href="/" className="inline-flex items-center mb-6">
+              <img
+                src="/brand/logo-horizontal-white.png"
+                alt="DuukaAfrica"
+                className="h-12 w-auto object-contain"
+                loading="eager"
+              />
             </Link>
             <p className="text-white/70 mb-6 max-w-sm">{aboutText}</p>
 
