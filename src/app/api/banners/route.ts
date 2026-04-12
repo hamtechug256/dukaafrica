@@ -47,8 +47,17 @@ export async function GET(request: NextRequest) {
     })
 
     return NextResponse.json({ banners })
-  } catch (error) {
-    // If Banner table doesn't exist yet, return empty array
+  } catch (error: any) {
+    // Log the actual error for debugging
+    console.error('[BANNERS API ERROR]', error?.message || error)
+
+    // Check if it's a "table doesn't exist" error
+    const errorMsg = error?.message?.toLowerCase() || ''
+    if (errorMsg.includes('does not exist') || errorMsg.includes('relation') || errorMsg.includes('table')) {
+      return NextResponse.json({ banners: [], error: 'Banner table not yet created' })
+    }
+
+    // For other errors, still return empty but include error info in debug mode
     return NextResponse.json({ banners: [] })
   }
 }

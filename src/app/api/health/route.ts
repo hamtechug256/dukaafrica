@@ -16,6 +16,23 @@ export async function GET() {
     // Test a product query (the most commonly failing one)
     const productCount = await prisma.product.count()
 
+    // Check if Banner and Announcement tables exist
+    let bannerTableExists = false
+    let bannerCount = 0
+    let announcementTableExists = false
+    try {
+      bannerCount = await prisma.banner.count()
+      bannerTableExists = true
+    } catch {
+      bannerTableExists = false
+    }
+    try {
+      await prisma.announcement.count()
+      announcementTableExists = true
+    } catch {
+      announcementTableExists = false
+    }
+
     // Check critical env vars (values hidden, only presence shown)
     const envCheck = {
       // Database
@@ -46,6 +63,10 @@ export async function GET() {
       database: 'connected',
       latencyMs: latency,
       productCount,
+      tables: {
+        banner: bannerTableExists ? `exists (${bannerCount} rows)` : 'MISSING',
+        announcement: announcementTableExists ? 'exists' : 'MISSING',
+      },
       env: envCheck,
       uploadReady: missing.length === 0,
       missingUploadVars: missing.length > 0 ? missing : undefined,
