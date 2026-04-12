@@ -96,11 +96,8 @@ function BannerSlide({ banner, isActive }: { banner: Banner; isActive: boolean }
     ? { background: BADGE_COLORS[banner.badgeColor] }
     : { background: BADGE_COLORS.orange }
 
-  const Wrapper = banner.link ? Link : 'div'
-  const wrapperProps = banner.link ? { href: banner.link } : {}
-
-  return (
-    <Wrapper {...wrapperProps} className="relative block w-full h-full group/banner">
+  const slideContent = (
+    <>
       {/* Ken Burns zoom effect on active slide */}
       <motion.img
         src={banner.image}
@@ -189,7 +186,21 @@ function BannerSlide({ banner, isActive }: { banner: Banner; isActive: boolean }
           )}
         </div>
       </div>
-    </Wrapper>
+    </>
+  )
+
+  if (banner.link) {
+    return (
+      <Link href={banner.link} className="relative block w-full h-full group/banner">
+        {slideContent}
+      </Link>
+    )
+  }
+
+  return (
+    <div className="relative block w-full h-full group/banner">
+      {slideContent}
+    </div>
   )
 }
 
