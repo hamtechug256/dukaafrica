@@ -28,20 +28,24 @@ model Address {
 }
 
 model Banner {
-  id          String    @id @default(uuid())
-  title       String
-  subtitle    String?
-  image       String
-  imageMobile String?
-  link        String?
-  buttonText  String?
-  position    String    @default("HOME_SLIDER")
-  order       Int       @default(0)
-  isActive    Boolean   @default(true)
-  startDate   DateTime?
-  endDate     DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id           String    @id @default(uuid())
+  title        String
+  subtitle     String?
+  image        String
+  imageMobile  String?
+  link         String?
+  buttonText   String?
+  badgeText    String?   // Promotional badge e.g. "30% OFF", "Flash Sale", "New"
+  badgeColor   String?   // Badge color theme: "orange" | "red" | "green" | "blue" | "purple"
+  overlayStyle String    @default("dark") // "dark" | "light" | "gradient" | "none"
+  textPosition String    @default("left") // "left" | "center" | "right"
+  position     String    @default("HOME_SLIDER")
+  order        Int       @default(0)
+  isActive     Boolean   @default(true)
+  startDate    DateTime?
+  endDate      DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   @@index([isActive])
   @@index([position])
