@@ -43,6 +43,7 @@ import {
 } from 'lucide-react'
 import { MobileNav, DesktopSidebar, BottomNav } from '@/components/dashboard/mobile-nav'
 import { adminNavItems } from '@/lib/admin-nav'
+import { useToast } from '@/hooks/use-toast'
 
 async function fetchBanners() {
   const res = await fetch('/api/admin/banners')
@@ -66,7 +67,10 @@ async function updateBanner(data: any) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   })
-  if (!res.ok) throw new Error('Failed to update banner')
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}))
+    throw new Error(errorData.error || `Failed to update banner (${res.status})`)
+  }
   return res.json()
 }
 
@@ -82,6 +86,7 @@ export default function AdminBannersPage() {
   const { user, isLoaded } = useUser()
   const router = useRouter()
   const queryClient = useQueryClient()
+  const { toast } = useToast()
   const [showDialog, setShowDialog] = useState(false)
   const [editingBanner, setEditingBanner] = useState<any>(null)
   const [formData, setFormData] = useState({
@@ -108,6 +113,10 @@ export default function AdminBannersPage() {
       queryClient.invalidateQueries({ queryKey: ['admin-banners'] })
       setShowDialog(false)
       resetForm()
+      toast({ title: 'Banner created successfully' })
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error creating banner', description: error.message, variant: 'destructive' })
     },
   })
 
@@ -117,6 +126,10 @@ export default function AdminBannersPage() {
       queryClient.invalidateQueries({ queryKey: ['admin-banners'] })
       setShowDialog(false)
       resetForm()
+      toast({ title: 'Banner updated successfully' })
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error updating banner', description: error.message, variant: 'destructive' })
     },
   })
 
@@ -124,6 +137,10 @@ export default function AdminBannersPage() {
     mutationFn: deleteBanner,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-banners'] })
+      toast({ title: 'Banner deleted' })
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error deleting banner', description: error.message, variant: 'destructive' })
     },
   })
 

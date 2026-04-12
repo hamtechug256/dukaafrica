@@ -62,22 +62,30 @@ export function BannerSlider() {
 
   if (banners.length === 1) {
     const banner = banners[0]
+    const bannerImage = banner.imageMobile || banner.image
     const content = (
-      <div className="relative w-full h-[220px] sm:h-[300px] md:h-[400px] lg:h-[480px] overflow-hidden rounded-2xl mx-4 mt-4">
+      <div className="relative w-full h-[200px] sm:h-[300px] md:h-[400px] lg:h-[480px] overflow-hidden rounded-2xl mx-4 mt-4">
+        {/* Desktop image */}
         <img
           src={banner.image}
           alt={banner.title}
-          className="w-full h-full object-cover"
+          className="w-full h-full object-cover hidden sm:block"
+        />
+        {/* Mobile image (or fallback to desktop) */}
+        <img
+          src={bannerImage}
+          alt={banner.title}
+          className="w-full h-full object-cover sm:hidden"
         />
         {/* Overlay */}
         <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/30 to-transparent" />
         {/* Text */}
         <div className="absolute inset-0 flex flex-col justify-center px-6 sm:px-10 md:px-16 max-w-xl">
-          <h2 className="text-xl sm:text-2xl md:text-4xl font-bold text-white mb-2">
+          <h2 className="text-xl sm:text-2xl md:text-4xl font-bold text-white mb-2 drop-shadow-lg">
             {banner.title}
           </h2>
           {banner.subtitle && (
-            <p className="text-sm sm:text-base md:text-lg text-white/80 mb-4 hidden sm:block">
+            <p className="text-sm sm:text-base md:text-lg text-white/80 mb-4 hidden sm:block drop-shadow-md">
               {banner.subtitle}
             </p>
           )}
@@ -103,9 +111,10 @@ export function BannerSlider() {
   }
 
   const banner = banners[current]
+  const bannerImage = banner.imageMobile || banner.image
 
   return (
-    <div className="relative w-full h-[220px] sm:h-[300px] md:h-[400px] lg:h-[480px] mx-4 mt-4 rounded-2xl overflow-hidden group">
+    <div className="relative w-full h-[200px] sm:h-[300px] md:h-[400px] lg:h-[480px] mx-4 mt-4 rounded-2xl overflow-hidden group">
       <AnimatePresence mode="wait" custom={direction}>
         <motion.div
           key={banner.id}
@@ -118,20 +127,27 @@ export function BannerSlider() {
           className="absolute inset-0"
         >
           <Link href={banner.link || '#'} className="block w-full h-full">
+            {/* Desktop image */}
             <img
               src={banner.image}
               alt={banner.title}
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover hidden sm:block"
+            />
+            {/* Mobile image (or fallback to desktop) */}
+            <img
+              src={bannerImage}
+              alt={banner.title}
+              className="w-full h-full object-cover sm:hidden"
             />
             {/* Overlay */}
             <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/30 to-transparent" />
             {/* Text */}
             <div className="absolute inset-0 flex flex-col justify-center px-6 sm:px-10 md:px-16 max-w-xl">
-              <h2 className="text-xl sm:text-2xl md:text-4xl font-bold text-white mb-2">
+              <h2 className="text-xl sm:text-2xl md:text-4xl font-bold text-white mb-2 drop-shadow-lg">
                 {banner.title}
               </h2>
               {banner.subtitle && (
-                <p className="text-sm sm:text-base md:text-lg text-white/80 mb-4 hidden sm:block">
+                <p className="text-sm sm:text-base md:text-lg text-white/80 mb-4 hidden sm:block drop-shadow-md">
                   {banner.subtitle}
                 </p>
               )}

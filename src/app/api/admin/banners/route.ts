@@ -137,6 +137,7 @@ export async function PATCH(request: NextRequest) {
   try {
     const admin = await checkAdminAccess()
     if (!admin) {
+      console.error('[BANNER PATCH] Admin access denied - auth check returned null')
       return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 })
     }
 
@@ -148,17 +149,38 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Validate link URL if provided
-    if (!isValidUrl(data.link)) {
+    if (data.link !== undefined && !isValidUrl(data.link)) {
       return NextResponse.json({ error: 'Invalid link URL' }, { status: 400 })
+    }
+
+    // Only include allowed fields in the update
+    const allowedFields: Record<string, any> = {}
+    const fieldMap: Record<string, any> = {
+      title: (v: any) => v,
+      subtitle: (v: any) => v,
+      image: (v: any) => v,
+      imageMobile: (v: any) => v,
+      link: (v: any) => v,
+      buttonText: (v: any) => v,
+      position: (v: any) => v,
+      order: (v: any) => (typeof v === 'number' ? v : parseInt(v) || 0),
+      isActive: (v: any) => (typeof v === 'boolean' ? v : undefined),
+      startDate: (v: any) => (v ? new Date(v) : null),
+      endDate: (v: any) => (v ? new Date(v) : null),
+    }
+
+    for (const [key, transformer] of Object.entries(fieldMap)) {
+      if (key in data) {
+        const val = transformer(data[key])
+        if (val !== undefined) {
+          allowedFields[key] = val
+        }
+      }
     }
 
     const banner = await prisma.banner.update({
       where: { id },
-      data: {
-        ...data,
-        startDate: data.startDate ? new Date(data.startDate) : null,
-        endDate: data.endDate ? new Date(data.endDate) : null,
-      },
+      data: allowedFields,
     })
 
     return NextResponse.json({ banner })

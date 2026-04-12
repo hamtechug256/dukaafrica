@@ -52,6 +52,7 @@ const isPublicRoute = createRouteMatcher([
   '/seller/learn-more(.*)',
   '/seller/onboarding(.*)',
   '/api/announcements(.*)', // Public announcement banner endpoint
+  '/api/banners(.*)', // Public banner display endpoint
 ])
 
 const isAdminLoginRoute = createRouteMatcher([
