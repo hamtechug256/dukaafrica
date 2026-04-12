@@ -1014,11 +1014,14 @@ model Announcement {
   createdAt      DateTime  @default(now())
   expiresAt      DateTime?
   createdBy      String
+  updatedAt      DateTime  @updatedAt
 
   @@index([isActive])
   @@index([type])
   @@index([targetAudience])
+  @@index([targetCountry])
   @@index([createdAt])
+  @@index([expiresAt])
 }
 
 // ============================================

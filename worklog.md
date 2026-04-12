@@ -353,3 +353,24 @@ Stage Summary:
 - Single source of truth: src/lib/currency.ts
 - Commit 27a4a4d pushed to main on correct repo
 
+---
+Task ID: repo-fix
+Agent: Main
+Task: Fix git remote to point to correct repo (dukaafrica, one 'u')
+
+Work Log:
+- Discovered local git was pushing to hamtechug256/duukafrica (two u's) — wrong repo
+- User deleted the confusing wrong repo (hamtechug256/duukafrica)
+- Correct repo: hamtechug256/dukaafrica (one 'u', d-u-k-a-a-f-r-i-c-a)
+- Changed remote URL to https://github.com/hamtechug256/dukaafrica.git
+- Reset local main to origin/main (0f859bc) from correct repo
+- Verified Announcement model already exists in correct repo's schema
+- Verified banner page already uses shared admin sidebar in correct repo
+- Cleaned up leftover duukafrica-safe/ directory
+
+Stage Summary:
+- Git remote now correctly points to hamtechug256/dukaafrica (one 'u')
+- Local main synced to origin/main at 0f859bc
+- No pending changes needed — correct repo already has all fixes
+- ALL future pushes must go to hamtechug256/dukaafrica (d-u-k-a-a-f-r-i-c-a)
+
