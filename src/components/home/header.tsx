@@ -284,11 +284,18 @@ export function Header() {
           <div className="flex items-center gap-4 lg:gap-6 py-4">
             {/* Logo */}
             <Link href="/" className="flex items-center shrink-0 group">
-              {/* Horizontal logo (icon + text on right) */}
+              {/* Desktop: horizontal logo (icon + text) */}
               <img
                 src="/brand/logo-horizontal.png"
                 alt="DuukaAfrica"
-                className="h-10 sm:h-11 w-auto object-contain"
+                className="hidden lg:block h-11 w-auto object-contain"
+                loading="eager"
+              />
+              {/* Mobile & Tablet: icon-only logo (no text) */}
+              <img
+                src="/brand/logo-icon.png"
+                alt="DuukaAfrica"
+                className="lg:hidden h-10 w-10 object-contain"
                 loading="eager"
               />
             </Link>

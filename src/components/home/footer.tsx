@@ -152,6 +152,7 @@ export function Footer() {
       { name: 'All Stores', href: '/stores' },
     ],
     resources: [
+      { name: 'Blog', href: '/blog' },
       { name: 'Seller Resources & Downloads', href: '/seller/resources' },
       { name: 'Seller Guidelines', href: '/seller/guidelines' },
       { name: 'Fees & Pricing', href: '/seller/fees' },

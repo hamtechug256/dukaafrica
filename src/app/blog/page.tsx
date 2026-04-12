@@ -73,32 +73,38 @@ export default async function BlogPage({ searchParams }: BlogPageProps) {
   const totalPages = Math.ceil(total / POSTS_PER_PAGE)
 
   return (
-    <main className="min-h-screen bg-gray-50 dark:bg-gray-950">
+    <main className="min-h-screen bg-[oklch(0.985_0.005_85)] dark:bg-[oklch(0.1_0.01_45)]">
       {/* Hero Section */}
-      <section className="bg-gradient-to-br from-primary via-primary/90 to-primary/80 text-primary-foreground">
-        <div className="container py-16 md:py-24 text-center">
+      <section
+        className="text-white py-16 md:py-24"
+        style={{ background: 'linear-gradient(135deg, oklch(0.45 0.2 35), oklch(0.4 0.15 40), oklch(0.35 0.12 50))' }}
+      >
+        <div className="container mx-auto px-4 text-center">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/15 backdrop-blur-sm text-sm font-medium mb-6">
             <PenLine className="w-4 h-4" />
             DuukaAfrica Blog
           </div>
-          <h1 className="text-3xl md:text-5xl font-bold mb-4">
+          <h1 className="text-3xl md:text-5xl font-bold mb-4 leading-tight">
             Stories, Insights & Tips
           </h1>
-          <p className="text-lg md:text-xl text-primary-foreground/80 max-w-2xl mx-auto mb-8">
+          <p className="text-lg md:text-xl text-white/80 max-w-2xl mx-auto mb-10">
             Stay informed with the latest from East Africa&apos;s marketplace. Expert advice, seller stories, and market trends.
           </p>
 
           {/* Search Bar */}
           <form action="/blog/search" method="GET" className="max-w-lg mx-auto">
-            <div className="relative flex">
+            <div className="relative flex rounded-2xl overflow-hidden shadow-2xl">
               <Input
                 type="search"
                 name="q"
                 defaultValue={searchQuery}
                 placeholder="Search articles..."
-                className="rounded-r-none h-12 text-foreground bg-white/95 backdrop-blur"
+                className="rounded-r-none h-12 text-foreground bg-white/95 backdrop-blur border-0 focus-visible:ring-0"
               />
-              <Button type="submit" className="rounded-l-none h-12 px-6 bg-white text-primary hover:bg-white/90 font-semibold">
+              <Button
+                type="submit"
+                className="rounded-l-none h-12 px-6 bg-white/20 backdrop-blur hover:bg-white/30 text-white font-semibold"
+              >
                 <Search className="w-4 h-4 mr-2" />
                 Search
               </Button>
@@ -108,13 +114,14 @@ export default async function BlogPage({ searchParams }: BlogPageProps) {
       </section>
 
       {/* Main Content */}
-      <section className="container py-12">
+      <section className="container mx-auto px-4 py-12">
         {/* Category pills */}
         {categories.length > 0 && (
           <div className="flex flex-wrap items-center gap-2 mb-10">
             <Link
               href="/blog"
-              className="px-4 py-2 rounded-full text-sm font-medium bg-primary text-primary-foreground transition-colors"
+              className="px-4 py-2 rounded-xl text-sm font-semibold text-white shadow-sm"
+              style={{ background: 'linear-gradient(135deg, oklch(0.6 0.2 35), oklch(0.55 0.18 40))' }}
             >
               All
             </Link>
@@ -122,10 +129,10 @@ export default async function BlogPage({ searchParams }: BlogPageProps) {
               <Link
                 key={cat.id}
                 href={`/blog/category/${cat.slug}`}
-                className="px-4 py-2 rounded-full text-sm font-medium bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border hover:border-primary hover:text-primary transition-colors"
+                className="px-4 py-2 rounded-xl text-sm font-medium bg-white dark:bg-[oklch(0.15_0.02_45)] text-gray-700 dark:text-gray-300 border border-[oklch(0.92_0.01_85)] dark:border-[oklch(0.25_0.02_45)] hover:border-[oklch(0.6_0.2_35)] hover:text-[oklch(0.55_0.18_35)] transition-colors"
               >
                 {cat.name}
-                <span className="ml-1.5 text-xs opacity-60">{cat._count.BlogPost}</span>
+                <span className="ml-1.5 text-xs opacity-50">{cat._count.BlogPost}</span>
               </Link>
             ))}
           </div>
@@ -137,7 +144,7 @@ export default async function BlogPage({ searchParams }: BlogPageProps) {
             {/* Featured Post */}
             {!searchQuery && featuredPost && page === 1 && (
               <div className="mb-10">
-                <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">Featured Article</h2>
+                <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4">Featured Article</h2>
                 <BlogPostCard post={featuredPost} featured />
               </div>
             )}
@@ -162,7 +169,7 @@ export default async function BlogPage({ searchParams }: BlogPageProps) {
                     {page > 1 && (
                       <Link
                         href={`/blog?page=${page - 1}${searchQuery ? `&q=${encodeURIComponent(searchQuery)}` : ''}`}
-                        className="px-4 py-2 rounded-lg text-sm font-medium border hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                        className="px-5 py-2.5 rounded-xl text-sm font-medium border border-[oklch(0.92_0.01_85)] dark:border-[oklch(0.25_0.02_45)] hover:bg-white dark:hover:bg-[oklch(0.15_0.02_45)] transition-colors"
                       >
                         Previous
                       </Link>
@@ -173,7 +180,8 @@ export default async function BlogPage({ searchParams }: BlogPageProps) {
                     {page < totalPages && (
                       <Link
                         href={`/blog?page=${page + 1}${searchQuery ? `&q=${encodeURIComponent(searchQuery)}` : ''}`}
-                        className="px-4 py-2 rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                        className="px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors"
+                        style={{ background: 'linear-gradient(135deg, oklch(0.6 0.2 35), oklch(0.55 0.18 40))' }}
                       >
                         Next
                       </Link>
@@ -182,11 +190,11 @@ export default async function BlogPage({ searchParams }: BlogPageProps) {
                 )}
               </>
             ) : (
-              <div className="flex flex-col items-center justify-center py-20 text-center">
-                <div className="w-20 h-20 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4">
-                  <PenLine className="w-8 h-8 text-gray-400" />
+              <div className="flex flex-col items-center justify-center py-24 text-center">
+                <div className="w-20 h-20 rounded-2xl bg-[oklch(0.96_0.01_85)] dark:bg-[oklch(0.18_0.02_45)] flex items-center justify-center mb-5">
+                  <PenLine className="w-8 h-8 text-[oklch(0.6_0.2_35)]" />
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">
                   {searchQuery ? 'No articles found' : 'No articles yet'}
                 </h3>
                 <p className="text-sm text-gray-500 max-w-md">
