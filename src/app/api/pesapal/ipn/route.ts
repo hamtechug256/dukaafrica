@@ -230,39 +230,43 @@ async function handleCompletedPayment(orderTrackingId: string, payload: PesapalI
     const totalProductSubtotal = order.subtotal ? toNum(order.subtotal) : storeTotal
     const storeProductShare = totalProductSubtotal > 0 ? storeTotal / totalProductSubtotal : 1
 
-    // Get seller's shipping earnings from the Payment record
-    // Payment.sellerAmount includes product + shipping earnings
-    // sellerTotalEarnings = sellerProductEarnings + sellerShippingEarnings
-    const sellerTotalEarnings = toNum(payment.sellerAmount)
-    const platformCommission = toNum(payment.platformAmount)
-    
-    // Estimate seller shipping earnings proportionally
-    // Platform keeps: commission (on product) + shipping markup (configurable %)
-    // Seller gets: product after commission + shipping after markup
-    const orderShippingFee = toNum(order.shippingFee) || 0
+    // ── COMMISSION CALCULATION (single source of truth) ──────────────
+    // Product commission uses store.commissionRate (per-store setting)
+    const commissionRate = toNum(store.commissionRate) || 10
+    const platformProductCommission = Math.ceil(storeTotal * (commissionRate / 100))
+    const sellerProductEarnings = storeTotal - platformProductCommission
 
-    // Read shipping markup from PlatformSettings (default 5%)
+    // ── SHIPPING MARKUP CALCULATION ─────────────────────────────────
+    // Shipping markup uses PlatformSettings.shippingMarkupPercent (platform-wide)
+    const orderShippingFee = toNum(order.shippingFee) || 0
     const platformSettings = await prisma.platformSettings.findFirst({
       select: { shippingMarkupPercent: true },
     })
-    const shippingMarkup = platformSettings
+    const shippingMarkupPercent = platformSettings
       ? toNum(platformSettings.shippingMarkupPercent)
       : 5
-    const sellerShippingShare = (100 - shippingMarkup) / 100
-    const sellerShippingEarnings = Math.round(orderShippingFee * sellerShippingShare * storeProductShare)
+    const platformShippingMarkup = Math.ceil(orderShippingFee * (shippingMarkupPercent / 100) * storeProductShare)
+    const sellerShippingAmount = orderShippingFee * storeProductShare - platformShippingMarkup
+
+    // ── TOTAL SELLER AMOUNT ─────────────────────────────────────────
+    const totalSellerAmount = sellerProductEarnings + sellerShippingAmount
 
     const escrowResult = await createEscrowHold({
       orderId: order.id,
       storeId: store.id,
       buyerId: order.userId,
       grossAmount: storeTotal,
-      shippingEarnings: sellerShippingEarnings,
       currency: order.currency,
       store: {
         verificationTier: store.verificationTier,
         verificationStatus: store.verificationStatus,
         commissionRate: toNum(store.commissionRate),
       },
+      // Pass pre-calculated values to avoid double calculation in escrow
+      preCalculatedPlatformAmount: platformProductCommission,
+      preCalculatedSellerAmount: totalSellerAmount,
+      preCalculatedShippingMarkup: platformShippingMarkup,
+      preCalculatedSellerShippingAmount: sellerShippingAmount,
     })
 
     if (escrowResult.success) {
@@ -270,8 +274,9 @@ async function handleCompletedPayment(orderTrackingId: string, payload: PesapalI
     } else {
       console.error(`Failed to create escrow for store ${storeId}:`, escrowResult.error)
       // Fallback: update escrowBalance without escrow record
-      const commissionRate = toNum(store.commissionRate) || 15
-      const sellerAmount = Math.round(storeTotal * (1 - commissionRate / 100))
+      const fallbackCommissionRate = toNum(store.commissionRate) || 15
+      const fallbackPlatformCommission = Math.ceil(storeTotal * (fallbackCommissionRate / 100))
+      const sellerAmount = storeTotal - fallbackPlatformCommission
       await prisma.store.update({
         where: { id: storeId },
         data: {

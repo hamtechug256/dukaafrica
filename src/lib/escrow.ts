@@ -50,12 +50,12 @@ async function getPlatformReserve(): Promise<{
  * Called when payment is successful
  * 
  * In the Pesapal manual payout model, ALL money comes to the platform first.
- * The escrow tracks the full seller entitlement (product earnings after commission
- * and reserve, PLUS shipping earnings). This ensures sellers receive their complete
+ * The escrow tracks the full seller entitlement (product earnings after commission,
+ * PLUS shipping earnings). This ensures sellers receive their complete
  * payout when escrow releases.
  * 
- * Shipping earnings are NOT subject to commission or platform reserve —
- * only the product price has commission applied. Shipping markup (5%) is
+ * Shipping earnings are NOT subject to commission —
+ * only the product price has commission applied. Shipping markup is
  * kept by the platform and not passed through escrow.
  */
 export async function createEscrowHold(params: {
@@ -70,6 +70,11 @@ export async function createEscrowHold(params: {
     verificationStatus: string
     commissionRate?: number
   }
+  // Pre-calculated values from payment handler (avoids double calculation)
+  preCalculatedPlatformAmount?: number
+  preCalculatedSellerAmount?: number
+  preCalculatedShippingMarkup?: number
+  preCalculatedSellerShippingAmount?: number
 }): Promise<{
   success: boolean
   escrowId?: string
@@ -81,31 +86,31 @@ export async function createEscrowHold(params: {
   error?: string
 }> {
   try {
-    // Get commission rate and hold days based on seller tier
-    const commissionRate = params.store.commissionRate || await getCommissionRate(params.store)
+    // Get commission rate: prefer store.commissionRate, fall back to tier-based rate
+    const commissionRate = params.store.commissionRate
+      ? params.store.commissionRate
+      : await getCommissionRate(params.store)
     const holdDays = await getEscrowHoldDays(params.store)
     
-    // Calculate amounts (commission applies ONLY to product price, NOT shipping)
-    const platformAmount = Math.round(params.grossAmount * (commissionRate / 100))
-    const initialSellerAmount = params.grossAmount - platformAmount
+    // Use pre-calculated amounts from payment handler if provided (avoids double calculation)
+    // Otherwise calculate from scratch
+    const platformAmount = params.preCalculatedPlatformAmount
+      ?? Math.ceil(params.grossAmount * (commissionRate / 100))
+    const sellerProductEarnings = params.grossAmount - platformAmount
+    const sellerShippingEarnings = params.preCalculatedSellerAmount
+      ? params.preCalculatedSellerAmount - sellerProductEarnings
+      : (params.shippingEarnings || 0)
+    const sellerAmount = params.preCalculatedSellerAmount
+      ?? (sellerProductEarnings + sellerShippingEarnings)
     
-    // Get platform reserve percentage
-    const { reservePercent } = await getPlatformReserve()
-    
-    // Calculate reserve amount from seller's product earnings only (not shipping)
-    const reserveAmount = Math.round(initialSellerAmount * (reservePercent / 100))
-    
-    // Final seller amount: product earnings after commission & reserve, PLUS shipping earnings
-    // Shipping earnings are NOT subject to commission or reserve
-    const sellerProductEarnings = initialSellerAmount - reserveAmount
-    const sellerShippingEarnings = params.shippingEarnings || 0
-    const sellerAmount = sellerProductEarnings + sellerShippingEarnings
+    // Platform reserve is no longer deducted — set to 0 for backward compatibility
+    const reserveAmount = 0
     
     // Calculate release date
     const releaseDate = new Date()
     releaseDate.setDate(releaseDate.getDate() + holdDays)
     
-    // Create escrow transaction and update reserves in a transaction
+    // Create escrow transaction
     const escrow = await prisma.$transaction(async (tx) => {
       // Create escrow transaction
       const newEscrow = await tx.escrowTransaction.create({
@@ -123,15 +128,6 @@ export async function createEscrowHold(params: {
         }
       })
       
-      // Update platform reserve (increment both total and available)
-      await tx.platformReserve.updateMany({
-        data: {
-          totalReserve: { increment: reserveAmount },
-          availableReserve: { increment: reserveAmount }
-        }
-      })
-
-      
       return newEscrow
     })
     
@@ -142,8 +138,10 @@ export async function createEscrowHold(params: {
         data: {
           escrowStatus: 'HELD',
           escrowHoldDays: holdDays,
-          sellerProductEarnings: sellerAmount,
+          sellerProductEarnings,
           platformProductCommission: platformAmount,
+          platformShippingMarkup: params.preCalculatedShippingMarkup ?? 0,
+          sellerShippingAmount: params.preCalculatedSellerShippingAmount ?? sellerShippingEarnings,
         }
       })
       
@@ -188,7 +186,7 @@ export async function createEscrowHold(params: {
       escrowId: escrow.id,
       sellerAmount,
       platformAmount,
-      reserveAmount,
+      reserveAmount: 0,
       holdDays,
       releaseDate
     }
@@ -405,20 +403,8 @@ export async function refundEscrow(params: {
           })
         }
 
-        // Restore platform reserve
-        const reserveAmount = escrow.reserveAmount?.toNumber() || 0
-        const restoreReserve = isPartialRefund
-          ? Math.round(reserveAmount * (refundAmount / escrowSellerAmount))
-          : reserveAmount
-        if (restoreReserve > 0) {
-          await tx.platformReserve.updateMany({
-            data: {
-              totalReserve: { decrement: restoreReserve },
-              availableReserve: { decrement: restoreReserve },
-              pendingRefunds: { increment: restoreReserve }
-            }
-          })
-        }
+        // Platform reserve is no longer used — skip reserve restoration
+        // (reserveAmount is always 0 for orders created after the reserve removal)
       })
 
       // Restore product stock for each order item

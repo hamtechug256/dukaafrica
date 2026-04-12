@@ -16,13 +16,13 @@ import {
   Star,
   Upload,
   BarChart3,
-  Store,
-  Clock,
   ArrowRight,
   CreditCard,
   Truck,
+  Loader2,
 } from 'lucide-react'
 import { formatPrice } from '@/lib/currency'
+import { useEffect, useState } from 'react'
 
 const fadeIn = {
   initial: { opacity: 0, y: 20 },
@@ -34,77 +34,127 @@ const stagger = {
   animate: { transition: { staggerChildren: 0.1 } },
 }
 
+interface TierData {
+  tierName: string
+  displayName: string
+  description: string
+  commissionRate: number
+  escrowHoldDays: number
+  maxProducts: number
+  maxTransactionAmount: number
+  canFeatureProducts: boolean
+  canCreateFlashSales: boolean
+  canBulkUpload: boolean
+  hasPrioritySupport: boolean
+  hasAnalytics: boolean
+  badgeText: string
+  order: number
+}
+
+const REQUIREMENTS: Record<string, string> = {
+  STARTER: 'Just sign up — no verification needed',
+  VERIFIED: 'ID verification + selfie verification',
+  PREMIUM: 'Business docs + tax docs + physical location',
+}
+
+const FEATURES_BY_FLAG: Record<string, string> = {
+  canBulkUpload: 'Bulk product upload',
+  hasAnalytics: 'Analytics dashboard',
+  canFeatureProducts: 'Featured store placement',
+  canCreateFlashSales: 'Flash Sales access',
+  hasPrioritySupport: 'Dedicated account support',
+}
+
+function buildFeatures(tier: TierData): string[] {
+  const features: string[] = []
+  if (tier.maxProducts === -1 || tier.maxProducts > 10) {
+    features.push('Unlimited product listings')
+  } else {
+    features.push(`Up to ${tier.maxProducts} product listings`)
+  }
+  if (tier.hasAnalytics) features.push('Full analytics dashboard')
+  else features.push('Basic seller dashboard')
+  if (tier.hasPrioritySupport) features.push('Priority customer support')
+  else if (tier.tierName !== 'STARTER') features.push('Standard customer support')
+  else features.push('Standard customer support')
+  if (tier.canBulkUpload) features.push('Bulk product upload')
+  if (tier.canCreateFlashSales) features.push('Flash Sales access')
+  if (tier.canFeatureProducts) features.push('Featured store placement')
+  if (tier.hasPrioritySupport) features.push('Dedicated account support')
+  features.push('Order management tools')
+  features.push('Mobile Money payouts')
+  features.push('Email notifications')
+  if (tier.tierName === 'PREMIUM') {
+    features.push('Promotional priority')
+    features.push('Custom analytics reports')
+  }
+  return features
+}
+
+function buildNotIncluded(tier: TierData): string[] {
+  const notIncluded: string[] = []
+  if (!tier.canBulkUpload) notIncluded.push('Bulk product upload')
+  if (!tier.hasAnalytics) notIncluded.push('Analytics dashboard')
+  if (!tier.canFeatureProducts) notIncluded.push('Featured store placement')
+  if (!tier.canCreateFlashSales && tier.tierName === 'STARTER') notIncluded.push('Flash Sales access')
+  return notIncluded
+}
+
+function formatMaxProducts(max: number): string {
+  return max === -1 ? 'Unlimited' : String(max)
+}
+
 export default function SellerFeesPage() {
-  const tiers = [
-    {
-      name: 'Starter',
-      commission: '15%',
-      escrowHold: '7 days',
-      maxProducts: '10',
-      maxTransactionAmount: 500000,
-      description: 'Perfect for new sellers getting started',
-      requirements: 'Just sign up — no verification needed',
-      popular: false,
-      features: [
-        'Up to 10 product listings',
-        'Basic seller dashboard',
-        'Standard customer support',
-        'Order management tools',
-        'Mobile Money payouts',
-        'Email notifications',
-      ],
-      notIncluded: [
-        'Bulk product upload',
-        'Analytics dashboard',
-        'Custom store branding',
-        'Flash Sales access',
-      ],
-    },
-    {
-      name: 'Verified',
-      commission: '10%',
-      escrowHold: '5 days',
-      maxProducts: 'Unlimited',
-      maxTransactionAmount: 2000000,
-      description: 'For serious sellers ready to grow',
-      requirements: 'ID verification + selfie verification',
-      popular: true,
-      features: [
-        'Unlimited product listings',
-        'Full analytics dashboard',
-        'Priority customer support',
-        'Bulk product upload',
-        'Custom store branding',
-        'Flash Sales access',
-        'Advanced order management',
-        'Seller performance metrics',
-      ],
-      notIncluded: [
-        'Featured store placement',
-      ],
-    },
-    {
-      name: 'Premium',
-      commission: '8%',
-      escrowHold: '3 days',
-      maxProducts: 'Unlimited',
-      maxTransactionAmount: 5000000,
-      description: 'For established businesses at scale',
-      requirements: 'Business docs + tax docs + physical location',
-      popular: false,
-      features: [
-        'Everything in Verified, plus:',
-        'Lowest commission rate (8%)',
-        'Fastest payouts (3 days)',
-        'Highest transaction limits',
-        'Featured store placement',
-        'Dedicated account support',
-        'Promotional priority',
-        'Custom analytics reports',
-      ],
-      notIncluded: [],
-    },
-  ]
+  const [tiers, setTiers] = useState<TierData[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function fetchTiers() {
+      try {
+        const res = await fetch('/api/tiers')
+        const data = await res.json()
+        if (data.tiers && Array.isArray(data.tiers)) {
+          setTiers(data.tiers)
+        }
+      } catch (err) {
+        console.error('Failed to fetch tiers:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchTiers()
+  }, [])
+
+  // ── Derived UI data from fetched tiers ──
+  const tierCards = tiers.map((tier) => ({
+    name: tier.displayName || tier.tierName,
+    tierName: tier.tierName,
+    commission: `${tier.commissionRate}%`,
+    escrowHold: `${tier.escrowHoldDays} days`,
+    maxProducts: formatMaxProducts(tier.maxProducts),
+    maxTransactionAmount: tier.maxTransactionAmount === -1 ? Infinity : tier.maxTransactionAmount,
+    description: tier.description || '',
+    requirements: REQUIREMENTS[tier.tierName] || '',
+    popular: tier.tierName === 'VERIFIED',
+    features: buildFeatures(tier),
+    notIncluded: buildNotIncluded(tier),
+  }))
+
+  const featureComparison = tiers.length > 0
+    ? [
+        { feature: 'Flash Sales', getVal: (t: TierData) => t.canCreateFlashSales },
+        { feature: 'Bulk Product Upload', getVal: (t: TierData) => t.canBulkUpload },
+        { feature: 'Analytics Dashboard', getVal: (t: TierData) => t.hasAnalytics },
+        { feature: 'Featured Store Placement', getVal: (t: TierData) => t.canFeatureProducts },
+        { feature: 'Dedicated Account Support', getVal: (t: TierData) => t.hasPrioritySupport },
+        { feature: 'Max Products', getVal: (t: TierData) => formatMaxProducts(t.maxProducts) },
+        { feature: 'Commission Rate', getVal: (t: TierData) => `${t.commissionRate}%` },
+        { feature: 'Escrow Hold', getVal: (t: TierData) => `${t.escrowHoldDays} days` },
+        { feature: 'Max Transaction', getVal: (t: TierData) =>
+          t.maxTransactionAmount === -1 ? 'Unlimited' : formatPrice(t.maxTransactionAmount, 'UGX'),
+        },
+      ]
+    : []
 
   const upgradeSteps = [
     {
@@ -185,20 +235,6 @@ export default function SellerFeesPage() {
     },
   ]
 
-  const featureComparison = [
-    { feature: 'Flash Sales', starter: false, verified: true, premium: true },
-    { feature: 'Bulk Product Upload', starter: false, verified: true, premium: true },
-    { feature: 'Analytics Dashboard', starter: false, verified: true, premium: true },
-    { feature: 'Custom Store Branding', starter: false, verified: true, premium: true },
-    { feature: 'Featured Store Placement', starter: false, verified: false, premium: true },
-    { feature: 'Promotional Priority', starter: false, verified: false, premium: true },
-    { feature: 'Dedicated Account Support', starter: false, verified: false, premium: true },
-    { feature: 'Max Products', starter: '10', verified: 'Unlimited', premium: 'Unlimited' },
-    { feature: 'Commission Rate', starter: '15%', verified: '10%', premium: '8%' },
-    { feature: 'Escrow Hold', starter: '7 days', verified: '5 days', premium: '3 days' },
-    { feature: 'Max Transaction', starter: '500K', verified: '2M', premium: '5M' },
-  ]
-
   return (
     <div className="min-h-screen flex flex-col bg-[oklch(0.99_0.005_85)] dark:bg-[oklch(0.12_0.02_45)]">
       <Header />
@@ -257,171 +293,177 @@ export default function SellerFeesPage() {
             </div>
           </motion.div>
 
-          {/* Tier Cards */}
-          <motion.div
-            className="grid md:grid-cols-3 gap-6 mb-16"
-            variants={stagger}
-            initial="initial"
-            animate="animate"
-          >
-            {tiers.map((tier, index) => (
-              <motion.div key={index} variants={fadeIn}>
-                <Card
-                  className={`relative h-full ${
-                    tier.popular
-                      ? 'border-2 border-emerald-500 shadow-lg shadow-emerald-100 dark:shadow-emerald-950/30'
-                      : 'border'
-                  }`}
-                >
-                  {tier.popular && (
-                    <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-emerald-600 text-white">
-                      Most Popular
-                    </Badge>
-                  )}
-                  <CardContent className="p-6">
-                    <h3 className="text-xl font-bold mb-1">{tier.name}</h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                      {tier.description}
-                    </p>
-
-                    <div className="mb-6">
-                      <span className="text-4xl font-bold">{tier.commission}</span>
-                      <span className="text-gray-500 ml-1">commission</span>
-                    </div>
-
-                    <div className="space-y-3 mb-6">
-                      <div className="flex items-center gap-2 text-sm">
-                        <Clock className="w-4 h-4 text-gray-500" />
-                        <span>Escrow hold: <strong>{tier.escrowHold}</strong></span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm">
-                        <Upload className="w-4 h-4 text-gray-500" />
-                        <span>Max products: <strong>{tier.maxProducts}</strong></span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm">
-                        <TrendingUp className="w-4 h-4 text-gray-500" />
-                        <span>Max transaction: <strong>{formatPrice(tier.maxTransactionAmount, 'UGX')}</strong></span>
-                      </div>
-                    </div>
-
-                    <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg mb-6">
-                      <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                        REQUIREMENTS
-                      </p>
-                      <p className="text-sm font-medium">{tier.requirements}</p>
-                    </div>
-
-                    <h4 className="font-semibold text-sm mb-3">What&apos;s included:</h4>
-                    <ul className="space-y-2 mb-6">
-                      {tier.features.map((feature, fIndex) => (
-                        <li key={fIndex} className="flex items-start gap-2 text-sm">
-                          <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                          <span>{feature}</span>
-                        </li>
-                      ))}
-                    </ul>
-
-                    {tier.notIncluded.length > 0 && (
-                      <>
-                        <h4 className="font-semibold text-sm mb-2 text-gray-400">
-                          Not included:
-                        </h4>
-                        <ul className="space-y-2">
-                          {tier.notIncluded.map((feature, fIndex) => (
-                            <li
-                              key={fIndex}
-                              className="flex items-start gap-2 text-sm text-gray-400"
-                            >
-                              <span className="w-4 h-4 shrink-0 mt-0.5 text-gray-300 text-center">
-                                —
-                              </span>
-                              <span>{feature}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </>
+          {/* Tier Cards — Dynamic */}
+          {loading ? (
+            <div className="flex justify-center items-center py-24">
+              <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
+            </div>
+          ) : (
+            <motion.div
+              className="grid md:grid-cols-3 gap-6 mb-16"
+              variants={stagger}
+              initial="initial"
+              animate="animate"
+            >
+              {tierCards.map((tier, index) => (
+                <motion.div key={index} variants={fadeIn}>
+                  <Card
+                    className={`relative h-full ${
+                      tier.popular
+                        ? 'border-2 border-emerald-500 shadow-lg shadow-emerald-100 dark:shadow-emerald-950/30'
+                        : 'border'
+                    }`}
+                  >
+                    {tier.popular && (
+                      <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-emerald-600 text-white">
+                        Most Popular
+                      </Badge>
                     )}
+                    <CardContent className="p-6">
+                      <h3 className="text-xl font-bold mb-1">{tier.name}</h3>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                        {tier.description}
+                      </p>
 
-                    <Link href="/seller/register" className="block mt-6">
-                      <Button
-                        className={`w-full ${
-                          tier.popular
-                            ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                            : ''
-                        }`}
-                        variant={tier.popular ? 'default' : 'outline'}
-                      >
-                        Get Started Free
-                      </Button>
-                    </Link>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
-          </motion.div>
+                      <div className="mb-6">
+                        <span className="text-4xl font-bold">{tier.commission}</span>
+                        <span className="text-gray-500 ml-1">commission</span>
+                      </div>
 
-          {/* Feature Comparison Table */}
-          <motion.div className="mb-16" {...fadeIn}>
-            <h2 className="text-2xl font-bold mb-6">Feature Comparison</h2>
-            <Card>
-              <CardContent className="p-0">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b bg-gray-50 dark:bg-gray-800">
-                        <th className="text-left p-4 font-semibold">Feature</th>
-                        <th className="text-center p-4 font-semibold">Starter</th>
-                        <th className="text-center p-4 font-semibold bg-emerald-50 dark:bg-emerald-950/20">
-                          Verified
-                        </th>
-                        <th className="text-center p-4 font-semibold">Premium</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {featureComparison.map((row, index) => (
-                        <tr key={index} className="border-b last:border-0">
-                          <td className="p-4 font-medium">{row.feature}</td>
-                          <td className="p-4 text-center">
-                            {typeof row.starter === 'boolean' ? (
-                              row.starter ? (
-                                <CheckCircle className="w-5 h-5 text-emerald-500 mx-auto" />
-                              ) : (
-                                <span className="text-gray-300">—</span>
-                              )
-                            ) : (
-                              <span className="font-medium">{row.starter}</span>
-                            )}
-                          </td>
-                          <td className="p-4 text-center bg-emerald-50/50 dark:bg-emerald-950/10">
-                            {typeof row.verified === 'boolean' ? (
-                              row.verified ? (
-                                <CheckCircle className="w-5 h-5 text-emerald-500 mx-auto" />
-                              ) : (
-                                <span className="text-gray-300">—</span>
-                              )
-                            ) : (
-                              <span className="font-medium">{row.verified}</span>
-                            )}
-                          </td>
-                          <td className="p-4 text-center">
-                            {typeof row.premium === 'boolean' ? (
-                              row.premium ? (
-                                <CheckCircle className="w-5 h-5 text-emerald-500 mx-auto" />
-                              ) : (
-                                <span className="text-gray-300">—</span>
-                              )
-                            ) : (
-                              <span className="font-medium">{row.premium}</span>
-                            )}
-                          </td>
+                      <div className="space-y-3 mb-6">
+                        <div className="flex items-center gap-2 text-sm">
+                          <HelpCircle className="w-4 h-4 text-gray-500" />
+                          <span>Escrow hold: <strong>{tier.escrowHold}</strong></span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm">
+                          <Upload className="w-4 h-4 text-gray-500" />
+                          <span>Max products: <strong>{tier.maxProducts}</strong></span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm">
+                          <TrendingUp className="w-4 h-4 text-gray-500" />
+                          <span>Max transaction: <strong>{tier.maxTransactionAmount === Infinity ? 'Unlimited' : formatPrice(tier.maxTransactionAmount, 'UGX')}</strong></span>
+                        </div>
+                      </div>
+
+                      <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg mb-6">
+                        <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                          REQUIREMENTS
+                        </p>
+                        <p className="text-sm font-medium">{tier.requirements}</p>
+                      </div>
+
+                      <h4 className="font-semibold text-sm mb-3">What&apos;s included:</h4>
+                      <ul className="space-y-2 mb-6">
+                        {tier.features.map((feature, fIndex) => (
+                          <li key={fIndex} className="flex items-start gap-2 text-sm">
+                            <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                            <span>{feature}</span>
+                          </li>
+                        ))}
+                      </ul>
+
+                      {tier.notIncluded.length > 0 && (
+                        <>
+                          <h4 className="font-semibold text-sm mb-2 text-gray-400">
+                            Not included:
+                          </h4>
+                          <ul className="space-y-2">
+                            {tier.notIncluded.map((feature, fIndex) => (
+                              <li
+                                key={fIndex}
+                                className="flex items-start gap-2 text-sm text-gray-400"
+                              >
+                                <span className="w-4 h-4 shrink-0 mt-0.5 text-gray-300 text-center">
+                                  —
+                                </span>
+                                <span>{feature}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </>
+                      )}
+
+                      <Link href="/seller/register" className="block mt-6">
+                        <Button
+                          className={`w-full ${
+                            tier.popular
+                              ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                              : ''
+                          }`}
+                          variant={tier.popular ? 'default' : 'outline'}
+                        >
+                          Get Started Free
+                        </Button>
+                      </Link>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))}
+            </motion.div>
+          )}
+
+          {/* Feature Comparison Table — Dynamic */}
+          {tiers.length > 0 && (
+            <motion.div className="mb-16" {...fadeIn}>
+              <h2 className="text-2xl font-bold mb-6">Feature Comparison</h2>
+              <Card>
+                <CardContent className="p-0">
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b bg-gray-50 dark:bg-gray-800">
+                          <th className="text-left p-4 font-semibold">Feature</th>
+                          {tiers.map((t) => (
+                            <th
+                              key={t.tierName}
+                              className={`text-center p-4 font-semibold ${
+                                t.tierName === 'VERIFIED'
+                                  ? 'bg-emerald-50 dark:bg-emerald-950/20'
+                                  : ''
+                              }`}
+                            >
+                              {t.displayName || t.tierName}
+                            </th>
+                          ))}
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
+                      </thead>
+                      <tbody>
+                        {featureComparison.map((row, index) => (
+                          <tr key={index} className="border-b last:border-0">
+                            <td className="p-4 font-medium">{row.feature}</td>
+                            {tiers.map((t) => {
+                              const val = row.getVal(t)
+                              const isVerified = t.tierName === 'VERIFIED'
+                              return (
+                                <td
+                                  key={t.tierName}
+                                  className={`p-4 text-center ${
+                                    isVerified
+                                      ? 'bg-emerald-50/50 dark:bg-emerald-950/10'
+                                      : ''
+                                  }`}
+                                >
+                                  {typeof val === 'boolean' ? (
+                                    val ? (
+                                      <CheckCircle className="w-5 h-5 text-emerald-500 mx-auto" />
+                                    ) : (
+                                      <span className="text-gray-300">—</span>
+                                    )
+                                  ) : (
+                                    <span className="font-medium">{String(val)}</span>
+                                  )}
+                                </td>
+                              )
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
 
           {/* How Escrow Works */}
           <motion.div className="mb-16" {...fadeIn}>
