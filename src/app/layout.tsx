@@ -96,6 +96,9 @@ export const metadata: Metadata = {
     canonical: SITE_URL,
   },
   category: "shopping",
+  verification: {
+    google: "YeEMm1IKdkA-OchmC1I-K-uW5KA3XCJiEP-1sOR7v_c",
+  },
 };
 
 export default function RootLayout({
@@ -107,6 +110,7 @@ export default function RootLayout({
     <Providers>
       <html lang="en" suppressHydrationWarning>
         <head>
+          <meta name="google-site-verification" content="YeEMm1IKdkA-OchmC1I-K-uW5KA3XCJiEP-1sOR7v_c" />
           <script
             dangerouslySetInnerHTML={{
               __html: `(function(){var _U=window.URL;window.URL=function(u,b){if(u===undefined||u===null)return new _U(b||location.href);return b!==undefined?new _U(u,b):new _U(u)};window.URL.prototype=_U.prototype;window.URL.createObjectURL=_U.createObjectURL;window.URL.revokeObjectURL=_U.revokeObjectURL})();`,
