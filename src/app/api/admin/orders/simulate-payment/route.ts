@@ -142,7 +142,10 @@ export async function POST(request: NextRequest) {
 
         await tx.store.update({
           where: { id: storeId },
-          data: { totalSales: { increment: storeTotal } },
+          data: {
+            totalSales: { increment: storeTotal },
+            totalOrders: { increment: 1 },
+          },
         })
       }
     })

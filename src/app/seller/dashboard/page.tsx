@@ -255,7 +255,7 @@ export default function SellerDashboardPage() {
                 <div>
                   <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">Total Sales</p>
                   <p className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white">
-                    {formatPrice(store.totalSales || 0, store.currency)}
+                    {formatPrice(store.realTotalSales || 0, store.currency)}
                   </p>
                 </div>
                 <div className="p-2 md:p-3 bg-green-50 dark:bg-green-950/30 rounded-full">
@@ -271,7 +271,7 @@ export default function SellerDashboardPage() {
                 <div>
                   <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">Orders</p>
                   <p className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white">
-                    {store.totalOrders || 0}
+                    {store.realTotalOrders || 0}
                   </p>
                 </div>
                 <div className="p-2 md:p-3 bg-blue-50 dark:bg-blue-950/30 rounded-full">

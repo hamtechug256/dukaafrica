@@ -179,7 +179,7 @@ export async function GET() {
           }
         },
         _count: {
-          select: { Product: true }
+          select: { Product: true, Order: true }
         }
       }
     })
@@ -191,11 +191,25 @@ export async function GET() {
       )
     }
 
+    // Compute real totals from actual orders (cached totalOrders/totalSales may be stale)
+    const realStats = await prisma.order.aggregate({
+      where: { storeId: store.id, paymentStatus: 'PAID' },
+      _sum: { total: true },
+      _count: true,
+    })
+    const allOrdersCount = await prisma.order.count({
+      where: { storeId: store.id },
+    })
+
     return NextResponse.json({
       store: {
         ...store,
         _count: store._count,
         products: store.Product,
+        // Real computed stats (override cached fields)
+        realTotalOrders: allOrdersCount,
+        realTotalSales: Number(realStats._sum.total || 0),
+        realPaidOrders: realStats._count,
       }
     })
   } catch (error) {

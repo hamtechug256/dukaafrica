@@ -184,6 +184,7 @@ async function handleCompletedPayment(orderTrackingId: string, payload: PesapalI
         where: { id: storeId },
         data: {
           totalSales: { increment: storeTotal },
+          totalOrders: { increment: 1 },
         },
       })
     }
