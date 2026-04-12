@@ -25,7 +25,7 @@ export function BannerSlider() {
   useEffect(() => {
     async function fetchBanners() {
       try {
-        const res = await fetch('/api/banners?position=HOME_SLIDER')
+        const res = await fetch('/api/banners')
         if (res.ok) {
           const data = await res.json()
           setBanners(data.banners || [])
