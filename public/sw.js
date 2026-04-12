@@ -11,7 +11,7 @@ const STATIC_RESOURCES = [
   '/search',
   '/manifest.json',
   '/offline',
-  '/logo.svg',
+  '/brand/logo-icon.png',
 ]
 
 // Install event - cache static resources
