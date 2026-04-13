@@ -125,3 +125,19 @@ Stage Summary:
 - All changes committed and pushed (commit 26a82f5)
 - Google Search Console verification still needed (placeholder code in seo.ts)
 - Vercel will auto-deploy; sitemap available at duukaafrica.com/sitemap.xml
+---
+Task ID: 1
+Agent: Main Agent
+Task: Fix blog SEO AI dependency, add blog link to homepage, create newsletter API
+
+Work Log:
+- Replaced z-ai-web-dev-sdk in /api/admin/blog/generate-seo/route.ts with smart template-based SEO generation (no AI API keys needed)
+- Added Blog link to homepage top bar (desktop md+ screens) and mobile menu in home/header.tsx
+- Created /api/newsletter/route.ts POST endpoint that subscribes emails to NewsletterSubscriber table with rate limiting, duplicate detection, and reactivation
+- Pushed all changes to GitHub (commit 274926e)
+
+Stage Summary:
+- Blog SEO auto-generation now works without any AI API keys using word frequency analysis, keyword extraction, and template-based meta tag generation
+- Blog is now accessible from the homepage via top bar link (desktop) and mobile menu
+- Newsletter subscription form in footer now actually saves subscribers to the database
+
