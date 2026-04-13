@@ -103,6 +103,7 @@ export function Header() {
   const [isSearching, setIsSearching] = useState(false)
   const [showSearchResults, setShowSearchResults] = useState(false)
   const searchRef = useRef<HTMLDivElement>(null)
+  const searchRefMobile = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
   // Debounced search function
@@ -140,7 +141,10 @@ export function Header() {
   // Close search results when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+      const target = event.target as Node
+      const insideDesktop = searchRef.current?.contains(target)
+      const insideMobile = searchRefMobile.current?.contains(target)
+      if (!insideDesktop && !insideMobile) {
         setShowSearchResults(false)
       }
     }
@@ -286,34 +290,268 @@ export function Header() {
         }`}
       >
         <div className="container mx-auto px-4">
-          {/* Main Row */}
-          <div className="flex items-center gap-4 lg:gap-6 py-4">
-            {/* Logo */}
+          {/* ══════════════════════════════════════════════════════════════
+              MOBILE: Two-row layout (Logo+icons row, then full-width search)
+              DESKTOP: Single-row layout (Logo + Location + Search + Actions)
+             ══════════════════════════════════════════════════════════════ */}
+
+          {/* ── MOBILE ROW 1: Logo + Action Icons (visible below lg) ── */}
+          <div className="flex lg:hidden items-center gap-2 pt-3 pb-2">
+            {/* Mobile Menu Button */}
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-[oklch(0.96_0.01_85)] dark:hover:bg-[oklch(0.22_0.02_45)] transition-colors"
+            >
+              {isMobileMenuOpen ? (
+                <X className="w-5 h-5 text-[oklch(0.45_0.02_45)] dark:text-white" />
+              ) : (
+                <Menu className="w-5 h-5 text-[oklch(0.45_0.02_45)] dark:text-white" />
+              )}
+            </motion.button>
+
+            {/* Logo (mobile: icon only) */}
             <Link href="/" className="flex items-center shrink-0 group">
-              {/* Desktop: horizontal logo (icon + text) */}
-              <img
-                src="/brand/logo-horizontal.png"
-                alt="DuukaAfrica"
-                className="hidden lg:block h-11 w-auto object-contain"
-                loading="eager"
-              />
-              {/* Mobile & Tablet: icon-only logo (no text) */}
               <img
                 src="/brand/logo-icon.png"
                 alt="DuukaAfrica"
-                className="lg:hidden h-10 w-10 object-contain"
+                className="h-9 w-9 object-contain"
+                loading="eager"
+              />
+            </Link>
+
+            {/* Spacer */}
+            <div className="flex-1" />
+
+            {/* Wishlist (mobile) */}
+            <Link href="/dashboard/wishlist">
+              <motion.div
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-[oklch(0.96_0.01_85)] dark:hover:bg-[oklch(0.22_0.02_45)] cursor-pointer transition-colors"
+              >
+                <Heart className="w-5 h-5 text-[oklch(0.45_0.02_45)] dark:text-white" />
+              </motion.div>
+            </Link>
+
+            {/* Cart (mobile) */}
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={openCart}
+              className="relative w-10 h-10 flex items-center justify-center rounded-xl hover:bg-[oklch(0.96_0.01_85)] dark:hover:bg-[oklch(0.22_0.02_45)] cursor-pointer transition-colors"
+            >
+              <ShoppingCart className="w-5 h-5 text-[oklch(0.45_0.02_45)] dark:text-white" />
+              {cartCount > 0 && (
+                <motion.span
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white"
+                  style={{ background: 'linear-gradient(135deg, oklch(0.55 0.15 140), oklch(0.45 0.14 155))' }}
+                >
+                  {cartCount > 99 ? '99+' : cartCount}
+                </motion.span>
+              )}
+            </motion.button>
+
+            {/* Auth / User (mobile) */}
+            {!isLoaded || roleLoading ? (
+              <div className="w-10 h-10 flex items-center justify-center">
+                <div className="w-5 h-5 border-2 border-[oklch(0.6_0.2_35)] border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : !isSignedIn ? (
+              <SignInButton mode="modal">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-[oklch(0.96_0.01_85)] dark:hover:bg-[oklch(0.22_0.02_45)] transition-colors"
+                >
+                  <LogIn className="w-5 h-5 text-[oklch(0.45_0.02_45)] dark:text-white" />
+                </motion.button>
+              </SignInButton>
+            ) : (
+              <UserButton />
+            )}
+          </div>
+
+          {/* ── MOBILE ROW 2: Full-width Search Bar ── */}
+          <div className="lg:hidden pb-3" ref={searchRefMobile}>
+            <form onSubmit={handleSearchSubmit}>
+              <div className="relative rounded-2xl shadow-sm border border-[oklch(0.9_0.02_85)] dark:border-[oklch(0.28_0.02_45)] overflow-hidden transition-all duration-300">
+                <input
+                  type="search"
+                  placeholder="Search products, brands, categories..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onFocus={() => {
+                    setIsSearchFocused(true)
+                    if (searchQuery.trim().length >= 2 && searchResults) {
+                      setShowSearchResults(true)
+                    }
+                  }}
+                  className="w-full h-11 pl-11 pr-12 bg-[oklch(0.98_0.005_85)] dark:bg-[oklch(0.18_0.02_45)] text-[oklch(0.15_0.02_45)] dark:text-white placeholder:text-[oklch(0.55_0.02_45)] text-[15px] focus:outline-none transition-colors"
+                />
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-[oklch(0.55_0.02_45)]" />
+                <button
+                  type="submit"
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-xl flex items-center justify-center text-white"
+                  style={{ background: 'linear-gradient(135deg, oklch(0.6 0.2 35), oklch(0.55 0.18 40))' }}
+                  disabled={isSearching}
+                >
+                  {isSearching ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Search className="w-4 h-4" />
+                  )}
+                </button>
+
+                {/* Search Results Dropdown (mobile) */}
+                <AnimatePresence>
+                  {showSearchResults && searchResults && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-[oklch(0.15_0.02_45)] rounded-2xl shadow-2xl border border-[oklch(0.9_0.02_85)] dark:border-[oklch(0.25_0.02_45)] max-h-[70vh] overflow-y-auto z-50"
+                      >
+                        {/* Products */}
+                        {searchResults.products.length > 0 && (
+                          <div className="p-4">
+                            <h3 className="text-xs font-semibold text-[oklch(0.55_0.02_45)] uppercase tracking-wider mb-3">Products</h3>
+                            <div className="space-y-2">
+                              {searchResults.products.slice(0, 4).map((product) => (
+                                <Link
+                                  key={product.id}
+                                  href={`/products/${product.slug}`}
+                                  onClick={() => {
+                                    setShowSearchResults(false)
+                                    setSearchQuery('')
+                                  }}
+                                  className="flex items-center gap-3 p-2 rounded-xl hover:bg-[oklch(0.96_0.01_85)] dark:hover:bg-[oklch(0.22_0.02_45)] transition-colors"
+                                >
+                                  <div className="w-12 h-12 rounded-lg bg-gray-100 dark:bg-gray-800 overflow-hidden flex-shrink-0">
+                                    {product.image ? (
+                                      <img src={product.image} alt={product.name} className="w-full h-full object-cover" loading="lazy" decoding="async" />
+                                    ) : (
+                                      <div className="w-full h-full flex items-center justify-center">
+                                        <Package className="w-5 h-5 text-gray-400" />
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="font-medium text-[oklch(0.15_0.02_45)] dark:text-white truncate">{product.name}</p>
+                                    <p className="text-sm text-[oklch(0.55_0.02_45)]">
+                                      UGX {product.price?.toLocaleString()} · {product.storeName}
+                                    </p>
+                                  </div>
+                                </Link>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Categories */}
+                        {searchResults.categories.length > 0 && (
+                          <div className="p-4 border-t border-[oklch(0.94_0.01_85)] dark:border-[oklch(0.22_0.02_45)]">
+                            <h3 className="text-xs font-semibold text-[oklch(0.55_0.02_45)] uppercase tracking-wider mb-3">Categories</h3>
+                            <div className="flex flex-wrap gap-2">
+                              {searchResults.categories.map((category) => (
+                                <Link
+                                  key={category.id}
+                                  href={`/categories/${category.slug}`}
+                                  onClick={() => {
+                                    setShowSearchResults(false)
+                                    setSearchQuery('')
+                                  }}
+                                  className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[oklch(0.96_0.01_85)] dark:bg-[oklch(0.22_0.02_45)] hover:bg-[oklch(0.92_0.02_85)] dark:hover:bg-[oklch(0.28_0.02_45)] transition-colors"
+                                >
+                                  {category.icon && <span>{category.icon}</span>}
+                                  <span className="text-sm font-medium text-[oklch(0.25_0.02_45)] dark:text-white">{category.name}</span>
+                                </Link>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Stores */}
+                        {searchResults.stores.length > 0 && (
+                          <div className="p-4 border-t border-[oklch(0.94_0.01_85)] dark:border-[oklch(0.22_0.02_45)]">
+                            <h3 className="text-xs font-semibold text-[oklch(0.55_0.02_45)] uppercase tracking-wider mb-3">Stores</h3>
+                            <div className="space-y-2">
+                              {searchResults.stores.slice(0, 3).map((store) => (
+                                <Link
+                                  key={store.id}
+                                  href={`/stores/${store.slug}`}
+                                  onClick={() => {
+                                    setShowSearchResults(false)
+                                    setSearchQuery('')
+                                  }}
+                                  className="flex items-center gap-3 p-2 rounded-xl hover:bg-[oklch(0.96_0.01_85)] dark:hover:bg-[oklch(0.22_0.02_45)] transition-colors"
+                                >
+                                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[oklch(0.6_0.2_35)] to-[oklch(0.55_0.15_140)] flex items-center justify-center text-white font-bold">
+                                    {store.logo ? (
+                                      <img src={store.logo} alt={store.name} className="w-full h-full rounded-full object-cover" loading="lazy" decoding="async" />
+                                    ) : (
+                                      store.name[0].toUpperCase()
+                                    )}
+                                  </div>
+                                  <span className="font-medium text-[oklch(0.15_0.02_45)] dark:text-white">{store.name}</span>
+                                </Link>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* No results */}
+                        {searchResults.products.length === 0 && 
+                         searchResults.categories.length === 0 && 
+                         searchResults.stores.length === 0 && (
+                          <div className="p-8 text-center">
+                            <Search className="w-12 h-12 mx-auto text-gray-300 mb-3" />
+                            <p className="text-gray-500">No results found for &quot;{searchQuery}&quot;</p>
+                            <p className="text-sm text-gray-400 mt-1">Try a different search term</p>
+                          </div>
+                        )}
+
+                        {/* View all results */}
+                        {(searchResults.products.length > 0 || searchResults.categories.length > 0 || searchResults.stores.length > 0) && (
+                          <div className="p-4 border-t border-[oklch(0.94_0.01_85)] dark:border-[oklch(0.22_0.02_45)]">
+                            <button
+                              type="submit"
+                              className="w-full py-2 text-center text-sm font-medium text-[oklch(0.6_0.2_35)] hover:text-[oklch(0.55_0.15_140)] transition-colors"
+                            >
+                              View all results for &quot;{searchQuery}&quot; →
+                            </button>
+                          </div>
+                        )}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+              </div>
+            </form>
+          </div>
+
+          {/* ── DESKTOP ROW: Single-row layout (visible lg+) ── */}
+          <div className="hidden lg:flex items-center gap-6 py-4">
+            {/* Logo (desktop: horizontal with text) */}
+            <Link href="/" className="flex items-center shrink-0 group">
+              <img
+                src="/brand/logo-horizontal.png"
+                alt="DuukaAfrica"
+                className="h-11 w-auto object-contain"
                 loading="eager"
               />
             </Link>
 
             {/* Location Selector */}
-            <div className="hidden lg:flex items-center gap-2 px-3 py-2 rounded-xl bg-[oklch(0.96_0.01_85)] dark:bg-[oklch(0.18_0.02_45)] border border-[oklch(0.9_0.02_85)] dark:border-[oklch(0.28_0.02_45)] cursor-pointer hover:border-[oklch(0.6_0.2_35)] transition-colors">
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[oklch(0.96_0.01_85)] dark:bg-[oklch(0.18_0.02_45)] border border-[oklch(0.9_0.02_85)] dark:border-[oklch(0.28_0.02_45)] cursor-pointer hover:border-[oklch(0.6_0.2_35)] transition-colors">
               <MapPin className="w-4 h-4 text-[oklch(0.55_0.15_140)]" />
               <span className="text-sm font-medium text-[oklch(0.25_0.02_45)] dark:text-white">{selectedCountry.flag}</span>
               <ChevronDown className="w-4 h-4 text-[oklch(0.45_0.02_45)]" />
             </div>
 
-            {/* Search Bar */}
+            {/* Desktop Search Bar */}
             <div className="flex-1 max-w-2xl" ref={searchRef}>
               <form onSubmit={handleSearchSubmit}>
                 <motion.div
@@ -354,7 +592,7 @@ export function Header() {
                     )}
                   </motion.button>
 
-                  {/* Search Results Dropdown */}
+                  {/* Search Results Dropdown (desktop) */}
                   <AnimatePresence>
                     {showSearchResults && searchResults && (
                       <motion.div
@@ -480,8 +718,8 @@ export function Header() {
               </form>
             </div>
 
-            {/* Right Actions */}
-            <div className="flex items-center gap-1 lg:gap-2">
+            {/* Desktop Right Actions */}
+            <div className="flex items-center gap-2">
               {/* Theme Toggle */}
               <motion.button
                 whileHover={{ scale: 1.1 }}
@@ -624,21 +862,8 @@ export function Header() {
                 </Link>
               )}
 
-              {/* Mobile Menu Button */}
-              <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="lg:hidden w-10 h-10 flex items-center justify-center rounded-xl hover:bg-[oklch(0.96_0.01_85)] dark:hover:bg-[oklch(0.22_0.02_45)] transition-colors"
-              >
-                {isMobileMenuOpen ? (
-                  <X className="w-5 h-5 text-[oklch(0.45_0.02_45)] dark:text-white" />
-                ) : (
-                  <Menu className="w-5 h-5 text-[oklch(0.45_0.02_45)] dark:text-white" />
-                )}
-              </motion.button>
-            </div>
-          </div>
+            </div>{/* End Desktop Right Actions */}
+          </div>{/* End Desktop Row */}
 
           {/* Categories Navigation */}
           <nav className="hidden md:block border-t border-[oklch(0.94_0.01_85)] dark:border-[oklch(0.22_0.02_45)]">
