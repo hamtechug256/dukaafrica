@@ -141,3 +141,23 @@ Stage Summary:
 - Blog is now accessible from the homepage via top bar link (desktop) and mobile menu
 - Newsletter subscription form in footer now actually saves subscribers to the database
 
+---
+Task ID: 2
+Agent: Main Agent
+Task: Redesign mobile navbar for usable search bar
+
+Work Log:
+- Restructured mobile header from single-row (logo+search+icons cramped together) to two-row layout
+- Row 1: Hamburger menu button + logo icon (36px) + spacer + wishlist + cart + auth/user buttons
+- Row 2: Full-width search bar spanning entire screen width with 15px font size
+- Desktop (lg+) keeps single-row layout unchanged
+- Fixed duplicate React ref issue by creating separate searchRefMobile for mobile search
+- Updated click-outside handler to check both mobile and desktop search refs
+- TypeScript compiles with zero errors
+
+Stage Summary:
+- Mobile search bar is now full-width and actually readable/usable
+- Mobile users can see what they type in the search bar
+- Desktop layout remains exactly the same
+- Pushed to GitHub (commit 14d2f9b)
+
