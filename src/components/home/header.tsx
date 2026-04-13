@@ -24,7 +24,8 @@ import {
   Shield,
   LogOut,
   LogIn,
-  Loader2
+  Loader2,
+  BookOpen
 } from 'lucide-react'
 import { useCartStore } from '@/store/cart-store'
 import Image from 'next/image'
@@ -260,6 +261,11 @@ export function Header() {
             <span className="sm:hidden">Free Delivery over UGX 500K</span>
             <span className="hidden md:inline">•</span>
             <span className="hidden md:inline">0% Seller Fees for Founding Members</span>
+            <span className="hidden md:inline">•</span>
+            <Link href="/blog" className="hidden md:inline-flex items-center gap-1 hover:underline font-semibold">
+              <BookOpen className="w-3.5 h-3.5" />
+              Blog
+            </Link>
           </div>
         </div>
         <motion.div
@@ -746,6 +752,16 @@ export function Header() {
                   </button>
                 </div>
               )}
+
+              {/* Blog Link */}
+              <Link
+                href="/blog"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-[oklch(0.96_0.01_85)] dark:hover:bg-[oklch(0.22_0.02_45)] transition-colors"
+              >
+                <BookOpen className="w-5 h-5 text-[oklch(0.55_0.15_140)]" />
+                <span className="font-medium text-[oklch(0.25_0.02_45)] dark:text-white">Blog</span>
+              </Link>
 
               {/* Auth / Sell Buttons */}
               {!isSignedIn && (
