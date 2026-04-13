@@ -92,10 +92,10 @@ export async function POST(request: NextRequest) {
     const tier = await getStoreTier(store)
     if (!tier.canBulkUpload) {
       return NextResponse.json({
-        error: 'Bulk upload not available on your tier',
+        error: 'Bulk upload not available on your current plan',
         details: {
           tier: store.verificationTier,
-          message: `Bulk upload is available on PREMIUM tier. Please upgrade your plan.`,
+          message: `Your ${store.verificationTier} plan does not include bulk upload. Please upgrade your plan to enable this feature.`,
         }
       }, { status: 403 })
     }
@@ -321,7 +321,6 @@ export async function POST(request: NextRequest) {
         }
 
         try {
-          // Validate required fields
           if (!product.name || product.name.trim() === '') {
             results.failed++
             results.errors.push({ row: rowNum, error: 'Product name is required', productName: product.name })
@@ -331,6 +330,13 @@ export async function POST(request: NextRequest) {
           if (!product.price || product.price <= 0) {
             results.failed++
             results.errors.push({ row: rowNum, error: 'Price must be a positive number', productName: product.name })
+            continue
+          }
+
+          // Validate quantity if provided
+          if (product.quantity !== undefined && product.quantity !== null && (product.quantity < 0 || !Number.isInteger(product.quantity))) {
+            results.failed++
+            results.errors.push({ row: rowNum, error: 'Quantity must be a non-negative integer', productName: product.name })
             continue
           }
 

@@ -391,6 +391,13 @@ export default function BulkUploadPage() {
         })
       }
 
+      // Enforce row limit before validation
+      const maxRows = 500
+      if (parsedProducts.length > maxRows) {
+        setParseError(`File contains ${parsedProducts.length} products. Maximum allowed is ${maxRows} per upload. Please split into smaller files.`)
+        return
+      }
+
       // Validate all products
       const validatedProducts = parsedProducts.map(product => {
         const errors = validateProduct(product, categories)
@@ -425,6 +432,29 @@ export default function BulkUploadPage() {
     }
   }, [categories])
 
+  // Validate file before parsing (size + type + row limit guard)
+  const validateFile = (file: File): string | null => {
+    const maxSize = 10 * 1024 * 1024 // 10MB
+    const maxRows = 500
+    const ext = file.name.split('.').pop()?.toLowerCase()
+
+    if (!ext || !['csv', 'json'].includes(ext)) {
+      return 'Only CSV and JSON files are supported. Please upload a .csv or .json file.'
+    }
+    if (file.size > maxSize) {
+    return `File is too large (${(file.size / (1024 * 1024)).toFixed(1)}MB). Maximum allowed size is 10MB.`
+    }
+    // For CSV, do a quick row count check
+    if (ext === 'csv' && file.size > 50000) {
+      // Rough estimate: ~100 bytes per row average
+    const estimatedRows = Math.ceil(file.size / 100)
+    if (estimatedRows > maxRows + 50) {
+      return `File may contain more than ${maxRows} products. Maximum allowed is ${maxRows} per upload. Please split into smaller files.`
+    }
+    }
+    return null
+  }
+
   // Handle file drop
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -432,6 +462,11 @@ export default function BulkUploadPage() {
 
     const file = e.dataTransfer.files[0]
     if (file) {
+      const error = validateFile(file)
+      if (error) {
+        setParseError(error)
+        return
+      }
       const reader = new FileReader()
       reader.onload = (e) => {
         const content = e.target?.result as string
@@ -445,6 +480,11 @@ export default function BulkUploadPage() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
+      const error = validateFile(file)
+      if (error) {
+        setParseError(error)
+        return
+      }
       const reader = new FileReader()
       reader.onload = (e) => {
         const content = e.target?.result as string
@@ -523,6 +563,18 @@ export default function BulkUploadPage() {
 
       const data = await res.json()
 
+      if (!res.ok) {
+        // API returned an error (tier, limit, etc.)
+        setUploadResult({
+          success: 0,
+          failed: validProducts.length,
+          errors: [{ row: 0, error: data.error || `Upload failed (${res.status})` }],
+          products: [],
+        })
+        setStep('results')
+        return
+      }
+
       setUploadProgress(100)
 
       setUploadResult({
@@ -538,7 +590,7 @@ export default function BulkUploadPage() {
       setUploadResult({
         success: 0,
         failed: validProducts.length,
-        errors: [{ row: 0, error: error.message || 'Upload failed' }],
+        errors: [{ row: 0, error: error.message || 'Upload failed. Check your connection and try again.' }],
         products: [],
       })
       setStep('results')
