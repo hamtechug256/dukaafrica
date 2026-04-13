@@ -161,3 +161,26 @@ Stage Summary:
 - Desktop layout remains exactly the same
 - Pushed to GitHub (commit 14d2f9b)
 
+---
+Task ID: 3
+Agent: Main Agent
+Task: Audit and harden bulk upload system for sellers
+
+Work Log:
+- Discovered and read all 20+ files related to bulk upload
+- Identified 5 issues and fixed all of them
+- Fixed frontend: added validateFile() pre-check (file type, 10MB size limit, estimated row count)
+- Fixed frontend: added exact 500 row limit enforcement after parsing
+- Fixed frontend: proper handling of non-OK API responses (tier errors, limit errors)
+- Fixed API: added quantity validation matching frontend rules
+- Fixed API: removed hardcoded PREMIUM tier message, uses dynamic tier name
+- TypeScript compiles with zero errors
+- Pushed to GitHub (commit 76224ca)
+
+Stage Summary:
+- Bulk upload system is now hardened with consistent validation between frontend and backend
+- Client-side guards prevent freezing browser with oversized files
+- Row limit is enforced on both sides (frontend exact, API exact)
+- Error messages are dynamic and user-friendly
+- Category edit dialog already uses Select dropdown (was not an issue)
+
