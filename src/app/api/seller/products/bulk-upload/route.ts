@@ -70,6 +70,9 @@ interface ProductInput {
   height?: number | null
   freeShipping?: boolean
   costPrice?: number | null
+  isFeatured?: boolean
+  trackQuantity?: boolean
+  lowStockThreshold?: number | null
 }
 
 // POST /api/seller/products/bulk-upload - Bulk upload products from CSV or JSON array
@@ -120,6 +123,7 @@ export async function POST(request: NextRequest) {
     // Check content type to determine input format
     const contentType = request.headers.get('content-type') || ''
     let products: ProductInput[] = []
+    let submitForReview = false
 
     if (contentType.includes('multipart/form-data')) {
       // Handle file upload (CSV)
@@ -188,6 +192,12 @@ export async function POST(request: NextRequest) {
         'height': 'height',
         'categoryid': 'categoryId',
         'freeshipping': 'freeShipping',
+        'isfeatured': 'isFeatured',
+        'featured': 'isFeatured',
+        'trackquantity': 'trackQuantity',
+        'trackstock': 'trackQuantity',
+        'lowstockthreshold': 'lowStockThreshold',
+        'lowstockalert': 'lowStockThreshold',
       }
 
       // Map header indices to field names
@@ -242,6 +252,9 @@ export async function POST(request: NextRequest) {
           width: getField(values, 'width') ? parseFloat(getField(values, 'width')!.replace(/[^0-9.]/g, '')) : null,
           height: getField(values, 'height') ? parseFloat(getField(values, 'height')!.replace(/[^0-9.]/g, '')) : null,
           freeShipping: getField(values, 'freeShipping')?.toLowerCase() === 'true',
+          isFeatured: getField(values, 'isFeatured')?.toLowerCase() === 'true',
+          trackQuantity: getField(values, 'trackQuantity')?.toLowerCase() !== 'false',
+          lowStockThreshold: getField(values, 'lowStockThreshold') ? parseInt(getField(values, 'lowStockThreshold')!.replace(/[^0-9]/g, '')) || 5 : 5,
         })
       }
     } else if (contentType.includes('application/json')) {
@@ -279,7 +292,13 @@ export async function POST(request: NextRequest) {
         width: p.width || null,
         height: p.height || null,
         freeShipping: p.freeShipping || false,
+        isFeatured: p.isFeatured || false,
+        trackQuantity: p.trackQuantity !== undefined ? p.trackQuantity : true,
+        lowStockThreshold: p.lowStockThreshold || 5,
       }))
+
+      // Check if seller wants to auto-submit for review
+      submitForReview = body.submitForReview === true
     } else {
       return NextResponse.json(
         { error: 'Unsupported content type. Use multipart/form-data for file upload or application/json for array.' },
@@ -349,6 +368,20 @@ export async function POST(request: NextRequest) {
             categoryId = matchedCategory?.id || null
           }
 
+          // Validate review requirements if auto-submitting
+          if (submitForReview) {
+            if (!product.description || product.description.trim() === '') {
+              results.failed++
+              results.errors.push({ row: rowNum, error: 'Description is required when submitting for review', productName: product.name })
+              continue
+            }
+            if (!product.images || product.images.length === 0) {
+              results.failed++
+              results.errors.push({ row: rowNum, error: 'At least one image is required when submitting for review', productName: product.name })
+              continue
+            }
+          }
+
           // Create product
           const newProduct = await tx.product.create({
             data: {
@@ -369,7 +402,11 @@ export async function POST(request: NextRequest) {
               images: product.images && product.images.length > 0 ? JSON.stringify(product.images) : null,
               freeShipping: product.freeShipping || false,
               categoryId,
-              status: 'DRAFT', // Products start as draft
+              isFeatured: product.isFeatured || false,
+              trackQuantity: product.trackQuantity !== undefined ? product.trackQuantity : true,
+              lowStockThreshold: product.lowStockThreshold || 5,
+              status: 'DRAFT',
+              submittedForReview: submitForReview,
             },
           })
 

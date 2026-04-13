@@ -63,6 +63,7 @@ interface ParsedProduct {
   categoryId: string | null
   price: number | null
   comparePrice: number | null
+  costPrice: number | null
   quantity: number
   sku: string
   images: string[]
@@ -71,6 +72,9 @@ interface ParsedProduct {
   width: number | null
   height: number | null
   freeShipping: boolean
+  isFeatured: boolean
+  trackQuantity: boolean
+  lowStockThreshold: number
   errors: string[]
   isValid: boolean
 }
@@ -92,27 +96,31 @@ interface Category {
 type Step = 'upload' | 'validate' | 'preview' | 'uploading' | 'results'
 
 // CSV Template
-const CSV_TEMPLATE = `name,description,shortDesc,category,price,comparePrice,quantity,sku,images,weight,length,width,height,freeShipping
-iPhone 15 Pro,Latest iPhone model with A17 Pro chip,Apple iPhone 15 Pro,Electronics,4500000,5000000,10,IPHONE15PRO,https://example.com/image1.jpg,0.2,15,7,0.8,false
-Samsung Galaxy S24,Android flagship phone,Samsung Galaxy S24,Electronics,3500000,,15,SAMS24,https://example.com/image2.jpg,0.18,14,7,0.7,false`
+const CSV_TEMPLATE = `name,description,shortDesc,category,price,comparePrice,costPrice,quantity,sku,images,weight,length,width,height,freeShipping,isFeatured,trackQuantity,lowStockThreshold
+iPhone 15 Pro,Latest iPhone model with A17 Pro chip,Apple iPhone 15 Pro,Electronics,4500000,5000000,4000000,10,IPHONE15PRO,https://example.com/image1.jpg;https://example.com/image2.jpg,0.2,15,7,0.8,false,false,true,5
+Samsung Galaxy S24,Android flagship phone with 200MP camera,Samsung Galaxy S24,Electronics,3500000,,3000000,15,SAMS24,https://example.com/image2.jpg,0.18,14,7,0.7,false,false,true,5`
 
 // JSON Template
 const JSON_TEMPLATE = [
   {
     name: "iPhone 15 Pro",
-    description: "Latest iPhone model with A17 Pro chip",
+    description: "Latest iPhone model with A17 Pro chip. Includes USB-C charging, titanium design, and the powerful A17 Pro chip for gaming and creative workflows.",
     shortDesc: "Apple iPhone 15 Pro",
     category: "Electronics",
     price: 4500000,
     comparePrice: 5000000,
+    costPrice: 4000000,
     quantity: 10,
     sku: "IPHONE15PRO",
-    images: ["https://example.com/image1.jpg"],
+    images: ["https://example.com/image1.jpg", "https://example.com/image2.jpg"],
     weight: 0.2,
     length: 15,
     width: 7,
     height: 0.8,
-    freeShipping: false
+    freeShipping: false,
+    isFeatured: false,
+    trackQuantity: true,
+    lowStockThreshold: 5
   }
 ]
 
@@ -195,6 +203,12 @@ function mapHeadersToFields(headers: string[]): Record<string, number> {
     'height': 'height',
     'categoryid': 'categoryId',
     'freeshipping': 'freeShipping',
+    'isfeatured': 'isFeatured',
+    'featured': 'isFeatured',
+    'trackquantity': 'trackQuantity',
+    'trackstock': 'trackQuantity',
+    'lowstockthreshold': 'lowStockThreshold',
+    'lowstockalert': 'lowStockThreshold',
   }
 
   const fieldIndices: Record<string, number> = {}
@@ -217,7 +231,7 @@ function parseImages(value: string | string[] | undefined): string[] {
 }
 
 // Validate product
-function validateProduct(product: ParsedProduct, categories: Category[]): string[] {
+function validateProduct(product: ParsedProduct, categories: Category[], submittingForReview: boolean = false): string[] {
   const errors: string[] = []
 
   // Required fields
@@ -256,6 +270,13 @@ function validateProduct(product: ParsedProduct, categories: Category[]): string
     }
   }
 
+  // Cost price validation
+  if (product.costPrice !== null && product.costPrice !== undefined) {
+    if (product.costPrice < 0) {
+      errors.push('Cost price cannot be negative')
+    }
+  }
+
   // Image URL validation
   if (product.images.length > 0) {
     const invalidUrls = product.images.filter(url => {
@@ -267,7 +288,17 @@ function validateProduct(product: ParsedProduct, categories: Category[]): string
       }
     })
     if (invalidUrls.length > 0) {
-      errors.push(`Invalid image URLs: ${invalidUrls.join(', ')}`)
+      errors.push(`Invalid image URLs: ${invalidUrls.slice(0, 3).join(', ')}${invalidUrls.length > 3 ? ` (+${invalidUrls.length - 3} more)` : ''}`)
+    }
+  }
+
+  // Extra validation when submitting for review
+  if (submittingForReview) {
+    if (!product.description || product.description.trim() === '') {
+      errors.push('Description is required when submitting for review')
+    }
+    if (product.images.length === 0) {
+      errors.push('At least one image is required when submitting for review')
     }
   }
 
@@ -289,6 +320,8 @@ export default function BulkUploadPage() {
   const [editingProduct, setEditingProduct] = useState<ParsedProduct | null>(null)
   const [dragActive, setDragActive] = useState(false)
   const [parseError, setParseError] = useState<string | null>(null)
+  const [submitForReview, setSubmitForReview] = useState(false)
+  const [submittingForReview, setSubmittingForReview] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const queryClient = useQueryClient()
 
@@ -331,6 +364,7 @@ export default function BulkUploadPage() {
           categoryId: item.categoryId || null,
           price: item.price ? parseFloat(item.price) : null,
           comparePrice: item.comparePrice ? parseFloat(item.comparePrice) : null,
+          costPrice: item.costPrice ? parseFloat(item.costPrice) : null,
           quantity: item.quantity !== undefined ? parseInt(item.quantity) : 0,
           sku: item.sku || '',
           images: parseImages(item.images),
@@ -339,6 +373,9 @@ export default function BulkUploadPage() {
           width: item.width ? parseFloat(item.width) : null,
           height: item.height ? parseFloat(item.height) : null,
           freeShipping: item.freeShipping === true || item.freeShipping === 'true',
+          isFeatured: item.isFeatured === true || item.isFeatured === 'true',
+          trackQuantity: item.trackQuantity !== false && item.trackQuantity !== 'false',
+          lowStockThreshold: item.lowStockThreshold ? parseInt(item.lowStockThreshold) : 5,
           errors: [],
           isValid: false,
         }))
@@ -377,6 +414,7 @@ export default function BulkUploadPage() {
             categoryId: getField(values, 'categoryId') || null,
             price: getField(values, 'price') ? parseFloat(getField(values, 'price')!.replace(/[^0-9.]/g, '')) : null,
             comparePrice: getField(values, 'comparePrice') ? parseFloat(getField(values, 'comparePrice')!.replace(/[^0-9.]/g, '')) : null,
+            costPrice: getField(values, 'costPrice') ? parseFloat(getField(values, 'costPrice')!.replace(/[^0-9.]/g, '')) : null,
             quantity: getField(values, 'quantity') ? parseInt(getField(values, 'quantity')!.replace(/[^0-9]/g, '')) : 0,
             sku: getField(values, 'sku') || '',
             images: parseImages(getField(values, 'images') || ''),
@@ -385,6 +423,9 @@ export default function BulkUploadPage() {
             width: getField(values, 'width') ? parseFloat(getField(values, 'width')!.replace(/[^0-9.]/g, '')) : null,
             height: getField(values, 'height') ? parseFloat(getField(values, 'height')!.replace(/[^0-9.]/g, '')) : null,
             freeShipping: getField(values, 'freeShipping')?.toLowerCase() === 'true',
+            isFeatured: getField(values, 'isFeatured')?.toLowerCase() === 'true',
+            trackQuantity: getField(values, 'trackQuantity')?.toLowerCase() !== 'false',
+            lowStockThreshold: getField(values, 'lowStockThreshold') ? parseInt(getField(values, 'lowStockThreshold')!.replace(/[^0-9]/g, '')) || 5 : 5,
             errors: [],
             isValid: false,
           }
@@ -400,7 +441,7 @@ export default function BulkUploadPage() {
 
       // Validate all products
       const validatedProducts = parsedProducts.map(product => {
-        const errors = validateProduct(product, categories)
+        const errors = validateProduct(product, categories, submitForReview)
 
         // Resolve category ID
         let categoryId = product.categoryId
@@ -517,7 +558,7 @@ export default function BulkUploadPage() {
 
   // Update product
   const updateProduct = (updatedProduct: ParsedProduct) => {
-    const errors = validateProduct(updatedProduct, categories)
+    const errors = validateProduct(updatedProduct, categories, submitForReview)
 
     // Resolve category ID
     let categoryId = updatedProduct.categoryId
@@ -558,7 +599,7 @@ export default function BulkUploadPage() {
       const res = await fetch('/api/seller/products/bulk-upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ products: validProducts }),
+        body: JSON.stringify({ products: validProducts, submitForReview }),
       })
 
       const data = await res.json()
@@ -745,11 +786,30 @@ export default function BulkUploadPage() {
                   <h4 className="font-medium mb-2">Required Fields:</h4>
                   <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
                     <li><span className="font-medium text-gray-900 dark:text-gray-200">name</span> - Product name (required)</li>
-                    <li><span className="font-medium text-gray-900 dark:text-gray-200">price</span> - Product price (required, positive number)</li>
+                    <li><span className="font-medium text-gray-900 dark:text-gray-200">price</span> - Selling price (required, positive number)</li>
                     <li><span className="font-medium text-gray-900 dark:text-gray-200">quantity</span> - Stock quantity (required, non-negative integer)</li>
-                    <li><span className="font-medium text-gray-900 dark:text-gray-200">category</span> - Category name (must match existing category)</li>
-                    <li><span className="font-medium text-gray-900 dark:text-gray-200">images</span> - Image URLs (comma-separated or array)</li>
+                    <li><span className="font-medium text-gray-900 dark:text-gray-200">category</span> - Category name (must match an existing category exactly)</li>
+                    <li><span className="font-medium text-gray-900 dark:text-gray-200">images</span> - Image URLs separated by semicolons (;) — <span className="text-amber-600">required for review submission</span></li>
                   </ul>
+                  <h4 className="font-medium mt-4 mb-2">Optional Fields:</h4>
+                  <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                    <li><span className="font-medium text-gray-900 dark:text-gray-200">description</span> - Full product description — <span className="text-amber-600">required for review submission</span></li>
+                    <li><span className="font-medium text-gray-900 dark:text-gray-200">shortDesc</span> - Short description (max 150 characters)</li>
+                    <li><span className="font-medium text-gray-900 dark:text-gray-200">comparePrice</span> - Original/crossed-out price (must be higher than price)</li>
+                    <li><span className="font-medium text-gray-900 dark:text-gray-200">costPrice</span> - Your cost per item (for profit tracking)</li>
+                    <li><span className="font-medium text-gray-900 dark:text-gray-200">sku</span> - Stock keeping unit identifier</li>
+                    <li><span className="font-medium text-gray-900 dark:text-gray-200">freeShipping</span> - true/false (default: false)</li>
+                    <li><span className="font-medium text-gray-900 dark:text-gray-200">weight/length/width/height</span> - Shipping dimensions</li>
+                  </ul>
+                  <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded">
+                    <p className="text-sm font-medium text-amber-800 dark:text-amber-300">Image Tips:</p>
+                    <ul className="text-sm text-amber-700 dark:text-amber-400 mt-1 space-y-1">
+                      <li>Use direct image URLs (e.g., from your hosting, Cloudinary, Imgur, etc.)</li>
+                      <li>Separate multiple images with semicolons: <code className="bg-amber-100 dark:bg-amber-900 px-1 rounded">url1.jpg;url2.jpg;url3.jpg</code></li>
+                      <li>Use landscape images (4:3 ratio) for best display on product cards</li>
+                      <li>First image is used as the main product thumbnail</li>
+                    </ul>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -960,12 +1020,52 @@ export default function BulkUploadPage() {
                   </Table>
                 </div>
 
+                {/* Submit for Review Toggle */}
+                <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                  <div className="flex items-start gap-3">
+                    <input
+                      type="checkbox"
+                      id="submitForReview"
+                      checked={submitForReview}
+                      onChange={(e) => {
+                        setSubmitForReview(e.target.checked)
+                        // Re-validate with new flag
+                        const revalidated = products.map(product => {
+                          const errors = validateProduct(product, categories, e.target.checked)
+                          let categoryId = product.categoryId
+                          if (product.category && !categoryId) {
+                            const matchedCategory = categories.find(
+                              c => c.name.toLowerCase() === product.category.toLowerCase()
+                            )
+                            categoryId = matchedCategory?.id || null
+                          }
+                          return { ...product, categoryId, errors, isValid: errors.length === 0 }
+                        })
+                        setProducts(revalidated)
+                      }}
+                      className="mt-1 w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+                    />
+                    <div>
+                      <label htmlFor="submitForReview" className="font-medium text-gray-900 dark:text-white cursor-pointer">
+                        Submit all products for review after creation
+                      </label>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                        When enabled, all products will be automatically submitted for admin review after upload.
+                        This requires each product to have a description and at least one image.
+                        Products without these will be created as drafts but won't be submitted.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Warning */}
-                <Alert className="mt-6">
+                <Alert className="mt-4">
                   <AlertCircle className="h-4 w-4" />
                   <AlertTitle>Note</AlertTitle>
                   <AlertDescription>
-                    Products will be created as drafts and need to be submitted for review before going live.
+                    {submitForReview
+                      ? 'Products with description and images will be created and immediately submitted for admin review.'
+                      : 'Products will be created as drafts. You can submit them for review later from your products list.'}
                   </AlertDescription>
                 </Alert>
               </CardContent>
@@ -1072,15 +1172,58 @@ export default function BulkUploadPage() {
             )}
 
             {/* Actions */}
-            <div className="flex justify-between">
-              <Button variant="outline" onClick={() => {
-                setStep('upload')
-                setProducts([])
-                setUploadResult(null)
-                setParseError(null)
-              }}>
-                Upload More Products
-              </Button>
+            <div className="flex flex-col sm:flex-row justify-between gap-3">
+              <div className="flex gap-3">
+                <Button variant="outline" onClick={() => {
+                  setStep('upload')
+                  setProducts([])
+                  setUploadResult(null)
+                  setParseError(null)
+                }}>
+                  Upload More Products
+                </Button>
+                {/* Submit for Review button — only show if products were created and NOT already auto-submitted */}
+                {!submitForReview && uploadResult.success > 0 && (
+                  <Button
+                    variant="default"
+                    onClick={async () => {
+                      setSubmittingForReview(true)
+                      try {
+                        const productIds = uploadResult.products.map(p => p.id)
+                        const res = await fetch('/api/seller/products/bulk-submit-review', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ productIds }),
+                        })
+                        const data = await res.json()
+                        if (res.ok) {
+                          setUploadResult(prev => prev ? {
+                            ...prev,
+                            submittedForReview: data.submitted,
+                            skippedForReview: data.skipped,
+                          } : prev)
+                        }
+                      } catch (error) {
+                        // silently fail — seller can still submit individually
+                      }
+                      setSubmittingForReview(false)
+                    }}
+                    disabled={submittingForReview}
+                  >
+                    {submittingForReview ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Submitting...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="w-4 h-4 mr-2" />
+                        Submit {uploadResult.success} for Review
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
               <Link href="/seller/products">
                 <Button>
                   View All Products
@@ -1088,6 +1231,27 @@ export default function BulkUploadPage() {
                 </Button>
               </Link>
             </div>
+
+            {/* Submission Result Info */}
+            {submitForReview && uploadResult.success > 0 && (
+              <Alert className="border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-800">
+                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                <AlertTitle className="text-green-800 dark:text-green-300">Auto-Submitted for Review</AlertTitle>
+                <AlertDescription className="text-green-700 dark:text-green-400">
+                  All {uploadResult.success} products were created and submitted for admin review. You'll be notified once they're approved.
+                </AlertDescription>
+              </Alert>
+            )}
+            {!submitForReview && (uploadResult as any).submittedForReview > 0 && (
+              <Alert className="border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-800">
+                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                <AlertTitle className="text-green-800 dark:text-green-300">Submitted for Review</AlertTitle>
+                <AlertDescription className="text-green-700 dark:text-green-400">
+                  {(uploadResult as any).submittedForReview} products were submitted for admin review.
+                  {(uploadResult as any).skippedForReview > 0 && ` ${(uploadResult as any).skippedForReview} products were skipped because they're missing a description or image.`}
+                </AlertDescription>
+              </Alert>
+            )}
           </div>
         )}
       </div>
@@ -1181,6 +1345,30 @@ export default function BulkUploadPage() {
                   />
                 </div>
                 <div>
+                  <Label htmlFor="costPrice">Cost Price</Label>
+                  <Input
+                    id="costPrice"
+                    type="number"
+                    value={editingProduct.costPrice || ''}
+                    onChange={(e) => setEditingProduct({ ...editingProduct, costPrice: e.target.value ? parseFloat(e.target.value) : null })}
+                    placeholder="Your cost per item"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="images">Image URLs (semicolon-separated)</Label>
+                <Textarea
+                  id="images"
+                  value={editingProduct.images.join('; ')}
+                  onChange={(e) => setEditingProduct({ ...editingProduct, images: e.target.value.split(/[;,]/).map(s => s.trim()).filter(Boolean) })}
+                  rows={2}
+                  placeholder="https://example.com/image1.jpg; https://example.com/image2.jpg"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
                   <Label htmlFor="quantity">Quantity *</Label>
                   <Input
                     id="quantity"
@@ -1189,17 +1377,18 @@ export default function BulkUploadPage() {
                     onChange={(e) => setEditingProduct({ ...editingProduct, quantity: parseInt(e.target.value) || 0 })}
                   />
                 </div>
-              </div>
-
-              <div>
-                <Label htmlFor="images">Image URLs (comma-separated)</Label>
-                <Textarea
-                  id="images"
-                  value={editingProduct.images.join(', ')}
-                  onChange={(e) => setEditingProduct({ ...editingProduct, images: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
-                  rows={2}
-                  placeholder="https://example.com/image1.jpg, https://example.com/image2.jpg"
-                />
+                <div>
+                  <Label htmlFor="freeShipping" className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="freeShipping"
+                      checked={editingProduct.freeShipping}
+                      onChange={(e) => setEditingProduct({ ...editingProduct, freeShipping: e.target.checked })}
+                      className="rounded"
+                    />
+                    Free Shipping
+                  </Label>
+                </div>
               </div>
 
               <div className="grid grid-cols-4 gap-4">
